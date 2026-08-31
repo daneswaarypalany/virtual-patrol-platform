@@ -1,0 +1,309 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String                   @id @default(uuid())
+  username        String                   @unique
+  email           String                   @unique
+  passwordHash    String
+  fullName        String
+  role            UserRole                 @default(OPERATOR)
+  status          UserStatus               @default(ACTIVE)
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  alerts          Alert[]
+  auditLogs       AuditLog[]
+  incidents       Incident[]
+  siteAssignments OperatorSiteAssignment[]
+  patrols         Patrol[]
+  patrolJobs      PatrolJob[]
+}
+
+model Site {
+  id          String                   @id @default(uuid())
+  name        String
+  address     String?
+  isActive    Boolean                  @default(true)
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  timezone    String                   @default("Asia/Kuala_Lumpur")
+  alerts      Alert[]
+  cameras     Camera[]
+  incidents   Incident[]
+  assignments OperatorSiteAssignment[]
+  patrols     Patrol[]
+  routes      Route[]
+  activePatrol ActivePatrol?
+}
+
+model Route {
+  id               String            @id @default(uuid())
+  name             String
+  description      String?
+  estimatedMinutes Int?
+  siteId           String
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  patrolJobs       PatrolJob[]
+  site             Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  checkpoints      RouteCheckpoint[]
+
+  @@index([siteId])
+}
+
+model RouteCheckpoint {
+  id                  String             @id @default(uuid())
+  orderIndex          Int
+  routeId             String
+  cameraId            String
+  checklistTemplateId String
+  createdAt           DateTime           @default(now())
+  results             CheckpointResult[]
+  camera              Camera             @relation(fields: [cameraId], references: [id])
+  checklistTemplate   ChecklistTemplate  @relation(fields: [checklistTemplateId], references: [id])
+  route               Route              @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  @@index([routeId])
+  @@index([cameraId])
+  @@index([checklistTemplateId])
+}
+
+model ChecklistTemplate {
+  id          String            @id @default(uuid())
+  name        String
+  description String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  category    String?
+  items       ChecklistItem[]
+  checkpoints RouteCheckpoint[]
+}
+
+model ChecklistItem {
+  id         String            @id @default(uuid())
+  label      String
+  orderIndex Int
+  templateId String
+  createdAt  DateTime          @default(now())
+  template   ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+}
+
+model OperatorSiteAssignment {
+  id        String   @id @default(uuid())
+  userId    String
+  siteId    String
+  createdAt DateTime @default(now())
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, siteId])
+  @@index([userId])
+  @@index([siteId])
+}
+
+model Camera {
+  id          String            @id @default(uuid())
+  name        String
+  cameraCode  String            @unique
+  streamUrl   String?
+  location    String?
+  status      CameraStatus      @default(OFFLINE)
+  siteId      String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  alerts      Alert[]
+  site        Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  incidents   Incident[]
+  checkpoints RouteCheckpoint[]
+
+  @@index([siteId])
+}
+
+model Patrol {
+  id         String       @id @default(uuid())
+  name       String
+  status     PatrolStatus @default(ACTIVE)
+  operatorId String
+  siteId     String
+  startedAt  DateTime     @default(now())
+  endedAt    DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  operator   User         @relation(fields: [operatorId], references: [id])
+  site       Site         @relation(fields: [siteId], references: [id])
+
+  @@index([operatorId])
+  @@index([siteId])
+}
+
+model PatrolJob {
+  id     String          @id @default(uuid())
+  status PatrolJobStatus @default(IN_PROGRESS)
+
+  routeId String
+  route   Route @relation(fields: [routeId], references: [id])
+
+  operatorId String
+  operator   User @relation(fields: [operatorId], references: [id])
+
+  // Used to resume an interrupted or drafted patrol.
+  lastCheckpointId String?
+  lastActivityAt   DateTime @default(now())
+
+  results      CheckpointResult[]
+  activePatrol ActivePatrol?
+
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([routeId])
+  @@index([operatorId])
+  @@index([status])
+}
+
+model ActivePatrol {
+  // One active-patrol lock per site.
+  siteId String @id
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  jobId String    @unique
+  job   PatrolJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+}
+
+model CheckpointResult {
+  id             String          @id @default(uuid())
+  jobId          String
+  checkpointId   String
+  allClear       Boolean         @default(false)
+  checklistState Json?
+  screenshotPath String?
+  comment        String?
+  completedAt    DateTime        @default(now())
+    lastUpdatedAt DateTime       @updatedAt
+  checkpoint     RouteCheckpoint @relation(fields: [checkpointId], references: [id])
+  job            PatrolJob       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([checkpointId])
+  @@unique([jobId, checkpointId])
+}
+
+model Incident {
+  id           String           @id @default(uuid())
+  title        String
+  description  String?
+  severity     IncidentSeverity @default(MEDIUM)
+  status       IncidentStatus   @default(OPEN)
+  detectedAt   DateTime         @default(now())
+  resolvedAt   DateTime?
+  siteId       String
+  cameraId     String?
+  assignedToId String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  alerts       Alert[]
+  assignedTo   User?            @relation(fields: [assignedToId], references: [id])
+  camera       Camera?          @relation(fields: [cameraId], references: [id])
+  site         Site             @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
+  @@index([cameraId])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([severity])
+}
+
+model Alert {
+  id           String      @id @default(uuid())
+  title        String
+  message      String
+  status       AlertStatus @default(NEW)
+  siteId       String
+  cameraId     String?
+  incidentId   String?
+  assignedToId String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  assignedTo   User?       @relation(fields: [assignedToId], references: [id])
+  camera       Camera?     @relation(fields: [cameraId], references: [id])
+  incident     Incident?   @relation(fields: [incidentId], references: [id])
+  site         Site        @relation(fields: [siteId], references: [id])
+
+  @@index([siteId])
+  @@index([cameraId])
+  @@index([incidentId])
+  @@index([status])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  userId    String?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([entityId])
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+  VIEWER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum CameraStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum IncidentStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  NEW
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum PatrolStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PatrolJobStatus {
+  IN_PROGRESS
+  DRAFT
+  COMPLETED
+}
