@@ -102,38 +102,50 @@ function PatrolPicker({
 
   return (
     <div className="patrol-picker">
-      <div className="picker-card">
-        <h2>Start a Patrol</h2>
-        <p className="picker-sub">
-          Select one of your assigned sites and a route to begin.
-        </p>
+      <div className="picker-hero">
+        <div className="picker-hero-icon">🛡️</div>
+        <div>
+          <h2>Start a Patrol</h2>
+          <p className="picker-sub">
+            Select one of your assigned sites and a route to begin your security
+            patrol.
+          </p>
+        </div>
+      </div>
 
+      <div className="picker-panel">
         {error && <div className="patrol-error">{error}</div>}
 
-        <label>Site</label>
-        <select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-          <option value="">Select a site…</option>
-          {sites.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
+        <div className="picker-fields">
+          <div className="picker-field">
+            <label>Site</label>
+            <select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
+              <option value="">Select a site…</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <label>Route</label>
-        <select
-          value={routeId}
-          onChange={(e) => setRouteId(e.target.value)}
-          disabled={!siteId}
-        >
-          <option value="">Select a route…</option>
-          {routes.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name} ({r._count.checkpoints} checkpoints
-              {r.estimatedMinutes ? `, ~${r.estimatedMinutes} min` : ''})
-            </option>
-          ))}
-        </select>
+          <div className="picker-field">
+            <label>Route</label>
+            <select
+              value={routeId}
+              onChange={(e) => setRouteId(e.target.value)}
+              disabled={!siteId}
+            >
+              <option value="">Select a route…</option>
+              {routes.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r._count.checkpoints} checkpoints
+                  {r.estimatedMinutes ? `, ~${r.estimatedMinutes} min` : ''})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {siteId && routes.length === 0 && (
           <p className="picker-hint">This site has no routes yet.</p>
@@ -144,7 +156,7 @@ function PatrolPicker({
           onClick={start}
           disabled={!routeId || starting}
         >
-          {starting ? 'Starting…' : 'Start Patrol'}
+          {starting ? 'Starting…' : 'Start Patrol →'}
         </button>
       </div>
     </div>

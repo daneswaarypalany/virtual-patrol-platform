@@ -63,6 +63,18 @@ export interface PatrolJob {
   route: PatrolRoute
   results: CheckpointResult[]
 }
+  
+  export interface ActivePatrolItem {
+  id: string
+  status: string
+  startedAt: string
+  lastActivityAt: string
+  operator: { fullName: string; username: string }
+  route: { name: string; site: { name: string } }
+  activePatrol: { siteId: string } | null
+  _count: { results: number }
+}
+
 
 export const patrolApi = {
   mySites: () => api.get<PatrolSite[]>('/patrol/my-sites').then((r) => r.data),
@@ -79,6 +91,11 @@ export const patrolApi = {
 
   getJob: (jobId: string) =>
     api.get<PatrolJob>(`/patrol/${jobId}`).then((r) => r.data),
+
+    listJobs: () =>
+    api.get<PatrolJobSummary[]>('/patrol/jobs').then((r) => r.data),
+    reportUrl: (jobId: string) =>
+    `${api.defaults.baseURL}/patrol/${jobId}/report`,
 
   // saves a checkpoint result; screenshot is an optional PNG Blob
   saveCheckpoint: (
@@ -105,4 +122,23 @@ export const patrolApi = {
 
   complete: (jobId: string) =>
     api.post(`/patrol/${jobId}/complete`).then((r) => r.data),
+
+    listActive: () =>
+    api.get<ActivePatrolItem[]>('/patrol/active').then((r) => r.data),
+  discard: (siteId: string) =>
+    api.post('/patrol/discard', { siteId }).then((r) => r.data),
+  releaseLock: (jobId: string) =>
+    api.post(`/patrol/${jobId}/release`).then((r) => r.data),
+  adminDelete: (jobId: string) =>
+    api.post(`/patrol/${jobId}/admin-delete`).then((r) => r.data),
+}
+
+export interface PatrolJobSummary {
+  id: string
+  status: string
+  startedAt: string
+  completedAt: string | null
+  route: { name: string; site: { name: string } }
+  operator: { fullName: string }
+  _count: { results: number }
 }

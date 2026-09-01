@@ -21,10 +21,11 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import Login from './pages/Login'
 import Users from './pages/Users'
 import Sites from './pages/Sites'
+import Cameras from './pages/Cameras'
 import RoutesPage from './pages/Routes'
 import Checklists from './pages/Checklists'
 import Patrol from './pages/Patrol'
-import Cameras from './pages/Cameras'
+import Reports from './pages/Reports'
 import './App.css'
 
 type Page =
@@ -73,7 +74,8 @@ const builtPages: Page[] = [
   'routes',
   'checklists',
   'patrol',
-  'cameras'
+  'cameras',
+  'reports',
 ]
 
 function Shell() {
@@ -94,7 +96,6 @@ function Shell() {
 
   return (
     <div className="app">
-      {/* Sidebar */}
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
         <button
           className="sidebar-toggle"
@@ -107,7 +108,7 @@ function Shell() {
         <div className="brand">
           <div className="brand-icon">
             <img src="/logo.png" alt="A-Force" className="brand-logo" />
-            </div>
+          </div>
           <div className="brand-text">
             <h1>Virtual Patrol</h1>
             <span>Security Management</span>
@@ -116,7 +117,6 @@ function Shell() {
 
         <nav className="navigation">
           <p className="nav-title">MAIN MENU</p>
-
           {visibleNav.map((item) => (
             <button
               key={item.id}
@@ -159,7 +159,6 @@ function Shell() {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="main-content">
         <header className="topbar">
           <div>
@@ -276,13 +275,14 @@ function Shell() {
               </div>
             </>
           )}
-          
+
           {activePage === 'users' && <Users />}
           {activePage === 'sites' && <Sites />}
           {activePage === 'cameras' && <Cameras />}
           {activePage === 'routes' && <RoutesPage />}
           {activePage === 'checklists' && <Checklists />}
           {activePage === 'patrol' && <Patrol />}
+          {activePage === 'reports' && <Reports />}
 
           {!builtPages.includes(activePage) && (
             <div className="module-placeholder">
