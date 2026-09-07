@@ -1,0 +1,339 @@
+import { useEffect, useState } from 'react'
+import {
+  Camera,
+  MapPin,
+  MonitorDot,
+  FileText,
+  AlertTriangle,
+  Activity,
+  X,
+} from 'lucide-react'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import type { DashboardData, TimelineItem } from '../lib/dashboard'
+import { dashboardApi } from '../lib/dashboard'
+import { patrolApi } from '../lib/patrol'
+import type { ActivePatrolItem } from '../lib/patrol'
+import { useAuth } from '../auth/AuthContext'
+import './Dashboard.css'
+
+export default function Dashboard() {
+  const { user } = useAuth()
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [popup, setPopup] = useState<null | 'issues' | 'active'>(null)
+  const [activeList, setActiveList] = useState<ActivePatrolItem[]>([])
+  const [activeLoading, setActiveLoading] = useState(false)
+  const [tlFilter, setTlFilter] = useState<'all' | 'patrols' | 'issues'>('all')
+
+  useEffect(() => {
+    dashboardApi
+      .get()
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const openActive = async () => {
+    setPopup('active')
+    setActiveLoading(true)
+    try {
+      setActiveList(await patrolApi.listActive())
+    } catch {
+      setActiveList([])
+    } finally {
+      setActiveLoading(false)
+    }
+  }
+
+  const fmt = (iso: string) => {
+    const d = new Date(iso)
+    const diff = Math.round((Date.now() - d.getTime()) / 60000)
+    if (diff < 1) return 'just now'
+    if (diff < 60) return `${diff} min ago`
+    if (diff < 1440) return `${Math.round(diff / 60)} h ago`
+    return d.toLocaleDateString()
+  }
+
+  const dotClass = (t: TimelineItem['type']) =>
+    t === 'issue' ? 'tl-issue' : t === 'completed' ? 'tl-done' : 'tl-progress'
+  const icon = (t: TimelineItem['type']) =>
+    t === 'issue' ? '⚠' : t === 'completed' ? '✓' : '▶'
+
+  const s = data?.stats
+  const issueItems = data?.timeline.filter((t) => t.type === 'issue') ?? []
+
+  const donut = [
+    { name: 'Issues', value: s?.issuesFlagged ?? 0, color: '#cf5b5b' },
+    {
+      name: 'Clear',
+      value: Math.max(0, (s?.totalChecks ?? 0) - (s?.issuesFlagged ?? 0)) || 1,
+      color: '#e5ecf3',
+    },
+  ]
+
+  const activeDonut = [
+    { name: 'Active', value: s?.activePatrols ?? 0, color: '#2e9e6b' },
+    {
+      name: 'Idle',
+      value: Math.max(0, (s?.sites ?? 0) - (s?.activePatrols ?? 0)) || 1,
+      color: '#e5ecf3',
+    },
+  ]
+
+  return (
+    <div className="dash">
+      {/* Hero header */}
+      <div className="dash-hero">
+        <div>
+          <h2>Welcome back, {user?.fullName?.split(' ')[0]} 👋</h2>
+          <p>Here's what's happening across your patrol operations today.</p>
+        </div>
+        <div className="dash-online">
+          <span className="dot" /> System Online
+        </div>
+      </div>
+
+      {/* Stat cards */}
+      <div className="dash-stats">
+        {/* Cameras */}
+        <div className="dash-card">
+          <div className="dash-card-top">
+            <div className="dash-ico ico-blue">
+              <Camera size={18} />
+            </div>
+          </div>
+          <strong className="dash-value">
+            {loading ? '—' : s?.cameras ?? 0}
+          </strong>
+          <span className="dash-label">Cameras</span>
+          <span className="dash-sub">Across all sites</span>
+        </div>
+
+        {/* Active Patrols — infographic + clickable */}
+        <div
+          className="dash-card dash-card-clickable dash-card-chart"
+          onClick={openActive}
+        >
+          <div className="dash-chart-ring">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={activeDonut}
+                  dataKey="value"
+                  innerRadius={28}
+                  outerRadius={40}
+                  startAngle={90}
+                  endAngle={-270}
+                  stroke="none"
+                >
+                  {activeDonut.map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="dash-chart-center green-center">
+              <MonitorDot size={15} />
+            </div>
+          </div>
+          <div className="dash-chart-info">
+            <strong className="dash-value">
+              {loading ? '—' : `${s?.activePatrols ?? 0}/${s?.sites ?? 0}`}
+            </strong>
+            <span className="dash-label">Active Patrols</span>
+            <span className="dash-sub">Click to view details</span>
+          </div>
+        </div>
+
+        {/* Issues — infographic + clickable */}
+        <div
+          className="dash-card dash-card-clickable dash-card-chart"
+          onClick={() => setPopup('issues')}
+        >
+          <div className="dash-chart-ring">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={donut}
+                  dataKey="value"
+                  innerRadius={28}
+                  outerRadius={40}
+                  startAngle={90}
+                  endAngle={-270}
+                  stroke="none"
+                >
+                  {donut.map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="dash-chart-center">
+              <AlertTriangle size={15} />
+            </div>
+          </div>
+          <div className="dash-chart-info">
+            <strong className="dash-value">
+              {loading ? '—' : `${s?.issuesFlagged ?? 0}/${s?.totalChecks ?? 0}`}
+            </strong>
+            <span className="dash-label">Issues Flagged</span>
+            <span className="dash-sub">Click to view details</span>
+          </div>
+        </div>
+
+        {/* Completed Today */}
+        <div className="dash-card">
+          <div className="dash-card-top">
+            <div className="dash-ico ico-navy">
+              <FileText size={18} />
+            </div>
+          </div>
+          <strong className="dash-value">
+            {loading ? '—' : s?.completedToday ?? 0}
+          </strong>
+          <span className="dash-label">Completed Today</span>
+          <span className="dash-sub">Patrols finished today</span>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div className="dash-panel">
+        <div className="dash-panel-head">
+          <h3>
+            <Activity size={16} /> Recent Activity
+          </h3>
+          <div className="tl-filter">
+            <button
+              className={tlFilter === 'all' ? 'active' : ''}
+              onClick={() => setTlFilter('all')}
+            >
+              All
+            </button>
+            <button
+              className={tlFilter === 'patrols' ? 'active' : ''}
+              onClick={() => setTlFilter('patrols')}
+            >
+              Patrols
+            </button>
+            <button
+              className={tlFilter === 'issues' ? 'active' : ''}
+              onClick={() => setTlFilter('issues')}
+            >
+              Issues
+            </button>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="tl-loading">Loading…</p>
+        ) : (
+          (() => {
+            const items = (data?.timeline ?? []).filter((item) => {
+              if (tlFilter === 'all') return true
+              if (tlFilter === 'issues') return item.type === 'issue'
+              return item.type !== 'issue'
+            })
+            if (items.length === 0) {
+              return <p className="tl-empty">No activity for this filter.</p>
+            }
+            return (
+              <div className="timeline">
+                {items.map((item, i) => (
+                  <div key={i} className="tl-item">
+                    <div className={`tl-dot ${dotClass(item.type)}`}>
+                      {icon(item.type)}
+                    </div>
+                    <div className="tl-body">
+                      <div className="tl-top">
+                        <strong>{item.title}</strong>
+                        <span className="tl-time">{fmt(item.at)}</span>
+                      </div>
+                      <p>{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()
+        )}
+      </div>
+
+      {/* Issues popup */}
+      {popup === 'issues' && (
+        <div className="dash-popup-backdrop" onClick={() => setPopup(null)}>
+          <div className="dash-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="dash-popup-head">
+              <h3>
+                <AlertTriangle size={18} /> Flagged Issues
+              </h3>
+              <button onClick={() => setPopup(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="dash-popup-body">
+              {issueItems.length === 0 ? (
+                <p className="tl-empty">No flagged issues.</p>
+              ) : (
+                issueItems.map((it, i) => (
+                  <div key={i} className="popup-issue">
+                    <AlertTriangle size={15} />
+                    <div>
+                      <strong>{it.detail.split(' — ')[0]}</strong>
+                      {it.detail.includes(' — ') && (
+                        <span>{it.detail.split(' — ')[1]}</span>
+                      )}
+                      <span className="popup-issue-time">{fmt(it.at)}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active patrols popup */}
+      {popup === 'active' && (
+        <div className="dash-popup-backdrop" onClick={() => setPopup(null)}>
+          <div className="dash-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="dash-popup-head">
+              <h3>
+                <MonitorDot size={18} /> Active Patrols
+              </h3>
+              <button onClick={() => setPopup(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="dash-popup-body">
+              {activeLoading ? (
+                <p className="tl-empty">Loading…</p>
+              ) : activeList.length === 0 ? (
+                <p className="tl-empty">No active patrols right now.</p>
+              ) : (
+                activeList.map((a) => (
+                  <div key={a.id} className="popup-active">
+                    <div
+                      className={`popup-active-dot ${
+                        a.status === 'DRAFT' ? 'draft' : ''
+                      }`}
+                    />
+                    <div>
+                      <strong>{a.route.name}</strong>
+                      <span>
+                        {a.route.site.name} · {a.operator.fullName} ·{' '}
+                        {a._count.results} checkpoints done
+                      </span>
+                      <span className="popup-active-status">
+                        {a.status === 'DRAFT' ? 'Draft' : 'In progress'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

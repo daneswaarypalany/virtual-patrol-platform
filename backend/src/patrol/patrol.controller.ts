@@ -79,7 +79,7 @@ export class PatrolController {
 
   @Get(":jobId")
   getJob(@Req() req: Request, @Param("jobId") jobId: string) {
-    return this.patrolService.getJob((req.user as any).id, jobId);
+    return this.patrolService.getJob(req.user as any, jobId);
   }
 
   @Post(":jobId/checkpoint")

@@ -6,13 +6,11 @@ export interface PatrolCamera {
   location: string | null
   streamUrl: string | null
 }
-
 export interface PatrolChecklistItem {
   id: string
   label: string
   orderIndex: number
 }
-
 export interface PatrolCheckpoint {
   id: string
   orderIndex: number
@@ -23,7 +21,6 @@ export interface PatrolCheckpoint {
     items: PatrolChecklistItem[]
   }
 }
-
 export interface PatrolRoute {
   id: string
   name: string
@@ -32,13 +29,11 @@ export interface PatrolRoute {
   site: { id: string; name: string }
   checkpoints: PatrolCheckpoint[]
 }
-
 export interface PatrolSite {
   id: string
   name: string
   address: string | null
 }
-
 export interface PatrolRouteSummary {
   id: string
   name: string
@@ -46,7 +41,6 @@ export interface PatrolRouteSummary {
   estimatedMinutes: number | null
   _count: { checkpoints: number }
 }
-
 export interface CheckpointResult {
   id: string
   checkpointId: string
@@ -54,7 +48,6 @@ export interface CheckpointResult {
   comment: string | null
   screenshotPath: string | null
 }
-
 export interface PatrolJob {
   id: string
   status: 'IN_PROGRESS' | 'COMPLETED'
@@ -63,8 +56,16 @@ export interface PatrolJob {
   route: PatrolRoute
   results: CheckpointResult[]
 }
-  
-  export interface ActivePatrolItem {
+export interface PatrolJobSummary {
+  id: string
+  status: string
+  startedAt: string
+  completedAt: string | null
+  route: { name: string; site: { name: string } }
+  operator: { fullName: string }
+  _count: { results: number }
+}
+export interface ActivePatrolItem {
   id: string
   status: string
   startedAt: string
@@ -75,29 +76,29 @@ export interface PatrolJob {
   _count: { results: number }
 }
 
-
 export const patrolApi = {
   mySites: () => api.get<PatrolSite[]>('/patrol/my-sites').then((r) => r.data),
-
   routes: (siteId: string) =>
     api
       .get<PatrolRouteSummary[]>('/patrol/routes', { params: { siteId } })
       .then((r) => r.data),
-
   start: (routeId: string) =>
     api
       .post<{ job: PatrolJob; route: PatrolRoute }>('/patrol/start', { routeId })
       .then((r) => r.data),
-
   getJob: (jobId: string) =>
     api.get<PatrolJob>(`/patrol/${jobId}`).then((r) => r.data),
-
-    listJobs: () =>
+  listJobs: () =>
     api.get<PatrolJobSummary[]>('/patrol/jobs').then((r) => r.data),
-    reportUrl: (jobId: string) =>
-    `${api.defaults.baseURL}/patrol/${jobId}/report`,
-
-  // saves a checkpoint result; screenshot is an optional PNG Blob
+  reportUrl: (jobId: string) => `${api.defaults.baseURL}/patrol/${jobId}/report`,
+  listActive: () =>
+    api.get<ActivePatrolItem[]>('/patrol/active').then((r) => r.data),
+  discard: (siteId: string) =>
+    api.post('/patrol/discard', { siteId }).then((r) => r.data),
+  releaseLock: (jobId: string) =>
+    api.post(`/patrol/${jobId}/release`).then((r) => r.data),
+  adminDelete: (jobId: string) =>
+    api.post(`/patrol/${jobId}/admin-delete`).then((r) => r.data),
   saveCheckpoint: (
     jobId: string,
     data: {
@@ -115,30 +116,8 @@ export const patrolApi = {
     if (data.comment) form.append('comment', data.comment)
     if (data.screenshot)
       form.append('screenshot', data.screenshot, 'capture.png')
-    return api
-      .post(`/patrol/${jobId}/checkpoint`, form)
-      .then((r) => r.data)
+    return api.post(`/patrol/${jobId}/checkpoint`, form).then((r) => r.data)
   },
-
   complete: (jobId: string) =>
     api.post(`/patrol/${jobId}/complete`).then((r) => r.data),
-
-    listActive: () =>
-    api.get<ActivePatrolItem[]>('/patrol/active').then((r) => r.data),
-  discard: (siteId: string) =>
-    api.post('/patrol/discard', { siteId }).then((r) => r.data),
-  releaseLock: (jobId: string) =>
-    api.post(`/patrol/${jobId}/release`).then((r) => r.data),
-  adminDelete: (jobId: string) =>
-    api.post(`/patrol/${jobId}/admin-delete`).then((r) => r.data),
-}
-
-export interface PatrolJobSummary {
-  id: string
-  status: string
-  startedAt: string
-  completedAt: string | null
-  route: { name: string; site: { name: string } }
-  operator: { fullName: string }
-  _count: { results: number }
 }

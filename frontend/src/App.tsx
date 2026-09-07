@@ -14,6 +14,7 @@ import {
   Bell,
   ChevronLeft,
   ChevronRight,
+  Calendar,
 } from 'lucide-react'
 import { useAuth } from './auth/AuthContext'
 import type { Role } from './auth/AuthContext'
@@ -26,6 +27,9 @@ import RoutesPage from './pages/Routes'
 import Checklists from './pages/Checklists'
 import Patrol from './pages/Patrol'
 import Reports from './pages/Reports'
+import ActivePatrols from './pages/ActivePatrols'
+import Dashboard from './pages/Dashboard'
+import History from './pages/History'
 import './App.css'
 
 type Page =
@@ -36,7 +40,9 @@ type Page =
   | 'checklists'
   | 'users'
   | 'patrol'
+  | 'active-patrols'
   | 'reports'
+  | 'history'
   | 'settings'
 
 const navigation: {
@@ -52,7 +58,9 @@ const navigation: {
   { id: 'checklists', label: 'Checklists', icon: ListChecks, roles: ['ADMIN'] },
   { id: 'users', label: 'Users', icon: User, roles: ['ADMIN'] },
   { id: 'patrol', label: 'Run Patrol', icon: MonitorDot, roles: ['OPERATOR'] },
+  { id: 'active-patrols', label: 'Active Patrols', icon: MonitorDot, roles: ['ADMIN'] },
   { id: 'reports', label: 'Reports', icon: MessageSquareWarning, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
+  { id: 'history', label: 'History', icon: Calendar, roles: ['ADMIN'] },
 ]
 
 const pageTitles: Record<Page, string> = {
@@ -63,7 +71,9 @@ const pageTitles: Record<Page, string> = {
   checklists: 'Checklist Templates',
   users: 'User Management',
   patrol: 'Run Patrol',
+  'active-patrols': 'Active Patrols',
   reports: 'Reports',
+  history: 'Patrol History',
   settings: 'Settings',
 }
 
@@ -74,8 +84,10 @@ const builtPages: Page[] = [
   'routes',
   'checklists',
   'patrol',
+  'active-patrols',
   'cameras',
   'reports',
+  'history',
 ]
 
 function Shell() {
@@ -179,110 +191,16 @@ function Shell() {
         </header>
 
         <section className="page-content">
-          {activePage === 'dashboard' && (
-            <>
-              <div className="welcome">
-                <div>
-                  <h3>Welcome back, {user.fullName} 👋</h3>
-                  <p>
-                    Monitor and manage your virtual patrol operations from here.
-                  </p>
-                </div>
-                <div className="status">
-                  <span className="status-dot"></span>
-                  System Online
-                </div>
-              </div>
-
-              <div className="stats-grid">
-                <div className="stat-card">
-                  <span className="stat-label">Active Cameras</span>
-                  <strong>10</strong>
-                  <span className="stat-description">Cameras currently online</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-label">Active Patrols</span>
-                  <strong>8</strong>
-                  <span className="stat-description">Patrols currently active</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-label">Open Issues</span>
-                  <strong>5</strong>
-                  <span className="stat-description">Require attention</span>
-                </div>
-                <div className="stat-card">
-                  <span className="stat-label">Today's Reports</span>
-                  <strong>12</strong>
-                  <span className="stat-description">Generated today</span>
-                </div>
-              </div>
-
-              <div className="dashboard-grid">
-                <div className="panel">
-                  <div className="panel-header">
-                    <h3>System Overview</h3>
-                    <span>Today</span>
-                  </div>
-                  <div className="overview-list">
-                    <div>
-                      <span>Camera Monitoring</span>
-                      <strong className="online">Online</strong>
-                    </div>
-                    <div>
-                      <span>Patrol Monitoring</span>
-                      <strong className="online">Active</strong>
-                    </div>
-                    <div>
-                      <span>Alert System</span>
-                      <strong className="online">Operational</strong>
-                    </div>
-                    <div>
-                      <span>Database</span>
-                      <strong className="online">Connected</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="panel">
-                  <div className="panel-header">
-                    <h3>Recent Activity</h3>
-                    <span>View all</span>
-                  </div>
-                  <div className="activity">
-                    <div className="activity-item">
-                      <span className="activity-dot"></span>
-                      <div>
-                        <strong>System started</strong>
-                        <p>Virtual Patrol system is online</p>
-                      </div>
-                    </div>
-                    <div className="activity-item">
-                      <span className="activity-dot"></span>
-                      <div>
-                        <strong>Database connected</strong>
-                        <p>PostgreSQL connection established</p>
-                      </div>
-                    </div>
-                    <div className="activity-item">
-                      <span className="activity-dot"></span>
-                      <div>
-                        <strong>Monitoring active</strong>
-                        <p>Camera monitoring is ready</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
+          {activePage === 'dashboard' && <Dashboard />}
           {activePage === 'users' && <Users />}
           {activePage === 'sites' && <Sites />}
           {activePage === 'cameras' && <Cameras />}
           {activePage === 'routes' && <RoutesPage />}
           {activePage === 'checklists' && <Checklists />}
           {activePage === 'patrol' && <Patrol />}
+          {activePage === 'active-patrols' && <ActivePatrols />}
           {activePage === 'reports' && <Reports />}
+          {activePage === 'history' && <History />}
 
           {!builtPages.includes(activePage) && (
             <div className="module-placeholder">

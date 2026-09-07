@@ -10,6 +10,7 @@ import { ChecklistsModule } from './checklists/checklists.module';
 import { RoutesModule } from './routes/routes.module';
 import { CamerasModule } from './cameras/cameras.module';
 import { PatrolModule } from './patrol/patrol.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { PatrolModule } from './patrol/patrol.module';
     RoutesModule,
     CamerasModule,
     PatrolModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

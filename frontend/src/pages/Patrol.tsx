@@ -63,6 +63,9 @@ function PatrolPicker({
   const [loading, setLoading] = useState(true)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState('')
+  const [resumePrompt, setResumePrompt] = useState<{ jobId: string } | null>(
+    null,
+  )
 
   useEffect(() => {
     patrolApi
@@ -92,9 +95,45 @@ function PatrolPicker({
       const { job, route } = await patrolApi.start(routeId)
       onStarted({ ...job, route, results: job.results ?? [] })
     } catch (err: any) {
+      const data = err?.response?.data
+      if (data?.code === 'OWN_ACTIVE_PATROL' && data?.jobId) {
+        setResumePrompt({ jobId: data.jobId })
+      } else if (data?.code === 'OTHER_ACTIVE_PATROL') {
+        setError('A patrol is already active on this site by another operator.')
+      } else {
+        setError(data?.message || 'Failed to start patrol')
+      }
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const resume = async () => {
+    if (!resumePrompt) return
+    setStarting(true)
+    try {
+      const job = await patrolApi.getJob(resumePrompt.jobId)
+      onStarted(job)
+    } catch {
+      setError('Failed to resume patrol')
+    } finally {
+      setStarting(false)
+      setResumePrompt(null)
+    }
+  }
+
+  const discardAndStart = async () => {
+    if (!resumePrompt) return
+    setStarting(true)
+    try {
+      await patrolApi.discard(siteId)
+      const { job, route } = await patrolApi.start(routeId)
+      onStarted({ ...job, route, results: job.results ?? [] })
+    } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to start patrol')
     } finally {
       setStarting(false)
+      setResumePrompt(null)
     }
   }
 
@@ -159,6 +198,34 @@ function PatrolPicker({
           {starting ? 'Starting…' : 'Start Patrol →'}
         </button>
       </div>
+
+      {resumePrompt && (
+        <div className="resume-backdrop" onClick={() => setResumePrompt(null)}>
+          <div className="resume-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>Active patrol found</h3>
+            <p>
+              You already have an active patrol on this site. Would you like to
+              resume it, or discard it and start a new one?
+            </p>
+            <div className="resume-actions">
+              <button
+                className="btn-secondary"
+                onClick={discardAndStart}
+                disabled={starting}
+              >
+                Discard & Start New
+              </button>
+              <button
+                className="btn-primary"
+                onClick={resume}
+                disabled={starting}
+              >
+                {starting ? 'Please wait…' : 'Resume Patrol'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -198,8 +265,6 @@ function PatrolViewer({
     setError('')
   }, [index])
 
-  // Self-contained capture: draws a placeholder "feed" onto the canvas
-  // and returns the PNG blob directly (no external image, no taint, no race).
   const captureBlob = (): Promise<Blob | null> => {
     return new Promise((resolve) => {
       const canvas = canvasRef.current
@@ -209,17 +274,14 @@ function PatrolViewer({
       const ctx = canvas.getContext('2d')
       if (!ctx) return resolve(null)
 
-      // background
       ctx.fillStyle = '#011f4b'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // camera name
       ctx.fillStyle = '#b3cde0'
       ctx.font = 'bold 40px sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText(current.camera.name, canvas.width / 2, canvas.height / 2)
 
-      // timestamp bar
       ctx.textAlign = 'left'
       ctx.fillStyle = 'rgba(255,255,255,0.15)'
       ctx.fillRect(0, canvas.height - 30, canvas.width, 30)
@@ -235,7 +297,6 @@ function PatrolViewer({
     })
   }
 
-  // "Capture Frame" button — updates the preview
   const capture = async () => {
     const blob = await captureBlob()
     if (blob) {
@@ -254,47 +315,24 @@ function PatrolViewer({
       checked: checks[i],
     }))
 
-  // Path 1 — All Clear (auto-capture with real blob, no race)
-  const allClear = async () => {
-    setSaving(true)
-    setError('')
-    try {
-      const shot = await captureBlob()
-      await patrolApi.saveCheckpoint(job.id, {
-        checkpointId: current.id,
-        allClear: true,
-        checklistState: current.checklistTemplate.items.map((item) => ({
-          label: item.label,
-          checked: true,
-        })),
-        screenshot: shot ?? undefined,
-      })
-      advance()
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to save checkpoint')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  // Path 2 — Issue found
   const saveIssue = async () => {
     setError('')
-    if (!comment.trim()) {
-      setError('A comment is required when flagging an issue')
+    const anyUnticked = checks.some((c) => !c)
+    if (anyUnticked && !comment.trim()) {
+      setError('A comment is required when any item is left unchecked')
       return
     }
     if (!screenshot) {
-      setError('Please capture a screenshot of the issue')
+      setError('Please capture a screenshot')
       return
     }
     setSaving(true)
     try {
       await patrolApi.saveCheckpoint(job.id, {
         checkpointId: current.id,
-        allClear: false,
+        allClear: checks.every((c) => c),
         checklistState: buildChecklistState(),
-        comment,
+        comment: comment || undefined,
         screenshot,
       })
       advance()
@@ -344,7 +382,6 @@ function PatrolViewer({
       </div>
 
       <div className="viewer-body">
-        {/* Camera feed (placeholder — swap for <video> + HLS later) */}
         <div className="feed-panel">
           <div className="feed-header">
             <strong>{current.camera.name}</strong>
@@ -367,7 +404,6 @@ function PatrolViewer({
           )}
         </div>
 
-        {/* Checklist + actions */}
         <div className="check-panel">
           <h3>{current.checklistTemplate.name}</h3>
 
@@ -392,15 +428,11 @@ function PatrolViewer({
           {!issueMode ? (
             <div className="check-actions">
               <button
-                className="btn-allclear"
-                onClick={allClear}
-                disabled={saving}
-              >
-                ✓ All Clear
-              </button>
-              <button
                 className="btn-issue"
-                onClick={() => setIssueMode(true)}
+                onClick={() => {
+                  setIssueMode(true)
+                  setChecks(current.checklistTemplate.items.map(() => false))
+                }}
                 disabled={saving}
               >
                 ⚠ Flag Issue
@@ -408,21 +440,27 @@ function PatrolViewer({
             </div>
           ) : (
             <div className="issue-form">
-              <label>Describe the issue (required)</label>
+              <p className="issue-hint">
+                Tick each item you have verified. Leave failed items unchecked
+                and describe them below.
+              </p>
+              <label>
+                Comment {checks.some((c) => !c) ? '(required)' : '(optional)'}
+              </label>
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                placeholder="e.g. Gate left open, no personnel present"
+                placeholder="Describe any issues found…"
                 rows={3}
               />
-              <p className="issue-hint">
-                Uncheck the failed items above, capture a screenshot, and
-                describe the issue.
-              </p>
               <div className="check-actions">
                 <button
                   className="btn-secondary"
-                  onClick={() => setIssueMode(false)}
+                  onClick={() => {
+                    setIssueMode(false)
+                    setChecks(current.checklistTemplate.items.map(() => true))
+                    setComment('')
+                  }}
                   disabled={saving}
                 >
                   Cancel
@@ -432,7 +470,7 @@ function PatrolViewer({
                   onClick={saveIssue}
                   disabled={saving}
                 >
-                  {saving ? 'Saving…' : 'Save Issue & Continue'}
+                  {saving ? 'Saving…' : 'Save & Continue'}
                 </button>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { Check, Search, X } from 'lucide-react'
 import type { Site, SiteInput } from '../lib/sites'
 import { sitesApi } from '../lib/sites'
 import SiteDetail from './SiteDetail'
+import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Sites.css'
 
 type SortOption = 'custom' | 'alphabetical'
@@ -19,6 +20,7 @@ export default function Sites() {
     'all',
   )
   const [sortBy, setSortBy] = useState<SortOption>('custom')
+  const [view, setView] = useState<ViewMode>('list')
 
   const load = async () => {
     setLoading(true)
@@ -126,9 +128,7 @@ export default function Sites() {
           <select
             className="site-filter"
             value={sortBy}
-            onChange={(event) =>
-              setSortBy(event.target.value as SortOption)
-            }
+            onChange={(event) => setSortBy(event.target.value as SortOption)}
             aria-label="Sort sites"
           >
             <option value="custom">Custom order</option>
@@ -136,9 +136,12 @@ export default function Sites() {
           </select>
         </div>
 
-        <button className="btn-primary" onClick={openCreate}>
-          + Add Site
-        </button>
+        <div className="toolbar-right">
+          <ViewToggle mode={view} onChange={setView} />
+          <button className="btn-primary" onClick={openCreate}>
+            + Add Site
+          </button>
+        </div>
       </div>
 
       <p className="sites-count">
@@ -157,7 +160,7 @@ export default function Sites() {
         <div className="sites-empty">
           <p>No sites match your search or filter.</p>
         </div>
-      ) : (
+      ) : view === 'list' ? (
         <div className="sites-table-wrap">
           <table className="sites-table">
             <thead>
@@ -209,6 +212,43 @@ export default function Sites() {
               ))}
             </tbody>
           </table>
+        </div>
+      ) : (
+        <div className="sites-grid">
+          {sortedSites.map((site) => (
+            <div key={site.id} className="site-card">
+              <div className="site-card-head">
+                <button
+                  className="site-link"
+                  onClick={() => setDetailSite(site)}
+                >
+                  {site.name}
+                </button>
+                <span
+                  className={`status-badge ${
+                    site.isActive ? 'status-active' : 'status-inactive'
+                  }`}
+                >
+                  {site.isActive ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+              </div>
+
+              <p className="site-card-address">{site.address || 'No address'}</p>
+              <p className="site-card-tz">{site.timezone}</p>
+
+              <div className="site-card-stats">
+                <span>{site._count.cameras} cameras</span>
+                <span>{site._count.assignments} operators</span>
+              </div>
+
+              <div className="site-card-actions">
+                <button onClick={() => openEdit(site)}>Edit</button>
+                <button className="danger" onClick={() => remove(site)}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

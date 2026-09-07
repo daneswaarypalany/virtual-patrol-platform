@@ -1,34 +1,143 @@
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Camera as CamIcon, X } from 'lucide-react'
 import type { Camera, CameraInput } from '../lib/cameras'
 import { camerasApi } from '../lib/cameras'
 import type { Site } from '../lib/sites'
 import { sitesApi } from '../lib/sites'
+import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Cameras.css'
 
 export default function Cameras() {
   const [sites, setSites] = useState<Site[]>([])
-  const [siteId, setSiteId] = useState('')
-  const [cameras, setCameras] = useState<Camera[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<Camera | null>(null)
-  const [showForm, setShowForm] = useState(false)
+  const [view, setView] = useState<ViewMode>('grid')
+  const [activeSite, setActiveSite] = useState<Site | null>(null)
 
-  useEffect(() => {
-    sitesApi.list().then(setSites).catch(() => {})
-  }, [])
-
-  const loadCameras = async () => {
-    if (!siteId) {
-      setCameras([])
-      return
-    }
+  const loadSites = async () => {
     setLoading(true)
     setError('')
     try {
-      setCameras(await camerasApi.list(siteId))
+      setSites(await sitesApi.list())
+    } catch {
+      setError('Failed to load sites')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSites()
+  }, [])
+
+  const filtered = sites.filter((s) => {
+    const q = search.toLowerCase()
+    return (
+      s.name.toLowerCase().includes(q) ||
+      (s.address ?? '').toLowerCase().includes(q)
+    )
+  })
+
+  return (
+    <div className="cameras-page">
+      <div className="cameras-toolbar">
+        <div className="toolbar-left">
+          <div className="search-box">
+            <Search size={16} className="search-icon" />
+            <input
+              placeholder="Search sites…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="toolbar-right">
+          <ViewToggle mode={view} onChange={setView} />
+        </div>
+      </div>
+
+      <p className="cameras-count">
+        {filtered.length} of {sites.length} sites — select a site to manage its
+        cameras
+      </p>
+
+      {error && <div className="cameras-error">{error}</div>}
+
+      {loading ? (
+        <p className="cameras-loading">Loading…</p>
+      ) : filtered.length === 0 ? (
+        <div className="cameras-empty">
+          <p>No sites match your search.</p>
+        </div>
+      ) : view === 'grid' ? (
+        <div className="site-cam-grid">
+          {filtered.map((s) => (
+            <button
+              key={s.id}
+              className="site-cam-card"
+              onClick={() => setActiveSite(s)}
+            >
+              <div className="site-cam-icon">
+                <CamIcon size={20} />
+              </div>
+              <div className="site-cam-info">
+                <strong>{s.name}</strong>
+                <span>{s._count.cameras} cameras</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="site-cam-list">
+          {filtered.map((s) => (
+            <button
+              key={s.id}
+              className="site-cam-row"
+              onClick={() => setActiveSite(s)}
+            >
+              <div className="site-cam-icon sm">
+                <CamIcon size={16} />
+              </div>
+              <strong>{s.name}</strong>
+              <span className="site-cam-addr">{s.address || '—'}</span>
+              <span className="site-cam-badge">{s._count.cameras} cameras</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeSite && (
+        <SiteCamerasPopup
+          site={activeSite}
+          onClose={() => {
+            setActiveSite(null)
+            loadSites() // refresh counts
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function SiteCamerasPopup({
+  site,
+  onClose,
+}: {
+  site: Site
+  onClose: () => void
+}) {
+  const [cameras, setCameras] = useState<Camera[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing] = useState<Camera | null>(null)
+
+  const load = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      setCameras(await camerasApi.list(site.id))
     } catch {
       setError('Failed to load cameras')
     } finally {
@@ -37,153 +146,90 @@ export default function Cameras() {
   }
 
   useEffect(() => {
-    loadCameras()
-  }, [siteId])
-
-  const openCreate = () => {
-    setEditing(null)
-    setShowForm(true)
-  }
-
-  const openEdit = (cam: Camera) => {
-    setEditing(cam)
-    setShowForm(true)
-  }
+    load()
+  }, [site.id])
 
   const remove = async (cam: Camera) => {
     if (!window.confirm(`Delete camera "${cam.name}"?`)) return
     try {
       await camerasApi.remove(cam.id)
-      loadCameras()
+      load()
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to delete camera')
     }
   }
 
-  const filtered = cameras.filter((c) => {
-    const q = search.toLowerCase()
-    return (
-      c.name.toLowerCase().includes(q) ||
-      c.cameraCode.toLowerCase().includes(q) ||
-      (c.location ?? '').toLowerCase().includes(q)
-    )
-  })
-
-  const selectedSite = sites.find((s) => s.id === siteId)
-
   return (
-    <div className="cameras-page">
-      <div
-        style={{
-          padding: 16,
-          background: '#cf5b5b',
-          color: 'white',
-          borderRadius: 8,
-          marginBottom: 16,
-          fontWeight: 700,
-        }}
-      >
-        DEBUG: Cameras component is rendering. Sites loaded: {sites.length}
-      </div>
-
-      <div className="cam-site-bar">
-        <div className="cam-site-select">
-          <label>Setting up cameras for</label>
-          <select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-            <option value="">Select a site…</option>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {siteId && (
-          <button className="btn-primary" onClick={openCreate}>
-            + Add Camera
-          </button>
-        )}
-      </div>
-
-      {!siteId ? (
-        <div className="cam-empty">
-          <p>Select a site above to manage its cameras.</p>
-        </div>
-      ) : (
-        <>
-          <div className="cam-toolbar">
-            <div className="search-box">
-              <Search size={16} className="search-icon" />
-              <input
-                placeholder="Search cameras…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <p className="cam-count">
-              {filtered.length} of {cameras.length} cameras at{' '}
-              {selectedSite?.name}
-            </p>
+    <div className="cam-popup-backdrop" onClick={onClose}>
+      <div className="cam-popup" onClick={(e) => e.stopPropagation()}>
+        <div className="cam-popup-head">
+          <div>
+            <h3>{site.name}</h3>
+            <span>{cameras.length} cameras</span>
           </div>
+          <div className="cam-popup-head-actions">
+            <button
+              className="cam-add-btn"
+              onClick={() => {
+                setEditing(null)
+                setShowForm(true)
+              }}
+            >
+              + Add Camera
+            </button>
+            <button className="cam-popup-close" onClick={onClose}>
+              <X size={18} />
+            </button>
+          </div>
+        </div>
 
-          {error && <div className="cam-error">{error}</div>}
-
+        <div className="cam-popup-body">
+          {error && <div className="cameras-error">{error}</div>}
           {loading ? (
-            <p className="cam-loading">Loading…</p>
+            <p className="cameras-loading">Loading…</p>
           ) : cameras.length === 0 ? (
-            <div className="cam-empty">
-              <p>No cameras at this site yet. Add your first camera.</p>
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="cam-empty">
-              <p>No cameras match your search.</p>
-            </div>
+            <p className="cameras-muted">
+              No cameras at this site yet. Add the first one.
+            </p>
           ) : (
-            <div className="cam-grid">
-              {filtered.map((cam) => (
-                <div key={cam.id} className="cam-card">
-                  <div className="cam-card-head">
-                    <div>
-                      <h3>{cam.name}</h3>
-                      <span className="cam-code">{cam.cameraCode}</span>
-                    </div>
-                    <span className={`cam-status cam-${cam.status.toLowerCase()}`}>
-                      {cam.status}
-                    </span>
-                  </div>
-                  <p className="cam-location">
-                    {cam.location || 'No location set'}
-                  </p>
-                  {cam.streamUrl && (
-                    <p className="cam-stream">🔗 Stream configured</p>
-                  )}
-                  {cam._count && cam._count.checkpoints > 0 && (
-                    <p className="cam-inuse">
-                      Used in {cam._count.checkpoints} checkpoint(s)
-                    </p>
-                  )}
-                  <div className="cam-actions">
-                    <button onClick={() => openEdit(cam)}>Edit</button>
-                    <button className="danger" onClick={() => remove(cam)}>
-                      Delete
-                    </button>
-                  </div>
+            cameras.map((cam) => (
+              <div key={cam.id} className="cam-row">
+                <div className="cam-row-icon">
+                  <CamIcon size={16} />
                 </div>
-              ))}
-            </div>
+                <div className="cam-row-info">
+                  <strong>{cam.name}</strong>
+                  <span>
+                    {cam.cameraCode} · {cam.location || 'No location'}
+                  </span>
+                </div>
+                <div className="cam-row-actions">
+                  <button
+                    onClick={() => {
+                      setEditing(cam)
+                      setShowForm(true)
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button className="danger" onClick={() => remove(cam)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))
           )}
-        </>
-      )}
+        </div>
+      </div>
 
-      {showForm && siteId && (
-        <CameraModal
+      {showForm && (
+        <CameraForm
           camera={editing}
-          siteId={siteId}
+          siteId={site.id}
           onClose={() => setShowForm(false)}
           onSaved={() => {
             setShowForm(false)
-            loadCameras()
+            load()
           }}
         />
       )}
@@ -191,7 +237,7 @@ export default function Cameras() {
   )
 }
 
-function CameraModal({
+function CameraForm({
   camera,
   siteId,
   onClose,

@@ -79,8 +79,6 @@ export class PatrolService {
             },
           })
 
-          // A site can only have one record in ActivePatrol.
-          // This is the database-level lock for active patrols.
           await tx.activePatrol.create({
             data: {
               siteId: route.siteId,
@@ -101,7 +99,6 @@ export class PatrolService {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        // A lock already exists. Determine whose patrol it is.
         const active = await this.prisma.activePatrol.findUnique({
           where: { siteId: route.siteId },
           include: { job: true },
@@ -126,7 +123,7 @@ export class PatrolService {
     }
   }
 
-  async getJob(operatorId: string, jobId: string) {
+  async getJob(user: { id: string; role: string }, jobId: string) {
     const job = await this.prisma.patrolJob.findUnique({
       where: { id: jobId },
       include: {
@@ -156,7 +153,7 @@ export class PatrolService {
       throw new NotFoundException('Patrol job not found')
     }
 
-    if (job.operatorId !== operatorId) {
+    if (user.role !== 'ADMIN' && job.operatorId !== user.id) {
       throw new ForbiddenException('Not your patrol job')
     }
 
@@ -267,7 +264,6 @@ export class PatrolService {
         },
       })
 
-      // Draft patrols release the site for another operator.
       await tx.activePatrol.deleteMany({
         where: { jobId },
       })
@@ -299,7 +295,6 @@ export class PatrolService {
         },
       })
 
-      // Completed patrols also release the site.
       await tx.activePatrol.deleteMany({
         where: { jobId },
       })
@@ -308,9 +303,8 @@ export class PatrolService {
     })
   }
 
-  // ---------- Active patrol management (resume / admin override) ----------
+  // ---------- Active patrol management ----------
 
-  // Operator discards their own active patrol on a site (deletes job + lock)
   async discardMyPatrol(operatorId: string, siteId: string) {
     const active = await this.prisma.activePatrol.findUnique({
       where: { siteId },
@@ -324,7 +318,6 @@ export class PatrolService {
     return { discarded: true }
   }
 
-  // Admin: list all active + draft patrols across all sites
   async listActivePatrols() {
     return this.prisma.patrolJob.findMany({
       where: { status: { in: ['IN_PROGRESS', 'DRAFT'] } },
@@ -338,13 +331,11 @@ export class PatrolService {
     })
   }
 
-  // Admin: release the lock only (job stays, site freed)
   async adminReleaseLock(jobId: string) {
     await this.prisma.activePatrol.deleteMany({ where: { jobId } })
     return { released: true }
   }
 
-  // Admin: fully delete the patrol job + all its data
   async adminDeletePatrol(jobId: string) {
     const job = await this.prisma.patrolJob.findUnique({ where: { id: jobId } })
     if (!job) throw new NotFoundException('Patrol job not found')
@@ -356,7 +347,6 @@ export class PatrolService {
 
   // ---------- Module G: Reports ----------
 
-  // List jobs — admins see all, operators see their own
   async listJobs(user: { id: string; role: string }) {
     const where = user.role === 'ADMIN' ? {} : { operatorId: user.id }
     return this.prisma.patrolJob.findMany({
@@ -370,7 +360,6 @@ export class PatrolService {
     })
   }
 
-  // Generate a PDF report for a job (admins any, operators their own)
   async generateReport(user: { id: string; role: string }, jobId: string) {
     const job = await this.prisma.patrolJob.findUnique({
       where: { id: jobId },
@@ -403,14 +392,17 @@ export class PatrolService {
     const issues = job.results.filter((r) => !r.allClear)
 
     const fmt = (d: Date | null) => (d ? new Date(d).toLocaleString() : '—')
-    const durationMin =
-      job.completedAt && job.startedAt
-        ? Math.round(
-            (new Date(job.completedAt).getTime() -
-              new Date(job.startedAt).getTime()) /
-              60000,
-          )
-        : null
+
+    // load company logo as base64 (top-right of report)
+    let logoTag = ''
+    try {
+      const logoB64 = fs
+        .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
+        .toString('base64')
+      logoTag = `<img class="logo" src="data:image/png;base64,${logoB64}" />`
+    } catch {
+      logoTag = ''
+    }
 
     const sections = job.route.checkpoints
       .map((cp, i) => {
@@ -479,9 +471,10 @@ export class PatrolService {
       <html><head><style>
         * { font-family: Arial, sans-serif; box-sizing: border-box; }
         body { margin: 0; padding: 32px; color: #011f4b; }
-        .header { border-bottom: 3px solid #011f4b; padding-bottom: 16px; margin-bottom: 24px; }
+        .header { position: relative; border-bottom: 3px solid #011f4b; padding-bottom: 16px; margin-bottom: 24px; }
         .header h1 { margin: 0 0 4px; font-size: 24px; }
         .header .sub { color: #5f7488; font-size: 13px; }
+        .header .logo { position: absolute; top: 0; right: 0; height: 54px; width: auto; }
         .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin: 16px 0 24px; font-size: 13px; }
         .meta div { padding: 6px 0; border-bottom: 1px solid #e5e5e5; }
         .meta .label { color: #5f7488; font-size: 11px; text-transform: uppercase; }
@@ -506,7 +499,8 @@ export class PatrolService {
         .cp-comment { margin-top: 10px; padding: 8px 12px; background: #fdeaea; border-radius: 6px; font-size: 12px; }
       </style></head><body>
         <div class="header">
-          <h1>Security Patrol Report</h1>
+          ${logoTag}
+          <h1>Virtual Patrol Report</h1>
           <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
         </div>
         <div class="meta">
@@ -516,7 +510,6 @@ export class PatrolService {
           <div><span class="label">Status</span><br>${job.status}</div>
           <div><span class="label">Start Time</span><br>${fmt(job.startedAt)}</div>
           <div><span class="label">End Time</span><br>${fmt(job.completedAt)}</div>
-          <div><span class="label">Duration</span><br>${durationMin !== null ? durationMin + ' min' : '—'}</div>
           <div><span class="label">Checkpoints</span><br>${job.route.checkpoints.length}</div>
         </div>
         <div class="issues-banner">

@@ -1,0 +1,134 @@
+.active-page {
+  max-width: 100%;
+}
+
+.active-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.active-count {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.active-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.active-refresh:hover {
+  background: var(--bg);
+}
+
+.active-error {
+  background: rgba(207, 91, 91, 0.15);
+  color: var(--status-red);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.active-loading {
+  color: var(--text-muted);
+}
+
+.active-empty {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 48px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.active-table-wrap {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.active-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.active-table th {
+  text-align: left;
+  padding: 14px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.active-table td {
+  padding: 14px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.active-table tr:last-child td {
+  border-bottom: none;
+}
+
+.active-site {
+  font-weight: 600;
+}
+
+.active-status {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+}
+
+.st-progress {
+  background: rgba(0, 91, 150, 0.12);
+  color: var(--blue);
+}
+
+.st-draft {
+  background: rgba(209, 154, 46, 0.15);
+  color: var(--status-amber);
+}
+
+.active-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.active-actions button {
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.active-actions button:hover {
+  background: var(--bg);
+}
+
+.active-actions button.danger {
+  color: var(--status-red);
+  border-color: rgba(207, 91, 91, 0.3);
+}

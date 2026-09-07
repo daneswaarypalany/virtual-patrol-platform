@@ -1,48 +1,178 @@
-import { useEffect, useState } from "react"
-import { FileText, Download, Eye } from "lucide-react"
-import type { PatrolJobSummary } from "../lib/patrol"
-import { patrolApi } from "../lib/patrol"
-import "./Reports.css"
+import { useEffect, useState, useMemo } from 'react'
+import { FileText, Download, Eye } from 'lucide-react'
+import type { PatrolJobSummary } from '../lib/patrol'
+import { patrolApi } from '../lib/patrol'
+import ViewToggle, { type ViewMode } from '../components/ViewToggle'
+import './Reports.css'
+
+type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year'
+type SortKey = 'newest' | 'oldest' | 'site'
 
 export default function Reports() {
   const [jobs, setJobs] = useState<PatrolJobSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [search, setSearch] = useState("")
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
+  const [siteFilter, setSiteFilter] = useState('all')
+  const [datePreset, setDatePreset] = useState<DatePreset>('all')
+  const [sortKey, setSortKey] = useState<SortKey>('newest')
+  const [view, setView] = useState<ViewMode>('list')
 
   useEffect(() => {
-    patrolApi.listJobs().then(setJobs).catch(() => setError("Failed to load reports")).finally(() => setLoading(false))
+    patrolApi
+      .listJobs()
+      .then(setJobs)
+      .catch(() => setError('Failed to load reports'))
+      .finally(() => setLoading(false))
   }, [])
 
-  const completed = jobs.filter((j) => j.status === "COMPLETED")
-  const filtered = completed.filter((j) => {
-    const q = search.toLowerCase()
-    return j.route.name.toLowerCase().includes(q) || j.route.site.name.toLowerCase().includes(q) || j.operator.fullName.toLowerCase().includes(q)
-  })
+  const completed = jobs.filter((j) => j.status === 'COMPLETED')
 
-  const fmt = (d: string | null) => (d ? new Date(d).toLocaleString() : "-")
-  const openReport = (jobId: string) => { window.open(patrolApi.reportUrl(jobId), "_blank") }
+  const sites = useMemo(
+    () => Array.from(new Set(completed.map((j) => j.route.site.name))).sort(),
+    [completed],
+  )
+
+  const cutoff = useMemo(() => {
+    const now = new Date()
+    if (datePreset === 'today') {
+      const d = new Date(now)
+      d.setHours(0, 0, 0, 0)
+      return d
+    }
+    if (datePreset === 'week') {
+      const d = new Date(now)
+      d.setDate(d.getDate() - 7)
+      return d
+    }
+    if (datePreset === 'month') {
+      const d = new Date(now)
+      d.setMonth(d.getMonth() - 1)
+      return d
+    }
+    if (datePreset === 'year') {
+      const d = new Date(now)
+      d.setFullYear(d.getFullYear() - 1)
+      return d
+    }
+    return null
+  }, [datePreset])
+
+  const filtered = useMemo(() => {
+    let list = completed.filter((j) => {
+      const q = search.toLowerCase()
+      const matchesSearch =
+        j.route.name.toLowerCase().includes(q) ||
+        j.route.site.name.toLowerCase().includes(q) ||
+        j.operator.fullName.toLowerCase().includes(q)
+      const matchesSite =
+        siteFilter === 'all' || j.route.site.name === siteFilter
+      const when = j.completedAt ? new Date(j.completedAt) : null
+      const matchesDate = !cutoff || (when && when >= cutoff)
+      return matchesSearch && matchesSite && matchesDate
+    })
+
+    list = [...list].sort((a, b) => {
+      if (sortKey === 'site')
+        return a.route.site.name.localeCompare(b.route.site.name)
+      const at = a.completedAt ? new Date(a.completedAt).getTime() : 0
+      const bt = b.completedAt ? new Date(b.completedAt).getTime() : 0
+      return sortKey === 'oldest' ? at - bt : bt - at
+    })
+
+    return list
+  }, [completed, search, siteFilter, cutoff, sortKey])
+
+  const fmt = (d: string | null) => (d ? new Date(d).toLocaleString() : '—')
+  const openReport = (jobId: string) => {
+    window.open(patrolApi.reportUrl(jobId), '_blank')
+  }
+
+  const presets: { key: DatePreset; label: string }[] = [
+    { key: 'all', label: 'All time' },
+    { key: 'today', label: 'Today' },
+    { key: 'week', label: 'This week' },
+    { key: 'month', label: 'This month' },
+    { key: 'year', label: 'This year' },
+  ]
 
   return (
     <div className="reports-page">
       <div className="reports-toolbar">
-        <input className="reports-search" placeholder="Search reports..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        <p className="reports-count">{filtered.length} reports</p>
+        <input
+          className="reports-search"
+          placeholder="Search by route, site, or operator…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="toolbar-right">
+          <ViewToggle mode={view} onChange={setView} />
+          <p className="reports-count">{filtered.length} reports</p>
+        </div>
+      </div>
+
+      <div className="reports-filters">
+        <div className="date-presets">
+          {presets.map((p) => (
+            <button
+              key={p.key}
+              className={datePreset === p.key ? 'active' : ''}
+              onClick={() => setDatePreset(p.key)}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="filter-selects">
+          <select
+            value={siteFilter}
+            onChange={(e) => setSiteFilter(e.target.value)}
+          >
+            <option value="all">All sites</option>
+            {sites.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="site">By site</option>
+          </select>
+        </div>
       </div>
 
       {error && <div className="reports-error">{error}</div>}
 
       {loading ? (
-        <p className="reports-loading">Loading...</p>
+        <p className="reports-loading">Loading…</p>
       ) : completed.length === 0 ? (
-        <div className="reports-empty"><FileText size={40} className="reports-empty-icon" /><p>No completed patrols yet.</p></div>
+        <div className="reports-empty">
+          <FileText size={40} className="reports-empty-icon" />
+          <p>No completed patrols yet. Reports appear here once a patrol is completed.</p>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="reports-empty"><p>No reports match your search.</p></div>
-      ) : (
+        <div className="reports-empty">
+          <p>No reports match your filters.</p>
+        </div>
+      ) : view === 'list' ? (
         <div className="reports-table-wrap">
           <table className="reports-table">
             <thead>
-              <tr><th>Route</th><th>Site</th><th>Operator</th><th>Completed</th><th>Checkpoints</th><th>Actions</th></tr>
+              <tr>
+                <th>Route</th>
+                <th>Site</th>
+                <th>Operator</th>
+                <th>Completed</th>
+                <th>Checkpoints</th>
+                <th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {filtered.map((j) => (
@@ -53,13 +183,38 @@ export default function Reports() {
                   <td>{fmt(j.completedAt)}</td>
                   <td>{j._count.results}</td>
                   <td className="report-actions">
-                    <button onClick={() => openReport(j.id)}><Eye size={14} /> View</button>
+                    <button onClick={() => openReport(j.id)}>
+                      <Eye size={14} /> View
+                    </button>
                     <a href={patrolApi.reportUrl(j.id)} download className="report-download"><Download size={14} /> PDF</a>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      ) : (
+        <div className="reports-grid">
+          {filtered.map((j) => (
+            <div key={j.id} className="report-card">
+              <div className="report-card-head">
+                <FileText size={18} className="report-card-icon" />
+                <strong>{j.route.name}</strong>
+              </div>
+              <p className="report-card-site">{j.route.site.name}</p>
+              <div className="report-card-meta">
+                <span>{j.operator.fullName}</span>
+                <span>{fmt(j.completedAt)}</span>
+                <span>{j._count.results} checkpoints</span>
+              </div>
+              <div className="report-card-actions">
+                <button onClick={() => openReport(j.id)}>
+                  <Eye size={14} /> View
+                </button>
+                <a href={patrolApi.reportUrl(j.id)} download className="report-download"><Download size={14} /> PDF</a>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

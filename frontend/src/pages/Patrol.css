@@ -592,3 +592,39 @@
   color: var(--sky);
   background: var(--navy);
 }
+
+.resume-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(1, 31, 75, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+}
+
+.resume-dialog {
+  background: var(--white);
+  border-radius: 14px;
+  padding: 28px;
+  width: 420px;
+  max-width: 92vw;
+}
+
+.resume-dialog h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.resume-dialog p {
+  margin: 0 0 22px;
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.resume-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
