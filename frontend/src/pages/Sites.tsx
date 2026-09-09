@@ -5,6 +5,7 @@ import { sitesApi } from '../lib/sites'
 import SiteDetail from './SiteDetail'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Sites.css'
+import SearchableSelect from '../components/SearchableSelect'
 
 type SortOption = 'custom' | 'alphabetical'
 
@@ -125,15 +126,17 @@ export default function Sites() {
             </button>
           </div>
 
-          <select
-            className="site-filter"
-            value={sortBy}
-            onChange={(event) => setSortBy(event.target.value as SortOption)}
-            aria-label="Sort sites"
-          >
-            <option value="custom">Custom order</option>
-            <option value="alphabetical">Alphabetical (A–Z)</option>
-          </select>
+          <div className="site-sort-w">
+            <SearchableSelect
+              value={sortBy}
+              onChange={(v) => setSortBy(v as SortOption)}
+              searchable={false}
+              options={[
+                { value: 'custom', label: 'Custom order' },
+                { value: 'alphabetical', label: 'Alphabetical (A–Z)' },
+              ]}
+            />
+          </div>
         </div>
 
         <div className="toolbar-right">

@@ -336,3 +336,7 @@
 .react-datepicker__header {
   background: var(--bg) !important;
 }
+
+.filter-select-w {
+  min-width: 180px;
+}

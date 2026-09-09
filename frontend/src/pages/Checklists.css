@@ -288,3 +288,7 @@
   padding: 2px 9px;
   border-radius: 12px;
 }
+
+.cl-select-w {
+  min-width: 150px;
+}

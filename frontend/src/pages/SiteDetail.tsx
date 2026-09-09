@@ -9,6 +9,7 @@ import { camerasApi } from '../lib/cameras'
 import type { Route } from '../lib/routes'
 import { routesApi } from '../lib/routes'
 import './SiteDetail.css'
+import SearchableSelect from '../components/SearchableSelect'
 
 type Tab = 'operators' | 'cameras' | 'routes'
 
@@ -165,17 +166,16 @@ export default function SiteDetail({
                 <>
                   <div className="assign-add">
                     <label>Assign a user to this site</label>
-                    <select
+                    <SearchableSelect
                       value=""
-                      onChange={(e) => e.target.value && assign(e.target.value)}
-                    >
-                      <option value="">Select a user…</option>
-                      {assignable.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.fullName} ({u.role.toLowerCase()})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => v && assign(v)}
+                      placeholder="Select a user…"
+                      options={assignable.map((u) => ({
+                        value: u.id,
+                        label: u.fullName,
+                        sub: `${u.username} · ${u.role.toLowerCase()}`,
+                      }))}
+                    />
                     {assignable.length === 0 && (
                       <p className="detail-muted">
                         No more active operators/viewers available to assign.

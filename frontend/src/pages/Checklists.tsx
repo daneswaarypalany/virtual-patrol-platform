@@ -3,6 +3,7 @@ import { Search } from 'lucide-react'
 import type { ChecklistTemplate, ChecklistInput } from '../lib/checklists'
 import { checklistsApi } from '../lib/checklists'
 import './Checklists.css'
+import SearchableSelect from '../components/SearchableSelect'
 
 type SortKey = 'name' | 'mostUsed' | 'newest'
 type UsageFilter = 'all' | 'used' | 'unused'
@@ -101,27 +102,44 @@ export default function Checklists() {
             />
           </div>
 
-          <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)} className="cl-select">
-            <option value="name">Sort: Name</option>
-            <option value="mostUsed">Sort: Most used</option>
-            <option value="newest">Sort: Newest</option>
-          </select>
+          <div className="cl-select-w">
+            <SearchableSelect
+              value={sortKey}
+              onChange={(v) => setSortKey(v as SortKey)}
+              searchable={false}
+              options={[
+                { value: 'name', label: 'Sort: Name' },
+                { value: 'mostUsed', label: 'Sort: Most used' },
+                { value: 'newest', label: 'Sort: Newest' },
+              ]}
+            />
+          </div>
 
-          <select value={usage} onChange={(e) => setUsage(e.target.value as UsageFilter)} className="cl-select">
-            <option value="all">All</option>
-            <option value="used">In use</option>
-            <option value="unused">Unused</option>
-          </select>
+          <div className="cl-select-w">
+            <SearchableSelect
+              value={usage}
+              onChange={(v) => setUsage(v as UsageFilter)}
+              searchable={false}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'used', label: 'In use' },
+                { value: 'unused', label: 'Unused' },
+              ]}
+            />
+          </div>
 
           {categories.length > 0 && (
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="cl-select">
-              <option value="all">All categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="cl-select-w">
+              <SearchableSelect
+                value={category}
+                onChange={(v) => setCategory(v)}
+                placeholder="All categories"
+                options={[
+                  { value: 'all', label: 'All categories' },
+                  ...categories.map((c) => ({ value: c, label: c })),
+                ]}
+              />
+            </div>
           )}
         </div>
 

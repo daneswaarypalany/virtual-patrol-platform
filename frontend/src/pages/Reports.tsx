@@ -6,6 +6,7 @@ import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Reports.css'
+import SearchableSelect from '../components/SearchableSelect'
 
 type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
 type SortKey = 'newest' | 'oldest' | 'site'
@@ -143,27 +144,32 @@ export default function Reports() {
           ))}
         </div>
 
-        <div className="filter-selects">
-          <select
-            value={siteFilter}
-            onChange={(e) => setSiteFilter(e.target.value)}
-          >
-            <option value="all">All sites</option>
-            {sites.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+         <div className="filter-selects">
+          <div className="filter-select-w">
+            <SearchableSelect
+              value={siteFilter}
+              onChange={(v) => setSiteFilter(v)}
+              placeholder="All sites"
+              options={[
+                { value: 'all', label: 'All sites' },
+                ...sites.map((s) => ({ value: s, label: s })),
+              ]}
+            />
+          </div>
 
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-          >
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-            <option value="site">By site</option>
-          </select>
+          <div className="filter-select-w">
+            <SearchableSelect
+              value={sortKey}
+              onChange={(v) => setSortKey(v as SortKey)}
+              placeholder="Sort"
+              searchable={false}
+              options={[
+                { value: 'newest', label: 'Newest first' },
+                { value: 'oldest', label: 'Oldest first' },
+                { value: 'site', label: 'By site' },
+              ]}
+            />
+          </div>
         </div>
       </div>
 

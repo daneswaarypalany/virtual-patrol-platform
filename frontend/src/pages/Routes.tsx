@@ -24,6 +24,7 @@ import { camerasApi } from '../lib/cameras'
 import type { ChecklistTemplate } from '../lib/checklists'
 import { checklistsApi } from '../lib/checklists'
 import './Routes.css'
+import SearchableSelect from '../components/SearchableSelect'
 
 interface DraftCheckpoint {
   key: string
@@ -90,18 +91,17 @@ export default function Routes() {
             />
           </div>
 
-          <select
-            className="site-filter"
-            value={siteFilter}
-            onChange={(e) => setSiteFilter(e.target.value)}
-          >
-            <option value="all">All sites</option>
-            {sites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <div className="route-site-filter-w">
+            <SearchableSelect
+              value={siteFilter}
+              onChange={(v) => setSiteFilter(v)}
+              placeholder="All sites"
+              options={[
+                { value: 'all', label: 'All sites' },
+                ...sites.map((s) => ({ value: s.id, label: s.name })),
+              ]}
+            />
+          </div>
         </div>
 
         <button className="btn-primary" onClick={() => setBuilder('new')}>

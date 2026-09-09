@@ -407,3 +407,6 @@
   border-top: 1px solid var(--border);
 }
 
+.route-site-filter-w {
+  min-width: 180px;
+}
