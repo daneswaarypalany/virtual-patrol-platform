@@ -1,11 +1,13 @@
 import { useEffect, useState, useMemo } from 'react'
 import { FileText, Download, Eye } from 'lucide-react'
+import DatePicker from 'react-datepicker'
+import 'react-datepicker/dist/react-datepicker.css'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Reports.css'
 
-type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year'
+type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
 type SortKey = 'newest' | 'oldest' | 'site'
 
 export default function Reports() {
@@ -17,6 +19,8 @@ export default function Reports() {
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [sortKey, setSortKey] = useState<SortKey>('newest')
   const [view, setView] = useState<ViewMode>('list')
+  const [fromDate, setFromDate] = useState<Date | null>(null)
+  const [toDate, setToDate] = useState<Date | null>(null)
 
   useEffect(() => {
     patrolApi
@@ -33,6 +37,7 @@ export default function Reports() {
     [completed],
   )
 
+  // preset cutoff (for the non-custom presets)
   const cutoff = useMemo(() => {
     const now = new Date()
     if (datePreset === 'today') {
@@ -67,8 +72,21 @@ export default function Reports() {
         j.operator.fullName.toLowerCase().includes(q)
       const matchesSite =
         siteFilter === 'all' || j.route.site.name === siteFilter
+
       const when = j.completedAt ? new Date(j.completedAt) : null
-      const matchesDate = !cutoff || (when && when >= cutoff)
+      let matchesDate = true
+      if (datePreset === 'custom') {
+        if (fromDate && when) matchesDate = when >= fromDate
+        if (toDate && when && matchesDate) {
+          // include the whole 'to' day
+          const end = new Date(toDate)
+          end.setHours(23, 59, 59, 999)
+          matchesDate = when <= end
+        }
+      } else if (cutoff) {
+        matchesDate = !!when && when >= cutoff
+      }
+
       return matchesSearch && matchesSite && matchesDate
     })
 
@@ -81,7 +99,7 @@ export default function Reports() {
     })
 
     return list
-  }, [completed, search, siteFilter, cutoff, sortKey])
+  }, [completed, search, siteFilter, cutoff, datePreset, fromDate, toDate, sortKey])
 
   const fmt = (d: string | null) => (d ? new Date(d).toLocaleString() : '—')
   const openReport = (jobId: string) => {
@@ -94,6 +112,7 @@ export default function Reports() {
     { key: 'week', label: 'This week' },
     { key: 'month', label: 'This month' },
     { key: 'year', label: 'This year' },
+    { key: 'custom', label: 'Custom range' },
   ]
 
   return (
@@ -147,6 +166,49 @@ export default function Reports() {
           </select>
         </div>
       </div>
+
+      {datePreset === 'custom' && (
+        <div className="date-range-row">
+          <div className="date-range-field">
+            <label>From</label>
+            <DatePicker
+              selected={fromDate}
+              onChange={(d) => setFromDate(d)}
+              selectsStart
+              startDate={fromDate}
+              endDate={toDate}
+              placeholderText="Start date"
+              dateFormat="dd MMM yyyy"
+              className="date-input"
+            />
+          </div>
+          <div className="date-range-field">
+            <label>To</label>
+            <DatePicker
+              selected={toDate}
+              onChange={(d) => setToDate(d)}
+              selectsEnd
+              startDate={fromDate}
+              endDate={toDate}
+              minDate={fromDate ?? undefined}
+              placeholderText="End date"
+              dateFormat="dd MMM yyyy"
+              className="date-input"
+            />
+          </div>
+          {(fromDate || toDate) && (
+            <button
+              className="date-clear"
+              onClick={() => {
+                setFromDate(null)
+                setToDate(null)
+              }}
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {error && <div className="reports-error">{error}</div>}
 

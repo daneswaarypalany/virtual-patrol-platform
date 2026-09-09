@@ -270,3 +270,69 @@
   color: var(--blue);
   border-color: rgba(0, 91, 150, 0.3);
 }
+
+.date-range-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.date-range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.date-range-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.date-input {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+}
+
+.date-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+}
+
+.date-clear {
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 9px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--status-red);
+  cursor: pointer;
+}
+
+/* react-datepicker accent overrides */
+.react-datepicker__day--selected,
+.react-datepicker__day--in-range,
+.react-datepicker__day--keyboard-selected {
+  background: var(--navy) !important;
+  color: white !important;
+}
+
+.react-datepicker__day--in-selecting-range {
+  background: var(--sky) !important;
+}
+
+.react-datepicker__header {
+  background: var(--bg) !important;
+}
