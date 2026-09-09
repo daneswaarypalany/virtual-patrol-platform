@@ -300,7 +300,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(1, 31, 75, 0.4);
+  background: rgba(8, 27, 44, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;

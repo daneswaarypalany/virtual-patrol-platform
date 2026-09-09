@@ -105,7 +105,7 @@
 }
 
 .site-cam-card:hover {
-  box-shadow: 0 8px 24px rgba(1, 31, 75, 0.08);
+  box-shadow: 0 8px 24px rgba(8, 27, 44, 0.08);
   transform: translateY(-2px);
 }
 
@@ -190,7 +190,7 @@
 .cam-popup-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(1, 31, 75, 0.4);
+  background: rgba(8, 27, 44, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -320,7 +320,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(1, 31, 75, 0.4);
+  background: rgba(8, 27, 44, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;

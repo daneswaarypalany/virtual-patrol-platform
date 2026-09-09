@@ -53,12 +53,12 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 16px rgba(1, 31, 75, 0.04);
+  box-shadow: 0 4px 16px rgba(8, 27, 44, 0.04);
   transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .checklist-card:hover {
-  box-shadow: 0 8px 24px rgba(1, 31, 75, 0.08);
+  box-shadow: 0 8px 24px rgba(8, 27, 44, 0.08);
   transform: translateY(-2px);
 }
 

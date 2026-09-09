@@ -137,8 +137,8 @@ function Shell() {
               title={collapsed ? item.label : undefined}
             >
               <span className="nav-icon">
-                <item.icon />
-              </span>
+                <item.icon strokeWidth={1.5} />
+                </span>
               <span className="nav-label">{item.label}</span>
             </button>
           ))}

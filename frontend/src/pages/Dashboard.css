@@ -64,7 +64,7 @@
 }
 
 .dash-card:hover {
-  box-shadow: 0 8px 24px rgba(1, 31, 75, 0.08);
+  box-shadow: 0 8px 24px rgba(8, 27, 44, 0.08);
   transform: translateY(-2px);
 }
 
@@ -113,7 +113,7 @@
 }
 
 .dash-card-clickable:hover {
-  box-shadow: 0 8px 24px rgba(1, 31, 75, 0.1);
+  box-shadow: 0 8px 24px rgba(8, 27, 44, 0.1);
   transform: translateY(-2px);
 }
 
@@ -263,7 +263,7 @@
 .dash-popup-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(1, 31, 75, 0.4);
+  background: rgba(8, 27, 44, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;

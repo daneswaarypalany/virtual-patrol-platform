@@ -153,8 +153,14 @@ export class PatrolService {
       throw new NotFoundException('Patrol job not found')
     }
 
-    if (user.role !== 'ADMIN' && job.operatorId !== user.id) {
+    if (user.role === 'OPERATOR' && job.operatorId !== user.id) {
       throw new ForbiddenException('Not your patrol job')
+    }
+    if (user.role === 'VIEWER') {
+      const siteIds = await this.assignedSiteIds(user.id)
+      if (!siteIds.includes(job.route.siteId)) {
+        throw new ForbiddenException('This site is not assigned to you')
+      }
     }
 
     return job
@@ -348,7 +354,15 @@ export class PatrolService {
   // ---------- Module G: Reports ----------
 
   async listJobs(user: { id: string; role: string }) {
-    const where = user.role === 'ADMIN' ? {} : { operatorId: user.id }
+    let where: any = {}
+    if (user.role === 'OPERATOR') {
+      where = { operatorId: user.id }
+    } else if (user.role === 'VIEWER') {
+      const siteIds = await this.assignedSiteIds(user.id)
+      where = { route: { siteId: { in: siteIds } } }
+    }
+    // ADMIN → {} (all)
+
     return this.prisma.patrolJob.findMany({
       where,
       orderBy: { startedAt: 'desc' },
@@ -384,8 +398,14 @@ export class PatrolService {
     if (!job) {
       throw new NotFoundException('Patrol job not found')
     }
-    if (user.role !== 'ADMIN' && job.operatorId !== user.id) {
+    if (user.role === 'OPERATOR' && job.operatorId !== user.id) {
       throw new ForbiddenException('Not your patrol job')
+    }
+    if (user.role === 'VIEWER') {
+      const siteIds = await this.assignedSiteIds(user.id)
+      if (!siteIds.includes(job.route.siteId)) {
+        throw new ForbiddenException('This site is not assigned to you')
+      }
     }
 
     const resultByCp = new Map(job.results.map((r) => [r.checkpointId, r]))
@@ -393,7 +413,6 @@ export class PatrolService {
 
     const fmt = (d: Date | null) => (d ? new Date(d).toLocaleString() : '—')
 
-    // load company logo as base64 (top-right of report)
     let logoTag = ''
     try {
       const logoB64 = fs
@@ -500,7 +519,7 @@ export class PatrolService {
       </style></head><body>
         <div class="header">
           ${logoTag}
-          <h1>Virtual Patrol Report</h1>
+          <h1>Security Patrol Report</h1>
           <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
         </div>
         <div class="meta">
@@ -531,6 +550,14 @@ export class PatrolService {
     })
     await browser.close()
     return pdf
+  }
+
+  private async assignedSiteIds(userId: string) {
+    const assignments = await this.prisma.operatorSiteAssignment.findMany({
+      where: { userId },
+      select: { siteId: true },
+    })
+    return assignments.map((a) => a.siteId)
   }
 
   private async assertAssigned(operatorId: string, siteId: string) {

@@ -6,6 +6,7 @@ import type {
   PatrolCheckpoint,
 } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
+import SearchableSelect from '../components/SearchableSelect'
 import './Patrol.css'
 
 type Stage = 'picker' | 'viewer' | 'summary'
@@ -158,31 +159,33 @@ function PatrolPicker({
         <div className="picker-fields">
           <div className="picker-field">
             <label>Site</label>
-            <select value={siteId} onChange={(e) => setSiteId(e.target.value)}>
-              <option value="">Select a site…</option>
-              {sites.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <SearchableSelect
+              value={siteId}
+              onChange={(v) => setSiteId(v)}
+              placeholder="Select a site…"
+              options={sites.map((s) => ({
+                value: s.id,
+                label: s.name,
+                sub: s.address ?? undefined,
+              }))}
+            />
           </div>
 
           <div className="picker-field">
             <label>Route</label>
-            <select
+            <SearchableSelect
               value={routeId}
-              onChange={(e) => setRouteId(e.target.value)}
+              onChange={(v) => setRouteId(v)}
+              placeholder="Select a route…"
               disabled={!siteId}
-            >
-              <option value="">Select a route…</option>
-              {routes.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r._count.checkpoints} checkpoints
-                  {r.estimatedMinutes ? `, ~${r.estimatedMinutes} min` : ''})
-                </option>
-              ))}
-            </select>
+              options={routes.map((r) => ({
+                value: r.id,
+                label: r.name,
+                sub: `${r._count.checkpoints} checkpoints${
+                  r.estimatedMinutes ? ` · ~${r.estimatedMinutes} min` : ''
+                }`,
+              }))}
+            />
           </div>
         </div>
 

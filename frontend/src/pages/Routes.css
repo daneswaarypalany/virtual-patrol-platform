@@ -238,7 +238,7 @@
 .builder-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(1, 31, 75, 0.4);
+  background: rgba(8, 27, 44, 0.4);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -406,3 +406,4 @@
   padding: 16px 24px;
   border-top: 1px solid var(--border);
 }
+
