@@ -276,6 +276,16 @@
   font-weight: 600;
 }
 
+.capture-hint {
+  margin-top: 10px;
+  font-size: 12.5px;
+  color: var(--slate-blue);
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
 /* Checklist panel */
 .check-panel {
   background: var(--white);
@@ -293,7 +303,36 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.check-section {
   margin-bottom: 18px;
+}
+
+.check-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.check-section-issues {
+  padding: 12px;
+  background: rgba(209, 71, 46, 0.06);
+  border: 1px solid rgba(209, 71, 46, 0.25);
+  border-radius: 10px;
+}
+
+.check-section-label-issue {
+  color: var(--status-red);
+}
+
+.check-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 8px 10px;
 }
 
 .check-item {
@@ -310,11 +349,19 @@
   background: var(--bg);
 }
 
+.check-item-issue:hover {
+  background: rgba(209, 71, 46, 0.08);
+}
+
 .check-item input {
   width: 18px;
   height: 18px;
   cursor: pointer;
   accent-color: var(--blue);
+}
+
+.check-item-issue input {
+  accent-color: var(--status-red);
 }
 
 .check-item span {
@@ -324,12 +371,47 @@
 
 .check-failed {
   color: var(--status-red) !important;
-  text-decoration: line-through;
+}
+
+.issue-comment {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(209, 71, 46, 0.2);
+}
+
+.issue-comment label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.issue-comment textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
 }
 
 .check-actions {
   display: flex;
   gap: 10px;
+  margin-top: 20px;
+}
+
+.check-actions .btn-primary,
+.check-actions .btn-issue {
+  flex: 1;
+}
+
+.check-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .btn-allclear {
@@ -367,34 +449,6 @@
 
 .btn-issue:hover {
   background: rgba(209, 154, 46, 0.08);
-}
-
-.issue-form {
-  display: flex;
-  flex-direction: column;
-}
-
-.issue-form label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-.issue-form textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 14px;
-  font-family: inherit;
-  resize: vertical;
-}
-
-.issue-hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin: 8px 0 14px;
 }
 
 .viewer-nav {

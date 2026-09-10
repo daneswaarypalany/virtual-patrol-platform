@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { FileText, Download, Eye } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
@@ -6,10 +6,17 @@ import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import SearchableSelect from '../components/SearchableSelect'
+import TimeWheelPicker from '../components/TimeWheelPicker'
 import './Reports.css'
 
 type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
 type SortKey = 'newest' | 'oldest' | 'site'
+type ShiftKey = 'night' | 'morning'
+
+const SHIFTS: { key: ShiftKey; label: string; from: string; to: string }[] = [
+  { key: 'night', label: 'Night Shift (8:00 PM – 8:00 AM)', from: '20:00', to: '08:00' },
+  { key: 'morning', label: 'Morning Shift (8:00 AM – 8:00 PM)', from: '08:00', to: '20:00' },
+]
 
 export default function Reports() {
   const [jobs, setJobs] = useState<PatrolJobSummary[]>([])
@@ -24,6 +31,8 @@ export default function Reports() {
   const [toDate, setToDate] = useState<Date | null>(null)
   const [fromTime, setFromTime] = useState('')
   const [toTime, setToTime] = useState('')
+  const [panelOpen, setPanelOpen] = useState(false)
+  const panelWrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     patrolApi
@@ -65,6 +74,31 @@ export default function Reports() {
     return null
   }, [datePreset])
 
+  const selectPreset = (key: DatePreset) => {
+    setDatePreset(key)
+    setFromDate(null)
+    setToDate(null)
+    setFromTime('')
+    setToTime('')
+    setPanelOpen(true)
+  }
+
+  // close the refine panel on outside click, but not on clicks within the
+  // preset bar itself (those re-open it via selectPreset)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        panelOpen &&
+        panelWrapRef.current &&
+        !panelWrapRef.current.contains(e.target as Node)
+      ) {
+        setPanelOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [panelOpen])
+
   const filtered = useMemo(() => {
     let list = completed.filter((j) => {
       const q = search.toLowerCase()
@@ -77,22 +111,22 @@ export default function Reports() {
 
       const when = j.completedAt ? new Date(j.completedAt) : null
 
-      // date filter (preset or custom range)
+      // date filter — a preset's cutoff sets the base window; the date
+      // pickers in the panel below can further narrow within it (and are
+      // the sole source of truth when the preset is "custom")
       let matchesDate = true
-      if (datePreset === 'custom') {
-        if (fromDate && when) matchesDate = when >= fromDate
-        if (toDate && when && matchesDate) {
-          const end = new Date(toDate)
-          end.setHours(23, 59, 59, 999)
-          matchesDate = when <= end
-        }
-      } else if (cutoff) {
-        matchesDate = !!when && when >= cutoff
+      if (cutoff) matchesDate = !!when && when >= cutoff
+      if (fromDate && when) matchesDate = matchesDate && when >= fromDate
+      if (toDate && when) {
+        const end = new Date(toDate)
+        end.setHours(23, 59, 59, 999)
+        matchesDate = matchesDate && when <= end
       }
 
-      // time-of-day filter (only applies in custom mode where inputs show)
+      // time-of-day filter — applies for any preset once set, including a
+      // shift shortcut (night/morning) or the plain time inputs
       let matchesTime = true
-      if (datePreset === 'custom' && (fromTime || toTime) && when) {
+      if ((fromTime || toTime) && when) {
         const mins = when.getHours() * 60 + when.getMinutes()
         const toMins = (t: string) => {
           const [h, m] = t.split(':').map(Number)
@@ -161,19 +195,131 @@ export default function Reports() {
         </div>
       </div>
 
-      <div className="reports-filters">
+      <div className="date-presets-wrap" ref={panelWrapRef}>
         <div className="date-presets">
           {presets.map((p) => (
             <button
               key={p.key}
               className={datePreset === p.key ? 'active' : ''}
-              onClick={() => setDatePreset(p.key)}
+              onClick={() => selectPreset(p.key)}
             >
               {p.label}
             </button>
           ))}
         </div>
 
+        {panelOpen && (
+          <div className="custom-range-panel">
+            {datePreset !== 'today' && (
+              <>
+                <div className="range-section">
+                  <span className="range-title">Date range</span>
+                  <div className="date-range-field">
+                    <label>From</label>
+                    <DatePicker
+                      selected={fromDate}
+                      onChange={(d) => setFromDate(d)}
+                      selectsStart
+                      startDate={fromDate}
+                      endDate={toDate}
+                      placeholderText="Start date"
+                      dateFormat="dd MMM yyyy"
+                      className="range-input"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                    />
+                  </div>
+                  <div className="date-range-field">
+                    <label>To</label>
+                    <DatePicker
+                      selected={toDate}
+                      onChange={(d) => setToDate(d)}
+                      selectsEnd
+                      startDate={fromDate}
+                      endDate={toDate}
+                      minDate={fromDate ?? undefined}
+                      placeholderText="End date"
+                      dateFormat="dd MMM yyyy"
+                      className="range-input"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                    />
+                  </div>
+                </div>
+
+                <div className="range-divider" />
+              </>
+            )}
+
+            <div className="range-section">
+              <span className="range-title">Time of day</span>
+              <div className="date-range-field">
+                <label>From</label>
+                <TimeWheelPicker value={fromTime} onChange={setFromTime} />
+              </div>
+              <div className="date-range-field">
+                <label>To</label>
+                <TimeWheelPicker value={toTime} onChange={setToTime} />
+              </div>
+            </div>
+
+            <div className="range-divider" />
+
+            <div className="range-section">
+              <span className="range-title">Shift</span>
+              <div className="shift-buttons">
+                {SHIFTS.map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    className={
+                      fromTime === s.from && toTime === s.to ? 'active' : ''
+                    }
+                    onClick={() => {
+                      setFromTime(s.from)
+                      setToTime(s.to)
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="range-panel-actions">
+              {(fromDate || toDate || fromTime || toTime) && (
+                <button
+                  className="range-clear"
+                  onClick={() => {
+                    setFromDate(null)
+                    setToDate(null)
+                    setFromTime('')
+                    setToTime('')
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+              <button
+                className="range-cancel"
+                onClick={() => setPanelOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="range-select"
+                onClick={() => setPanelOpen(false)}
+              >
+                Select
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="reports-filters">
         <div className="filter-selects">
           <div className="filter-select-w">
             <SearchableSelect
@@ -202,79 +348,6 @@ export default function Reports() {
           </div>
         </div>
       </div>
-
-      {datePreset === 'custom' && (
-        <div className="custom-range-panel">
-          <div className="range-section">
-            <span className="range-title">Date range</span>
-            <div className="date-range-field">
-              <label>From</label>
-              <DatePicker
-                selected={fromDate}
-                onChange={(d) => setFromDate(d)}
-                selectsStart
-                startDate={fromDate}
-                endDate={toDate}
-                placeholderText="Start date"
-                dateFormat="dd MMM yyyy"
-                className="range-input"
-              />
-            </div>
-            <div className="date-range-field">
-              <label>To</label>
-              <DatePicker
-                selected={toDate}
-                onChange={(d) => setToDate(d)}
-                selectsEnd
-                startDate={fromDate}
-                endDate={toDate}
-                minDate={fromDate ?? undefined}
-                placeholderText="End date"
-                dateFormat="dd MMM yyyy"
-                className="range-input"
-              />
-            </div>
-          </div>
-
-          <div className="range-divider" />
-
-          <div className="range-section">
-            <span className="range-title">Time of day</span>
-            <div className="date-range-field">
-              <label>From</label>
-              <input
-                type="time"
-                className="range-input"
-                value={fromTime}
-                onChange={(e) => setFromTime(e.target.value)}
-              />
-            </div>
-            <div className="date-range-field">
-              <label>To</label>
-              <input
-                type="time"
-                className="range-input"
-                value={toTime}
-                onChange={(e) => setToTime(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {(fromDate || toDate || fromTime || toTime) && (
-            <button
-              className="range-clear"
-              onClick={() => {
-                setFromDate(null)
-                setToDate(null)
-                setFromTime('')
-                setToTime('')
-              }}
-            >
-              Clear all
-            </button>
-          )}
-        </div>
-      )}
 
       {error && <div className="reports-error">{error}</div>}
 

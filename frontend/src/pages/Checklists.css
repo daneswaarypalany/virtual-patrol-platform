@@ -154,6 +154,29 @@
   width: 460px;
 }
 
+.cl-duplicate-field {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.cl-duplicate-field label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.cl-items-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.cl-items-count {
+  font-size: 12px;
+  color: var(--slate-blue);
+}
+
 .cl-items {
   display: flex;
   flex-direction: column;
@@ -165,26 +188,39 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  background: var(--white);
+  border-radius: 8px;
+  touch-action: none;
 }
 
-.cl-item-move {
+.cl-item-row-dragging {
+  z-index: 5;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+}
+
+.cl-item-handle {
   display: flex;
-  flex-direction: column;
-}
-
-.cl-item-move button {
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
   background: transparent;
   border: none;
-  cursor: pointer;
-  font-size: 9px;
+  border-radius: 6px;
   color: var(--slate-blue);
-  padding: 0 4px;
-  line-height: 1.2;
+  cursor: grab;
+  padding: 0;
 }
 
-.cl-item-move button:disabled {
-  opacity: 0.3;
-  cursor: default;
+.cl-item-handle:hover {
+  background: var(--surface-alt, rgba(0, 0, 0, 0.05));
+  color: var(--blue);
+}
+
+.cl-item-handle:active {
+  cursor: grabbing;
 }
 
 .cl-item-row input {
@@ -219,6 +255,12 @@
   font-size: 13px;
   cursor: pointer;
   width: 100%;
+}
+
+.cl-add-item:disabled {
+  opacity: 0.5;
+  cursor: default;
+  color: var(--slate-blue);
 }
 
 .checklists-toolbar {

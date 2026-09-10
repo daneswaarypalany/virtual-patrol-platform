@@ -251,9 +251,8 @@ function PatrolViewer({
   const [index, setIndex] = useState(0)
   const current = checkpoints[index]
 
-  const [checks, setChecks] = useState<boolean[]>([])
+  const [issues, setIssues] = useState<boolean[]>([])
   const [comment, setComment] = useState('')
-  const [issueMode, setIssueMode] = useState(false)
   const [screenshot, setScreenshot] = useState<Blob | null>(null)
   const [screenshotUrl, setScreenshotUrl] = useState('')
   const [saving, setSaving] = useState(false)
@@ -266,9 +265,8 @@ function PatrolViewer({
   const [connecting, setConnecting] = useState(false)
 
   useEffect(() => {
-    setChecks(current.checklistTemplate.items.map(() => true))
+    setIssues(current.checklistTemplate.items.map(() => false))
     setComment('')
-    setIssueMode(false)
     setScreenshot(null)
     setScreenshotUrl('')
     setError('')
@@ -381,32 +379,32 @@ function PatrolViewer({
     }
   }
 
-  const toggleCheck = (i: number) => {
-    setChecks((arr) => arr.map((v, idx) => (idx === i ? !v : v)))
+  const toggleIssue = (i: number) => {
+    setIssues((arr) => arr.map((v, idx) => (idx === i ? !v : v)))
   }
 
   const buildChecklistState = () =>
     current.checklistTemplate.items.map((item, i) => ({
       label: item.label,
-      checked: checks[i],
+      checked: !issues[i],
     }))
 
-  const saveIssue = async () => {
+  const saveCurrent = async () => {
     setError('')
-    const anyUnticked = checks.some((c) => !c)
-    if (anyUnticked && !comment.trim()) {
-      setError('A comment is required when any item is left unchecked')
+    const anyIssue = issues.some(Boolean)
+    if (anyIssue && !comment.trim()) {
+      setError('A comment is required when an issue is flagged')
       return
     }
     if (!screenshot) {
-      setError('Please capture a screenshot')
+      setError('Please capture a screenshot before continuing')
       return
     }
     setSaving(true)
     try {
       await patrolApi.saveCheckpoint(job.id, {
         checkpointId: current.id,
-        allClear: checks.every((c) => c),
+        allClear: !anyIssue,
         checklistState: buildChecklistState(),
         comment: comment || undefined,
         screenshot,
@@ -490,85 +488,94 @@ function PatrolViewer({
           <button className="btn-secondary capture-btn" onClick={capture}>
             📷 Capture Frame
           </button>
-          {screenshotUrl && (
+          {screenshotUrl ? (
             <div className="capture-preview">
               <img src={screenshotUrl} alt="Captured" />
               <span>Screenshot captured</span>
             </div>
+          ) : (
+            <p className="capture-hint">
+              A screenshot is required before you can continue to the next
+              checkpoint.
+            </p>
           )}
         </div>
 
         <div className="check-panel">
           <h3>{current.checklistTemplate.name}</h3>
 
-          <div className="check-list">
-            {current.checklistTemplate.items.map((item, i) => (
-              <label key={item.id} className="check-item">
-                <input
-                  type="checkbox"
-                  checked={checks[i] ?? true}
-                  disabled={!issueMode}
-                  onChange={() => toggleCheck(i)}
-                />
-                <span className={checks[i] ? '' : 'check-failed'}>
-                  {item.label}
-                </span>
-              </label>
-            ))}
+          <div className="check-section">
+            <div className="check-section-label">Checklist</div>
+            <div className="check-list">
+              {current.checklistTemplate.items.map(
+                (item, i) =>
+                  !issues[i] && (
+                    <label key={item.id} className="check-item">
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => toggleIssue(i)}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ),
+              )}
+              {issues.every(Boolean) && (
+                <p className="check-empty">
+                  All items have been flagged below.
+                </p>
+              )}
+            </div>
           </div>
 
-          {error && <div className="patrol-error">{error}</div>}
-
-          {!issueMode ? (
-            <div className="check-actions">
-              <button
-                className="btn-issue"
-                onClick={() => {
-                  setIssueMode(true)
-                  setChecks(current.checklistTemplate.items.map(() => false))
-                }}
-                disabled={saving}
-              >
-                ⚠ Flag Issue
-              </button>
-            </div>
-          ) : (
-            <div className="issue-form">
-              <p className="issue-hint">
-                Tick each item you have verified. Leave failed items unchecked
-                and describe them below.
-              </p>
-              <label>
-                Comment {checks.some((c) => !c) ? '(required)' : '(optional)'}
-              </label>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Describe any issues found…"
-                rows={3}
-              />
-              <div className="check-actions">
-                <button
-                  className="btn-secondary"
-                  onClick={() => {
-                    setIssueMode(false)
-                    setChecks(current.checklistTemplate.items.map(() => true))
-                    setComment('')
-                  }}
-                  disabled={saving}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="btn-issue"
-                  onClick={saveIssue}
-                  disabled={saving}
-                >
-                  {saving ? 'Saving…' : 'Save & Continue'}
-                </button>
+          {issues.some(Boolean) && (
+            <div className="check-section check-section-issues">
+              <div className="check-section-label check-section-label-issue">
+                ⚠ Issues Found
+              </div>
+              <div className="check-list">
+                {current.checklistTemplate.items.map(
+                  (item, i) =>
+                    issues[i] && (
+                      <label key={item.id} className="check-item check-item-issue">
+                        <input
+                          type="checkbox"
+                          checked={true}
+                          onChange={() => toggleIssue(i)}
+                        />
+                        <span className="check-failed">{item.label}</span>
+                      </label>
+                    ),
+                )}
+              </div>
+              <div className="issue-comment">
+                <label>Comment (required)</label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  placeholder="Describe any issues found…"
+                  rows={3}
+                />
               </div>
             </div>
           )}
+
+          {error && <div className="patrol-error">{error}</div>}
+
+          <div className="check-actions">
+            <button
+              className="btn-primary"
+              onClick={saveCurrent}
+              disabled={saving || !screenshot}
+              title={!screenshot ? 'Capture a screenshot first' : undefined}
+            >
+              {saving
+                ? 'Saving…'
+                : index === checkpoints.length - 1
+                  ? '🏁 Save & Complete Patrol'
+                  : '✓ Save & Continue'}
+            </button>
+          </div>
 
           <div className="viewer-nav">
             <button
@@ -580,23 +587,7 @@ function PatrolViewer({
             <span>
               {index + 1} / {checkpoints.length}
             </span>
-            <button
-              onClick={() => setIndex(index + 1)}
-              disabled={index === checkpoints.length - 1 || saving}
-            >
-              Next →
-            </button>
           </div>
-
-          {index === checkpoints.length - 1 && (
-            <button
-              className="btn-primary complete-btn"
-              onClick={complete}
-              disabled={completing}
-            >
-              {completing ? 'Completing…' : '🏁 Complete Patrol'}
-            </button>
-          )}
         </div>
       </div>
     </div>

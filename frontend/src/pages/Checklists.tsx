@@ -1,9 +1,28 @@
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, GripVertical } from 'lucide-react'
 import type { ChecklistTemplate, ChecklistInput } from '../lib/checklists'
 import { checklistsApi } from '../lib/checklists'
 import './Checklists.css'
 import SearchableSelect from '../components/SearchableSelect'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent } from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+const MAX_ITEMS = 10
 
 type SortKey = 'name' | 'mostUsed' | 'newest'
 type UsageFilter = 'all' | 'used' | 'unused'
@@ -204,6 +223,7 @@ export default function Checklists() {
       {showForm && (
         <ChecklistModal
           template={editing}
+          allTemplates={templates}
           onClose={() => setShowForm(false)}
           onSaved={() => {
             setShowForm(false)
@@ -217,46 +237,89 @@ export default function Checklists() {
 
 function ChecklistModal({
   template,
+  allTemplates,
   onClose,
   onSaved,
 }: {
   template: ChecklistTemplate | null
+  allTemplates: ChecklistTemplate[]
   onClose: () => void
   onSaved: () => void
 }) {
+  const [duplicateFromId, setDuplicateFromId] = useState('')
   const [name, setName] = useState(template?.name ?? '')
   const [description, setDescription] = useState(template?.description ?? '')
   const [category, setCategory] = useState(template?.category ?? '')
-  const [items, setItems] = useState<string[]>(
-    template?.items.map((i) => i.label) ?? [''],
+  const [items, setItems] = useState<{ id: string; label: string }[]>(
+    template?.items.map((i) => ({
+      id: i.id ?? crypto.randomUUID(),
+      label: i.label,
+    })) ?? [{ id: crypto.randomUUID(), label: '' }],
   )
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const updateItem = (index: number, value: string) =>
-    setItems((arr) => arr.map((v, i) => (i === index ? value : v)))
+  const duplicateOptions = allTemplates
+    .filter((t) => t.id !== template?.id)
+    .map((t) => ({
+      value: t.id,
+      label: t.name,
+      sub: `${t.items.length} item${t.items.length === 1 ? '' : 's'}${
+        t.category ? ` · ${t.category}` : ''
+      }`,
+    }))
 
-  const addItem = () => setItems((arr) => [...arr, ''])
+  const applyDuplicate = (id: string) => {
+    setDuplicateFromId(id)
+    const source = allTemplates.find((t) => t.id === id)
+    if (!source) return
+    setName(`${source.name} (Copy)`)
+    setDescription(source.description ?? '')
+    setCategory(source.category ?? '')
+    setItems(
+      source.items.map((i) => ({
+        id: crypto.randomUUID(),
+        label: i.label,
+      })),
+    )
+  }
 
-  const removeItem = (index: number) =>
-    setItems((arr) => arr.filter((_, i) => i !== index))
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
 
-  const moveItem = (index: number, dir: -1 | 1) => {
+  const updateItem = (id: string, value: string) =>
+    setItems((arr) => arr.map((it) => (it.id === id ? { ...it, label: value } : it)))
+
+  const addItem = () =>
+    setItems((arr) =>
+      arr.length >= MAX_ITEMS ? arr : [...arr, { id: crypto.randomUUID(), label: '' }],
+    )
+
+  const removeItem = (id: string) =>
+    setItems((arr) => arr.filter((it) => it.id !== id))
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
     setItems((arr) => {
-      const next = [...arr]
-      const target = index + dir
-      if (target < 0 || target >= next.length) return next
-      ;[next[index], next[target]] = [next[target], next[index]]
-      return next
+      const oldIndex = arr.findIndex((it) => it.id === active.id)
+      const newIndex = arr.findIndex((it) => it.id === over.id)
+      return arrayMove(arr, oldIndex, newIndex)
     })
   }
 
   const submit = async () => {
     setError('')
     if (!name.trim()) return setError('Template name is required')
-    const cleaned = items.map((i) => i.trim()).filter((i) => i.length > 0)
+    const cleaned = items.map((i) => i.label.trim()).filter((i) => i.length > 0)
     if (cleaned.length === 0)
       return setError('Add at least one checklist item')
+    if (cleaned.length > MAX_ITEMS)
+      return setError(`A checklist can have at most ${MAX_ITEMS} items`)
 
     const payload: ChecklistInput = {
       name,
@@ -285,6 +348,18 @@ function ChecklistModal({
       <div className="modal cl-modal" onClick={(e) => e.stopPropagation()}>
         <h3>{template ? 'Edit Template' : 'New Template'}</h3>
 
+        {!template && duplicateOptions.length > 0 && (
+          <div className="cl-duplicate-field">
+            <label>Duplicate from existing checklist (optional)</label>
+            <SearchableSelect
+              value={duplicateFromId}
+              onChange={applyDuplicate}
+              placeholder="Start from scratch…"
+              options={duplicateOptions}
+            />
+          </div>
+        )}
+
         <label>Template Name</label>
         <input
           value={name}
@@ -305,38 +380,44 @@ function ChecklistModal({
           onChange={(e) => setDescription(e.target.value)}
         />
 
-        <label>Checklist Items</label>
-        <div className="cl-items">
-          {items.map((item, i) => (
-            <div key={i} className="cl-item-row">
-              <div className="cl-item-move">
-                <button onClick={() => moveItem(i, -1)} disabled={i === 0}>
-                  ▲
-                </button>
-                <button
-                  onClick={() => moveItem(i, 1)}
-                  disabled={i === items.length - 1}
-                >
-                  ▼
-                </button>
-              </div>
-              <input
-                value={item}
-                placeholder={`Item ${i + 1}`}
-                onChange={(e) => updateItem(i, e.target.value)}
-              />
-              <button
-                className="cl-item-remove"
-                onClick={() => removeItem(i)}
-                disabled={items.length === 1}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+        <div className="cl-items-head">
+          <label>Checklist Items</label>
+          <span className="cl-items-count">
+            {items.length}/{MAX_ITEMS}
+          </span>
         </div>
-        <button className="cl-add-item" onClick={addItem}>
-          + Add Item
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={items.map((i) => i.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="cl-items">
+              {items.map((item, i) => (
+                <SortableItemRow
+                  key={item.id}
+                  id={item.id}
+                  index={i}
+                  value={item.label}
+                  onChange={(v) => updateItem(item.id, v)}
+                  onRemove={() => removeItem(item.id)}
+                  disableRemove={items.length === 1}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+        <button
+          className="cl-add-item"
+          onClick={addItem}
+          disabled={items.length >= MAX_ITEMS}
+        >
+          {items.length >= MAX_ITEMS
+            ? `Maximum ${MAX_ITEMS} items`
+            : '+ Add Item'}
         </button>
 
         {error && <div className="modal-error">{error}</div>}
@@ -354,6 +435,66 @@ function ChecklistModal({
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+function SortableItemRow({
+  id,
+  index,
+  value,
+  onChange,
+  onRemove,
+  disableRemove,
+}: {
+  id: string
+  index: number
+  value: string
+  onChange: (value: string) => void
+  onRemove: () => void
+  disableRemove: boolean
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`cl-item-row${isDragging ? ' cl-item-row-dragging' : ''}`}
+    >
+      <button
+        type="button"
+        className="cl-item-handle"
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical size={16} />
+      </button>
+      <input
+        value={value}
+        placeholder={`Item ${index + 1}`}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        className="cl-item-remove"
+        onClick={onRemove}
+        disabled={disableRemove}
+      >
+        ✕
+      </button>
     </div>
   )
 }

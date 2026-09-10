@@ -208,6 +208,21 @@ export class PatrolService {
       )
     }
 
+    const existing = await this.prisma.checkpointResult.findUnique({
+      where: {
+        jobId_checkpointId: {
+          jobId,
+          checkpointId: data.checkpointId,
+        },
+      },
+    })
+
+    if (!data.screenshotPath && !existing?.screenshotPath) {
+      throw new BadRequestException(
+        'A screenshot is required for every checkpoint',
+      )
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const result = await tx.checkpointResult.upsert({
         where: {
@@ -228,7 +243,7 @@ export class PatrolService {
           allClear: data.allClear,
           checklistState: data.checklistState,
           comment: data.comment,
-          screenshotPath: data.screenshotPath,
+          screenshotPath: data.screenshotPath ?? existing?.screenshotPath,
         },
       })
 
@@ -281,6 +296,10 @@ export class PatrolService {
   async complete(operatorId: string, jobId: string) {
     const job = await this.prisma.patrolJob.findUnique({
       where: { id: jobId },
+      include: {
+        route: { include: { checkpoints: true } },
+        results: true,
+      },
     })
 
     if (!job) {
@@ -289,6 +308,16 @@ export class PatrolService {
 
     if (job.operatorId !== operatorId) {
       throw new ForbiddenException('Not your patrol job')
+    }
+
+    const resultCheckpointIds = new Set(job.results.map((r) => r.checkpointId))
+    const missing = job.route.checkpoints.filter(
+      (cp) => !resultCheckpointIds.has(cp.id),
+    )
+    if (missing.length > 0) {
+      throw new BadRequestException(
+        'Every checkpoint needs a saved result with a screenshot before the patrol can be completed',
+      )
     }
 
     return this.prisma.$transaction(async (tx) => {

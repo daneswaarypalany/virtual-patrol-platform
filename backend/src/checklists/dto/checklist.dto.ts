@@ -5,8 +5,11 @@
   IsArray,
   ValidateNested,
   ArrayMinSize,
+  ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export const MAX_CHECKLIST_ITEMS = 10;
 
 class ChecklistItemDto {
   @IsString()
@@ -29,6 +32,7 @@ export class CreateChecklistDto {
 
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_CHECKLIST_ITEMS)
   @ValidateNested({ each: true })
   @Type(() => ChecklistItemDto)
   items: ChecklistItemDto[];
@@ -49,6 +53,7 @@ export class UpdateChecklistDto {
 
   @IsOptional()
   @IsArray()
+  @ArrayMaxSize(MAX_CHECKLIST_ITEMS)
   @ValidateNested({ each: true })
   @Type(() => ChecklistItemDto)
   items?: ChecklistItemDto[];
