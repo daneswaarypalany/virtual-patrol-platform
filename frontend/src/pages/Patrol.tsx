@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import Hls from 'hls.js'
 import type {
   PatrolSite,
   PatrolRouteSummary,
@@ -258,6 +259,7 @@ function PatrolViewer({
   const [completing, setCompleting] = useState(false)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   useEffect(() => {
     setChecks(current.checklistTemplate.items.map(() => true))
@@ -268,25 +270,58 @@ function PatrolViewer({
     setError('')
   }, [index])
 
+  // Load HLS stream if this camera has one
+  useEffect(() => {
+    const video = videoRef.current
+    const url = current.camera.streamUrl
+    if (!video || !url) return
+
+    let hls: Hls | null = null
+    if (Hls.isSupported()) {
+      hls = new Hls()
+      hls.loadSource(url)
+      hls.attachMedia(video)
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().catch(() => {})
+      })
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url
+      video.play().catch(() => {})
+    }
+
+    return () => {
+      if (hls) hls.destroy()
+    }
+  }, [index])
+
   const captureBlob = (): Promise<Blob | null> => {
     return new Promise((resolve) => {
       const canvas = canvasRef.current
       if (!canvas) return resolve(null)
-      canvas.width = 640
-      canvas.height = 360
+      const video = videoRef.current
       const ctx = canvas.getContext('2d')
       if (!ctx) return resolve(null)
 
-      ctx.fillStyle = '#011f4b'
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      const hasStream =
+        !!current.camera.streamUrl && video && video.videoWidth > 0
 
-      ctx.fillStyle = '#b3cde0'
-      ctx.font = 'bold 40px sans-serif'
-      ctx.textAlign = 'center'
-      ctx.fillText(current.camera.name, canvas.width / 2, canvas.height / 2)
+      if (hasStream) {
+        canvas.width = video!.videoWidth
+        canvas.height = video!.videoHeight
+        ctx.drawImage(video!, 0, 0, canvas.width, canvas.height)
+      } else {
+        canvas.width = 640
+        canvas.height = 360
+        ctx.fillStyle = '#011f4b'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.fillStyle = '#b3cde0'
+        ctx.font = 'bold 40px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(current.camera.name, canvas.width / 2, canvas.height / 2)
+        ctx.textAlign = 'left'
+      }
 
-      ctx.textAlign = 'left'
-      ctx.fillStyle = 'rgba(255,255,255,0.15)'
+      ctx.fillStyle = 'rgba(1,31,75,0.7)'
       ctx.fillRect(0, canvas.height - 30, canvas.width, 30)
       ctx.fillStyle = '#fff'
       ctx.font = '14px sans-serif'
@@ -391,7 +426,17 @@ function PatrolViewer({
             <span>{current.camera.location || 'No location'}</span>
           </div>
           <div className="feed-frame">
-            <div className="feed-placeholder">{current.camera.name}</div>
+            {current.camera.streamUrl ? (
+              <video
+                ref={videoRef}
+                className="feed-video"
+                muted
+                playsInline
+                autoPlay
+              />
+            ) : (
+              <div className="feed-placeholder">{current.camera.name}</div>
+            )}
             <span className="feed-live">● LIVE</span>
           </div>
           <canvas ref={canvasRef} style={{ display: 'none' }} />

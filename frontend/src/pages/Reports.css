@@ -340,3 +340,169 @@
 .filter-select-w {
   min-width: 180px;
 }
+
+.time-range-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.time-range-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  align-self: center;
+  margin-right: 4px;
+}
+
+.time-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.time-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.time-field input {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+}
+
+.time-field input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+}
+
+.custom-range-panel {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(1, 31, 75, 0.05);
+}
+
+.range-section {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.range-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  align-self: center;
+  margin-right: 2px;
+  white-space: nowrap;
+}
+
+.range-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+}
+
+.date-range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.date-range-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* unified input style for both date + time — matches dropdowns */
+.range-input {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.7);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.range-input:hover {
+  border-color: var(--slate-blue);
+}
+
+.range-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+}
+
+.range-clear {
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--status-red);
+  cursor: pointer;
+  align-self: flex-end;
+}
+
+.range-clear:hover {
+  background: rgba(207, 91, 91, 0.06);
+}
+
+/* react-datepicker popup — match glass dropdown look */
+.react-datepicker {
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 32px rgba(1, 31, 75, 0.14) !important;
+  font-family: inherit !important;
+  overflow: hidden;
+}
+
+.react-datepicker__header {
+  background: var(--bg) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--in-range,
+.react-datepicker__day--keyboard-selected {
+  background: var(--navy) !important;
+  color: white !important;
+  border-radius: 8px !important;
+}
+
+.react-datepicker__day--in-selecting-range {
+  background: var(--sky) !important;
+}
+
+.react-datepicker__day:hover {
+  border-radius: 8px !important;
+}

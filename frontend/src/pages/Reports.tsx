@@ -5,8 +5,8 @@ import 'react-datepicker/dist/react-datepicker.css'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
-import './Reports.css'
 import SearchableSelect from '../components/SearchableSelect'
+import './Reports.css'
 
 type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
 type SortKey = 'newest' | 'oldest' | 'site'
@@ -22,6 +22,8 @@ export default function Reports() {
   const [view, setView] = useState<ViewMode>('list')
   const [fromDate, setFromDate] = useState<Date | null>(null)
   const [toDate, setToDate] = useState<Date | null>(null)
+  const [fromTime, setFromTime] = useState('')
+  const [toTime, setToTime] = useState('')
 
   useEffect(() => {
     patrolApi
@@ -38,7 +40,6 @@ export default function Reports() {
     [completed],
   )
 
-  // preset cutoff (for the non-custom presets)
   const cutoff = useMemo(() => {
     const now = new Date()
     if (datePreset === 'today') {
@@ -75,11 +76,12 @@ export default function Reports() {
         siteFilter === 'all' || j.route.site.name === siteFilter
 
       const when = j.completedAt ? new Date(j.completedAt) : null
+
+      // date filter (preset or custom range)
       let matchesDate = true
       if (datePreset === 'custom') {
         if (fromDate && when) matchesDate = when >= fromDate
         if (toDate && when && matchesDate) {
-          // include the whole 'to' day
           const end = new Date(toDate)
           end.setHours(23, 59, 59, 999)
           matchesDate = when <= end
@@ -88,7 +90,24 @@ export default function Reports() {
         matchesDate = !!when && when >= cutoff
       }
 
-      return matchesSearch && matchesSite && matchesDate
+      // time-of-day filter (only applies in custom mode where inputs show)
+      let matchesTime = true
+      if (datePreset === 'custom' && (fromTime || toTime) && when) {
+        const mins = when.getHours() * 60 + when.getMinutes()
+        const toMins = (t: string) => {
+          const [h, m] = t.split(':').map(Number)
+          return h * 60 + m
+        }
+        const start = fromTime ? toMins(fromTime) : 0
+        const end = toTime ? toMins(toTime) : 24 * 60
+        if (start <= end) {
+          matchesTime = mins >= start && mins <= end
+        } else {
+          matchesTime = mins >= start || mins <= end
+        }
+      }
+
+      return matchesSearch && matchesSite && matchesDate && matchesTime
     })
 
     list = [...list].sort((a, b) => {
@@ -100,7 +119,18 @@ export default function Reports() {
     })
 
     return list
-  }, [completed, search, siteFilter, cutoff, datePreset, fromDate, toDate, sortKey])
+  }, [
+    completed,
+    search,
+    siteFilter,
+    cutoff,
+    datePreset,
+    fromDate,
+    toDate,
+    fromTime,
+    toTime,
+    sortKey,
+  ])
 
   const fmt = (d: string | null) => (d ? new Date(d).toLocaleString() : '—')
   const openReport = (jobId: string) => {
@@ -144,7 +174,7 @@ export default function Reports() {
           ))}
         </div>
 
-         <div className="filter-selects">
+        <div className="filter-selects">
           <div className="filter-select-w">
             <SearchableSelect
               value={siteFilter}
@@ -174,43 +204,73 @@ export default function Reports() {
       </div>
 
       {datePreset === 'custom' && (
-        <div className="date-range-row">
-          <div className="date-range-field">
-            <label>From</label>
-            <DatePicker
-              selected={fromDate}
-              onChange={(d) => setFromDate(d)}
-              selectsStart
-              startDate={fromDate}
-              endDate={toDate}
-              placeholderText="Start date"
-              dateFormat="dd MMM yyyy"
-              className="date-input"
-            />
+        <div className="custom-range-panel">
+          <div className="range-section">
+            <span className="range-title">Date range</span>
+            <div className="date-range-field">
+              <label>From</label>
+              <DatePicker
+                selected={fromDate}
+                onChange={(d) => setFromDate(d)}
+                selectsStart
+                startDate={fromDate}
+                endDate={toDate}
+                placeholderText="Start date"
+                dateFormat="dd MMM yyyy"
+                className="range-input"
+              />
+            </div>
+            <div className="date-range-field">
+              <label>To</label>
+              <DatePicker
+                selected={toDate}
+                onChange={(d) => setToDate(d)}
+                selectsEnd
+                startDate={fromDate}
+                endDate={toDate}
+                minDate={fromDate ?? undefined}
+                placeholderText="End date"
+                dateFormat="dd MMM yyyy"
+                className="range-input"
+              />
+            </div>
           </div>
-          <div className="date-range-field">
-            <label>To</label>
-            <DatePicker
-              selected={toDate}
-              onChange={(d) => setToDate(d)}
-              selectsEnd
-              startDate={fromDate}
-              endDate={toDate}
-              minDate={fromDate ?? undefined}
-              placeholderText="End date"
-              dateFormat="dd MMM yyyy"
-              className="date-input"
-            />
+
+          <div className="range-divider" />
+
+          <div className="range-section">
+            <span className="range-title">Time of day</span>
+            <div className="date-range-field">
+              <label>From</label>
+              <input
+                type="time"
+                className="range-input"
+                value={fromTime}
+                onChange={(e) => setFromTime(e.target.value)}
+              />
+            </div>
+            <div className="date-range-field">
+              <label>To</label>
+              <input
+                type="time"
+                className="range-input"
+                value={toTime}
+                onChange={(e) => setToTime(e.target.value)}
+              />
+            </div>
           </div>
-          {(fromDate || toDate) && (
+
+          {(fromDate || toDate || fromTime || toTime) && (
             <button
-              className="date-clear"
+              className="range-clear"
               onClick={() => {
                 setFromDate(null)
                 setToDate(null)
+                setFromTime('')
+                setToTime('')
               }}
             >
-              Clear
+              Clear all
             </button>
           )}
         </div>

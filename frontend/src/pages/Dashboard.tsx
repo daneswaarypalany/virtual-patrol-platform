@@ -13,6 +13,8 @@ import type { DashboardData, TimelineItem } from '../lib/dashboard'
 import { dashboardApi } from '../lib/dashboard'
 import { patrolApi } from '../lib/patrol'
 import type { ActivePatrolItem } from '../lib/patrol'
+import { camerasApi } from '../lib/cameras'
+import type { Camera as CameraType } from '../lib/cameras'
 import { useAuth } from '../auth/AuthContext'
 import './Dashboard.css'
 
@@ -20,9 +22,13 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [popup, setPopup] = useState<null | 'issues' | 'active'>(null)
+  const [popup, setPopup] = useState<null | 'issues' | 'active' | 'cameras'>(
+    null,
+  )
   const [activeList, setActiveList] = useState<ActivePatrolItem[]>([])
   const [activeLoading, setActiveLoading] = useState(false)
+  const [cameraList, setCameraList] = useState<CameraType[]>([])
+  const [cameraLoading, setCameraLoading] = useState(false)
   const [tlFilter, setTlFilter] = useState<'all' | 'patrols' | 'issues'>('all')
 
   useEffect(() => {
@@ -42,6 +48,18 @@ export default function Dashboard() {
       setActiveList([])
     } finally {
       setActiveLoading(false)
+    }
+  }
+
+  const openCameras = async () => {
+    setPopup('cameras')
+    setCameraLoading(true)
+    try {
+      setCameraList(await camerasApi.list())
+    } catch {
+      setCameraList([])
+    } finally {
+      setCameraLoading(false)
     }
   }
 
@@ -95,8 +113,8 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="dash-stats">
-        {/* Cameras */}
-        <div className="dash-card">
+        {/* Cameras — clickable */}
+        <div className="dash-card dash-card-clickable" onClick={openCameras}>
           <div className="dash-card-top">
             <div className="dash-ico ico-blue">
               <Camera size={18} />
@@ -106,7 +124,7 @@ export default function Dashboard() {
             {loading ? '—' : s?.cameras ?? 0}
           </strong>
           <span className="dash-label">Cameras</span>
-          <span className="dash-sub">Across all sites</span>
+          <span className="dash-sub">Click to view by site</span>
         </div>
 
         {/* Active Patrols — infographic + clickable */}
@@ -329,6 +347,58 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cameras popup */}
+      {popup === 'cameras' && (
+        <div className="dash-popup-backdrop" onClick={() => setPopup(null)}>
+          <div className="dash-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="dash-popup-head">
+              <h3>
+                <Camera size={18} /> Cameras by Site
+              </h3>
+              <button onClick={() => setPopup(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="dash-popup-body">
+              {cameraLoading ? (
+                <p className="tl-empty">Loading…</p>
+              ) : cameraList.length === 0 ? (
+                <p className="tl-empty">No cameras yet.</p>
+              ) : (
+                (() => {
+                  const bySite = new Map<string, CameraType[]>()
+                  for (const c of cameraList) {
+                    const site = c.site?.name ?? 'Unassigned'
+                    if (!bySite.has(site)) bySite.set(site, [])
+                    bySite.get(site)!.push(c)
+                  }
+                  return Array.from(bySite.entries())
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([site, cams]) => (
+                      <div key={site} className="popup-cam-group">
+                        <div className="popup-cam-site">
+                          {site} <span>{cams.length}</span>
+                        </div>
+                        {cams.map((c) => (
+                          <div key={c.id} className="popup-cam">
+                            <Camera size={14} />
+                            <div>
+                              <strong>{c.name}</strong>
+                              <span>
+                                {c.cameraCode} · {c.location || 'No location'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ))
+                })()
               )}
             </div>
           </div>

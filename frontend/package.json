@@ -16,7 +16,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.102.2",
     "axios": "^1.19.0",
-    "hls.js": "^1.7.1",
+    "hls.js": "^1.7.2",
     "lucide-react": "^1.34.0",
     "react": "^19.2.8",
     "react-datepicker": "^9.1.0",
