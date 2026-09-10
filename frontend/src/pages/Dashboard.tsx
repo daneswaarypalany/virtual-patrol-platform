@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
-import type { DashboardData, TimelineItem } from '../lib/dashboard'
+import type { DashboardData, TimelineItem, IssueItem } from '../lib/dashboard'
 import { dashboardApi } from '../lib/dashboard'
 import { patrolApi } from '../lib/patrol'
 import type { ActivePatrolItem } from '../lib/patrol'
@@ -27,17 +27,50 @@ export default function Dashboard() {
   )
   const [activeList, setActiveList] = useState<ActivePatrolItem[]>([])
   const [activeLoading, setActiveLoading] = useState(false)
+  const [issueList, setIssueList] = useState<IssueItem[]>([])
+  const [issueLoading, setIssueLoading] = useState(false)
   const [cameraList, setCameraList] = useState<CameraType[]>([])
   const [cameraLoading, setCameraLoading] = useState(false)
   const [tlFilter, setTlFilter] = useState<'all' | 'patrols' | 'issues'>('all')
 
   useEffect(() => {
-    dashboardApi
-      .get()
-      .then(setData)
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    let cancelled = false
+
+    const load = (isInitial: boolean) => {
+      dashboardApi
+        .get()
+        .then((next) => {
+          if (!cancelled) setData(next)
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled && isInitial) setLoading(false)
+        })
+    }
+
+    load(true)
+    const interval = setInterval(() => load(false), 15000)
+    const onFocus = () => load(false)
+    window.addEventListener('focus', onFocus)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+      window.removeEventListener('focus', onFocus)
+    }
   }, [])
+
+  const openIssues = async () => {
+    setPopup('issues')
+    setIssueLoading(true)
+    try {
+      setIssueList(await dashboardApi.listIssues())
+    } catch {
+      setIssueList([])
+    } finally {
+      setIssueLoading(false)
+    }
+  }
 
   const openActive = async () => {
     setPopup('active')
@@ -78,13 +111,16 @@ export default function Dashboard() {
     t === 'issue' ? '⚠' : t === 'completed' ? '✓' : '▶'
 
   const s = data?.stats
-  const issueItems = data?.timeline.filter((t) => t.type === 'issue') ?? []
+
+  const ACTIVE_PATROLS_TOTAL = 50
+  const ISSUES_FLAGGED_TOTAL = 100
 
   const donut = [
     { name: 'Issues', value: s?.issuesFlagged ?? 0, color: '#cf5b5b' },
     {
       name: 'Clear',
-      value: Math.max(0, (s?.totalChecks ?? 0) - (s?.issuesFlagged ?? 0)) || 1,
+      value:
+        Math.max(0, ISSUES_FLAGGED_TOTAL - (s?.issuesFlagged ?? 0)) || 1,
       color: '#e5ecf3',
     },
   ]
@@ -93,7 +129,8 @@ export default function Dashboard() {
     { name: 'Active', value: s?.activePatrols ?? 0, color: '#2e9e6b' },
     {
       name: 'Idle',
-      value: Math.max(0, (s?.sites ?? 0) - (s?.activePatrols ?? 0)) || 1,
+      value:
+        Math.max(0, ACTIVE_PATROLS_TOTAL - (s?.activePatrols ?? 0)) || 1,
       color: '#e5ecf3',
     },
   ]
@@ -156,7 +193,7 @@ export default function Dashboard() {
           </div>
           <div className="dash-chart-info">
             <strong className="dash-value">
-              {loading ? '—' : `${s?.activePatrols ?? 0}/${s?.sites ?? 0}`}
+              {loading ? '—' : `${s?.activePatrols ?? 0}/${ACTIVE_PATROLS_TOTAL}`}
             </strong>
             <span className="dash-label">Active Patrols</span>
             <span className="dash-sub">Click to view details</span>
@@ -166,7 +203,7 @@ export default function Dashboard() {
         {/* Issues — infographic + clickable */}
         <div
           className="dash-card dash-card-clickable dash-card-chart"
-          onClick={() => setPopup('issues')}
+          onClick={openIssues}
         >
           <div className="dash-chart-ring">
             <ResponsiveContainer width="100%" height="100%">
@@ -192,7 +229,7 @@ export default function Dashboard() {
           </div>
           <div className="dash-chart-info">
             <strong className="dash-value">
-              {loading ? '—' : `${s?.issuesFlagged ?? 0}/${s?.totalChecks ?? 0}`}
+              {loading ? '—' : `${s?.issuesFlagged ?? 0}/${ISSUES_FLAGGED_TOTAL}`}
             </strong>
             <span className="dash-label">Issues Flagged</span>
             <span className="dash-sub">Click to view details</span>
@@ -289,18 +326,23 @@ export default function Dashboard() {
               </button>
             </div>
             <div className="dash-popup-body">
-              {issueItems.length === 0 ? (
+              {issueLoading ? (
+                <p className="tl-empty">Loading…</p>
+              ) : issueList.length === 0 ? (
                 <p className="tl-empty">No flagged issues.</p>
               ) : (
-                issueItems.map((it, i) => (
-                  <div key={i} className="popup-issue">
+                issueList.map((it) => (
+                  <div key={it.id} className="popup-issue">
                     <AlertTriangle size={15} />
                     <div>
-                      <strong>{it.detail.split(' — ')[0]}</strong>
-                      {it.detail.includes(' — ') && (
-                        <span>{it.detail.split(' — ')[1]}</span>
-                      )}
-                      <span className="popup-issue-time">{fmt(it.at)}</span>
+                      <strong>{it.checkpoint.camera.name}</strong>
+                      <span>
+                        {it.job.route.site.name} · {it.job.operator.fullName}
+                        {it.comment ? ` — ${it.comment}` : ''}
+                      </span>
+                      <span className="popup-issue-time">
+                        {fmt(it.completedAt)}
+                      </span>
                     </div>
                   </div>
                 ))

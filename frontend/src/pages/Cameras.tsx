@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
-import { Search, Camera as CamIcon, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import Hls from 'hls.js'
+import { Search, Camera as CamIcon, X, Video } from 'lucide-react'
 import type { Camera, CameraInput } from '../lib/cameras'
 import { camerasApi } from '../lib/cameras'
+import { api } from '../lib/api'
 import type { Site } from '../lib/sites'
 import { sitesApi } from '../lib/sites'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
@@ -257,6 +259,7 @@ function CameraForm({
   })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [showLive, setShowLive] = useState(false)
 
   const update = (field: keyof CameraInput, value: string) =>
     setForm((f) => ({ ...f, [field]: value }))
@@ -323,6 +326,20 @@ function CameraForm({
           to set up your own streaming server first.
         </span>
 
+        {camera && form.streamUrl.trim() ? (
+          <button
+            type="button"
+            className="btn-secondary cam-view-live-btn"
+            onClick={() => setShowLive(true)}
+          >
+            <Video size={15} /> View Live
+          </button>
+        ) : form.streamUrl.trim() ? (
+          <span className="field-hint">
+            Save the camera first to preview its live feed.
+          </span>
+        ) : null}
+
         {error && <div className="modal-error">{error}</div>}
 
         <div className="modal-actions">
@@ -332,6 +349,97 @@ function CameraForm({
           <button className="btn-primary" onClick={submit} disabled={submitting}>
             {submitting ? 'Saving…' : camera ? 'Save' : 'Create'}
           </button>
+        </div>
+      </div>
+
+      {showLive && camera && (
+        <CameraLiveView camera={camera} onClose={() => setShowLive(false)} />
+      )}
+    </div>
+  )
+}
+
+function CameraLiveView({
+  camera,
+  onClose,
+}: {
+  camera: Camera
+  onClose: () => void
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [connecting, setConnecting] = useState(true)
+  const [streamError, setStreamError] = useState('')
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    let hls: Hls | null = null
+    let cancelled = false
+    setConnecting(true)
+    setStreamError('')
+
+    camerasApi
+      .getStreamUrl(camera.id)
+      .then(({ url, mode }) => {
+        if (cancelled || !videoRef.current) return
+        const playUrl = mode === 'proxy' ? `${api.defaults.baseURL}${url}` : url
+
+        if (Hls.isSupported()) {
+          hls = new Hls()
+          hls.loadSource(playUrl)
+          hls.attachMedia(video)
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            setConnecting(false)
+            video.play().catch(() => {})
+          })
+          hls.on(Hls.Events.ERROR, (_evt, data) => {
+            if (data.fatal) {
+              setConnecting(false)
+              setStreamError('Lost connection to camera stream')
+            }
+          })
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = playUrl
+          video.play().catch(() => {})
+          setConnecting(false)
+        } else {
+          setConnecting(false)
+          setStreamError('This browser cannot play the camera stream')
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setConnecting(false)
+        setStreamError(
+          err?.response?.data?.message || 'Could not connect to camera stream',
+        )
+      })
+
+    return () => {
+      cancelled = true
+      if (hls) hls.destroy()
+    }
+  }, [camera.id])
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal cam-live-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="cam-live-head">
+          <h3>{camera.name}</h3>
+          <button className="cam-popup-close" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="feed-frame">
+          <video ref={videoRef} className="feed-video" muted playsInline autoPlay />
+          {connecting && (
+            <div className="feed-placeholder">Connecting to camera…</div>
+          )}
+          {streamError && !connecting && (
+            <div className="feed-placeholder">{streamError}</div>
+          )}
+          <span className="feed-live">● LIVE</span>
         </div>
       </div>
     </div>

@@ -324,9 +324,18 @@ export class PatrolService {
     return { discarded: true }
   }
 
-  async listActivePatrols() {
+  async listActivePatrols(user: { id: string; role: string }) {
+    let where: any = { status: { in: ['IN_PROGRESS', 'DRAFT'] } }
+    if (user.role === 'OPERATOR') {
+      where = { ...where, operatorId: user.id }
+    } else if (user.role === 'VIEWER') {
+      const siteIds = await this.assignedSiteIds(user.id)
+      where = { ...where, route: { siteId: { in: siteIds } } }
+    }
+    // ADMIN → sees all active/draft patrols
+
     return this.prisma.patrolJob.findMany({
-      where: { status: { in: ['IN_PROGRESS', 'DRAFT'] } },
+      where,
       orderBy: { lastActivityAt: 'desc' },
       include: {
         operator: { select: { fullName: true, username: true } },

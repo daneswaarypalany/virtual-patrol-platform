@@ -128,4 +128,25 @@ export class DashboardService {
       timeline,
     };
   }
+
+  async getIssues(user: { id: string; role: string }) {
+    const isAdmin = user.role === "ADMIN";
+
+    return this.prisma.checkpointResult.findMany({
+      where: {
+        allClear: false,
+        job: isAdmin ? {} : { operatorId: user.id },
+      },
+      orderBy: { completedAt: "desc" },
+      include: {
+        checkpoint: { include: { camera: { select: { name: true } } } },
+        job: {
+          include: {
+            route: { include: { site: { select: { name: true } } } },
+            operator: { select: { fullName: true } },
+          },
+        },
+      },
+    });
+  }
 }

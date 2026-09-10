@@ -13,12 +13,19 @@
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
-import { extname } from "path";
+import { extname, join } from "path";
+import { mkdirSync } from "fs";
 import type { Request, Response } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PatrolService } from "./patrol.service";
 import { StartPatrolDto } from "./dto/start-patrol.dto";
 import { SaveCheckpointDto } from "./dto/checkpoint-result.dto";
+
+// Resolved relative to process.cwd() -- matches main.ts's static file root
+// and the report generator's file reads (patrol.service.ts), so uploads,
+// serving, and report embedding all agree on the same "uploads" folder.
+const SCREENSHOTS_DIR = join(process.cwd(), "uploads", "screenshots");
+mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
 @Controller("patrol")
 @UseGuards(JwtAuthGuard)
@@ -34,8 +41,7 @@ export class PatrolController {
 
   @Get("active")
   listActive(@Req() req: Request) {
-    if ((req.user as any).role !== "ADMIN") return [];
-    return this.patrolService.listActivePatrols();
+    return this.patrolService.listActivePatrols(req.user as any);
   }
 
   @Get("my-sites")
@@ -86,7 +92,7 @@ export class PatrolController {
   @UseInterceptors(
     FileInterceptor("screenshot", {
       storage: diskStorage({
-        destination: "./uploads/screenshots",
+        destination: SCREENSHOTS_DIR,
         filename: (_req, file, cb) => {
           const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
           cb(null, unique + extname(file.originalname || ".png"));

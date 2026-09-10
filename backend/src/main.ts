@@ -19,7 +19,13 @@ async function bootstrap() {
     credentials: true,
   });
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads' });
+  // Resolved relative to process.cwd() (the directory you run the backend
+  // from, e.g. "backend/") rather than __dirname -- this matches the same
+  // approach already used successfully in patrol.service.ts when embedding
+  // screenshots into generated PDF reports, and avoids depending on the
+  // compiled output folder depth (which shifts depending on what else gets
+  // picked up by the TypeScript build, e.g. prisma.config.ts living next to src/).
+  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   // Live HLS playlists/segments generated on the fly from camera RTSP links
   // (see StreamsService). No-cache so players always see fresh segments.
   app.useStaticAssets(join(process.cwd(), 'streams'), {

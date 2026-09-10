@@ -11,9 +11,27 @@ import { UpdateCameraDto } from "./dto/update-camera.dto";
 export class CamerasService {
   constructor(private prisma: PrismaService) {}
 
-  findAll(siteId?: string) {
+  async findAll(user: { id: string; role: string }, siteId?: string) {
+    let allowedSiteIds: string[] | null = null;
+    if (user.role !== "ADMIN") {
+      const assignments = await this.prisma.operatorSiteAssignment.findMany({
+        where: { userId: user.id },
+        select: { siteId: true },
+      });
+      allowedSiteIds = assignments.map((a) => a.siteId);
+    }
+
+    let where: any = undefined;
+    if (siteId && allowedSiteIds) {
+      where = allowedSiteIds.includes(siteId) ? { siteId } : { siteId: "" };
+    } else if (siteId) {
+      where = { siteId };
+    } else if (allowedSiteIds) {
+      where = { siteId: { in: allowedSiteIds } };
+    }
+
     return this.prisma.camera.findMany({
-      where: siteId ? { siteId } : undefined,
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         site: { select: { id: true, name: true } },

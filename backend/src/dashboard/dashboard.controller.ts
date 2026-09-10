@@ -12,4 +12,9 @@ export class DashboardController {
   get(@Req() req: Request) {
     return this.dashboardService.getData(req.user as any);
   }
+
+  @Get("issues")
+  getIssues(@Req() req: Request) {
+    return this.dashboardService.getIssues(req.user as any);
+  }
 }

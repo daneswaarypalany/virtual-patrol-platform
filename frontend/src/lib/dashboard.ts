@@ -21,6 +21,19 @@ export interface DashboardData {
   timeline: TimelineItem[]
 }
 
+export interface IssueItem {
+  id: string
+  comment: string | null
+  completedAt: string
+  checkpoint: { camera: { name: string } }
+  job: {
+    route: { site: { name: string } }
+    operator: { fullName: string }
+  }
+}
+
 export const dashboardApi = {
   get: () => api.get<DashboardData>('/dashboard').then((r) => r.data),
+  listIssues: () =>
+    api.get<IssueItem[]>('/dashboard/issues').then((r) => r.data),
 }

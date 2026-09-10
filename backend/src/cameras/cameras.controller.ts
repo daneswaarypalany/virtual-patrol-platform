@@ -7,8 +7,10 @@ import {
   Body,
   Param,
   Query,
+  Req,
   UseGuards,
 } from "@nestjs/common";
+import type { Request } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RolesGuard } from "../auth/guards/roles.guard";
 import { Roles } from "../auth/decorators/roles.decorator";
@@ -23,8 +25,9 @@ export class CamerasController {
   constructor(private camerasService: CamerasService) {}
 
   @Get()
-  findAll(@Query("siteId") siteId?: string) {
-    return this.camerasService.findAll(siteId);
+  @Roles("ADMIN", "OPERATOR", "VIEWER")
+  findAll(@Req() req: Request, @Query("siteId") siteId?: string) {
+    return this.camerasService.findAll(req.user as any, siteId);
   }
 
   @Post()
