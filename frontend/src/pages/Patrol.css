@@ -593,6 +593,18 @@
   background: var(--navy);
 }
 
+/* When overlaying a connecting/error message on top of a <video>, sit above
+   it instead of stacking in normal flow, and use a readable text size. */
+.feed-frame .feed-video + .feed-placeholder {
+  position: absolute;
+  inset: 0;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  padding: 16px;
+  background: rgba(8, 27, 44, 0.75);
+}
+
 .resume-backdrop {
   position: fixed;
   inset: 0;

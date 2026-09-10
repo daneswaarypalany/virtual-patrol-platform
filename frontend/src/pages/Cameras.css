@@ -361,6 +361,14 @@
   border-color: var(--blue);
 }
 
+.field-hint {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 .modal-error {
   background: rgba(207, 91, 91, 0.15);
   color: var(--status-red);

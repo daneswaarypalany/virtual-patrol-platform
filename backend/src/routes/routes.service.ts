@@ -57,27 +57,70 @@ export class RoutesService {
   async update(id: string, dto: UpdateRouteDto) {
     await this.findOne(id);
 
-    if (dto.checkpoints) {
-      await this.prisma.routeCheckpoint.deleteMany({ where: { routeId: id } });
-    }
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.checkpoints) {
+        const existing = await tx.routeCheckpoint.findMany({
+          where: { routeId: id },
+          orderBy: { orderIndex: 'asc' },
+        });
+        const incoming = dto.checkpoints;
 
-    return this.prisma.route.update({
-      where: { id },
-      data: {
-        name: dto.name,
-        description: dto.description,
-        estimatedMinutes: dto.estimatedMinutes,
-        ...(dto.checkpoints && {
-          checkpoints: {
-            create: dto.checkpoints.map((cp, i) => ({
+        // Reuse existing checkpoint rows in place (by position) instead of
+        // deleting and recreating them, so any patrol history
+        // (CheckpointResult) already attached to a checkpoint stays valid.
+        const keepCount = Math.min(existing.length, incoming.length);
+        for (let i = 0; i < keepCount; i++) {
+          await tx.routeCheckpoint.update({
+            where: { id: existing[i].id },
+            data: {
               orderIndex: i,
+              cameraId: incoming[i].cameraId,
+              checklistTemplateId: incoming[i].checklistTemplateId,
+            },
+          });
+        }
+
+        // More checkpoints than before: create the extra ones.
+        if (incoming.length > existing.length) {
+          await tx.routeCheckpoint.createMany({
+            data: incoming.slice(existing.length).map((cp, idx) => ({
+              routeId: id,
+              orderIndex: existing.length + idx,
               cameraId: cp.cameraId,
               checklistTemplateId: cp.checklistTemplateId,
             })),
-          },
-        }),
-      },
-      include: routeInclude,
+          });
+        }
+
+        // Fewer checkpoints than before: only remove the extra ones if they
+        // have no patrol history yet -- deleting one that does would violate
+        // the CheckpointResult foreign key and break the whole save.
+        if (incoming.length < existing.length) {
+          const toRemove = existing.slice(incoming.length);
+          const toRemoveIds = toRemove.map((cp) => cp.id);
+          const historyCount = await tx.checkpointResult.count({
+            where: { checkpointId: { in: toRemoveIds } },
+          });
+          if (historyCount > 0) {
+            throw new BadRequestException(
+              'One or more removed checkpoints already have patrol history and cannot be deleted. Keep the same number of checkpoints, or move the ones with history to the end instead of removing them.',
+            );
+          }
+          await tx.routeCheckpoint.deleteMany({
+            where: { id: { in: toRemoveIds } },
+          });
+        }
+      }
+
+      return tx.route.update({
+        where: { id },
+        data: {
+          name: dto.name,
+          description: dto.description,
+          estimatedMinutes: dto.estimatedMinutes,
+        },
+        include: routeInclude,
+      });
     });
   }
 

@@ -7,6 +7,8 @@ import type {
   PatrolCheckpoint,
 } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
+import { camerasApi } from '../lib/cameras'
+import { api } from '../lib/api'
 import SearchableSelect from '../components/SearchableSelect'
 import './Patrol.css'
 
@@ -260,6 +262,8 @@ function PatrolViewer({
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const [streamError, setStreamError] = useState('')
+  const [connecting, setConnecting] = useState(false)
 
   useEffect(() => {
     setChecks(current.checklistTemplate.items.map(() => true))
@@ -270,26 +274,60 @@ function PatrolViewer({
     setError('')
   }, [index])
 
-  // Load HLS stream if this camera has one
+  // Load the camera's stream, if it has one. The admin just enters the
+  // camera's rtsp:// link (or an existing http(s) HLS url) -- the backend
+  // resolves that into a playable HLS url, transcoding rtsp on the fly.
   useEffect(() => {
     const video = videoRef.current
-    const url = current.camera.streamUrl
-    if (!video || !url) return
+    const streamUrl = current.camera.streamUrl
+    if (!video || !streamUrl) return
 
     let hls: Hls | null = null
-    if (Hls.isSupported()) {
-      hls = new Hls()
-      hls.loadSource(url)
-      hls.attachMedia(video)
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => {})
+    let cancelled = false
+    setStreamError('')
+    setConnecting(true)
+
+    camerasApi
+      .getStreamUrl(current.camera.id)
+      .then(({ url, mode }) => {
+        if (cancelled || !videoRef.current) return
+        // Relative "/streams/..." urls come from our own backend; direct
+        // http(s) urls (already HLS/MJPEG) are used as-is.
+        const playUrl = mode === 'proxy' ? `${api.defaults.baseURL}${url}` : url
+
+        if (Hls.isSupported()) {
+          hls = new Hls()
+          hls.loadSource(playUrl)
+          hls.attachMedia(video)
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            setConnecting(false)
+            video.play().catch(() => {})
+          })
+          hls.on(Hls.Events.ERROR, (_evt, data) => {
+            if (data.fatal) {
+              setConnecting(false)
+              setStreamError('Lost connection to camera stream')
+            }
+          })
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = playUrl
+          video.play().catch(() => {})
+          setConnecting(false)
+        } else {
+          setConnecting(false)
+          setStreamError('This browser cannot play the camera stream')
+        }
       })
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = url
-      video.play().catch(() => {})
-    }
+      .catch((err) => {
+        if (cancelled) return
+        setConnecting(false)
+        setStreamError(
+          err?.response?.data?.message || 'Could not connect to camera stream',
+        )
+      })
 
     return () => {
+      cancelled = true
       if (hls) hls.destroy()
     }
   }, [index])
@@ -427,13 +465,21 @@ function PatrolViewer({
           </div>
           <div className="feed-frame">
             {current.camera.streamUrl ? (
-              <video
-                ref={videoRef}
-                className="feed-video"
-                muted
-                playsInline
-                autoPlay
-              />
+              <>
+                <video
+                  ref={videoRef}
+                  className="feed-video"
+                  muted
+                  playsInline
+                  autoPlay
+                />
+                {connecting && (
+                  <div className="feed-placeholder">Connecting to camera…</div>
+                )}
+                {streamError && !connecting && (
+                  <div className="feed-placeholder">{streamError}</div>
+                )}
+              </>
             ) : (
               <div className="feed-placeholder">{current.camera.name}</div>
             )}

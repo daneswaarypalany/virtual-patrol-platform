@@ -11,6 +11,7 @@ import { RoutesModule } from './routes/routes.module';
 import { CamerasModule } from './cameras/cameras.module';
 import { PatrolModule } from './patrol/patrol.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { StreamsModule } from './streams/streams.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     CamerasModule,
     PatrolModule,
     DashboardModule,
+    StreamsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

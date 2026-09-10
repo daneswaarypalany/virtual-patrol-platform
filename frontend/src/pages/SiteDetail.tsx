@@ -385,8 +385,12 @@ function CameraForm({
         <input
           value={form.streamUrl}
           onChange={(e) => update('streamUrl', e.target.value)}
-          placeholder="e.g. http://localhost:8888/cam1/index.m3u8"
+          placeholder="e.g. rtsp://admin:password@192.168.1.64:554/stream1"
         />
+        <span className="field-hint">
+          Paste the camera's RTSP link straight from its manual/app — no need
+          to set up your own streaming server first.
+        </span>
 
         {error && <div className="modal-error">{error}</div>}
 
