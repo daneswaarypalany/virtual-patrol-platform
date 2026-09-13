@@ -1,10 +1,9 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { FileText, Download, Eye } from 'lucide-react'
+import { FileText, Download, X, FileArchive, FileStack } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
-import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import SearchableSelect from '../components/SearchableSelect'
 import TimeWheelPicker from '../components/TimeWheelPicker'
 import './Reports.css'
@@ -26,13 +25,15 @@ export default function Reports() {
   const [siteFilter, setSiteFilter] = useState('all')
   const [datePreset, setDatePreset] = useState<DatePreset>('all')
   const [sortKey, setSortKey] = useState<SortKey>('newest')
-  const [view, setView] = useState<ViewMode>('list')
   const [fromDate, setFromDate] = useState<Date | null>(null)
   const [toDate, setToDate] = useState<Date | null>(null)
   const [fromTime, setFromTime] = useState('')
   const [toTime, setToTime] = useState('')
   const [panelOpen, setPanelOpen] = useState(false)
   const panelWrapRef = useRef<HTMLDivElement>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [downloading, setDownloading] = useState<'pdf' | 'zip' | null>(null)
+  const [downloadError, setDownloadError] = useState('')
 
   useEffect(() => {
     patrolApi
@@ -81,6 +82,32 @@ export default function Reports() {
     setFromTime('')
     setToTime('')
     setPanelOpen(true)
+  }
+
+  // for the week/month/year presets, picking a start date auto-fills the
+  // end date that many days/months/years later, so the user only has to
+  // pick one date instead of manually working out the range
+  const computePresetEnd = (start: Date, preset: DatePreset) => {
+    const end = new Date(start)
+    if (preset === 'week') {
+      end.setDate(end.getDate() + 6)
+    } else if (preset === 'month') {
+      end.setMonth(end.getMonth() + 1)
+      end.setDate(end.getDate() - 1)
+    } else if (preset === 'year') {
+      end.setFullYear(end.getFullYear() + 1)
+      end.setDate(end.getDate() - 1)
+    }
+    return end
+  }
+
+  const handleFromDateChange = (d: Date | null) => {
+    setFromDate(d)
+    if (d && (datePreset === 'week' || datePreset === 'month' || datePreset === 'year')) {
+      setToDate(computePresetEnd(d, datePreset))
+    } else if (!d) {
+      setToDate(null)
+    }
   }
 
   // close the refine panel on outside click, but not on clicks within the
@@ -171,6 +198,55 @@ export default function Reports() {
     window.open(patrolApi.reportUrl(jobId), '_blank')
   }
 
+  const toggleSelected = (jobId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(jobId)) next.delete(jobId)
+      else next.add(jobId)
+      return next
+    })
+  }
+
+  const allFilteredSelected =
+    filtered.length > 0 && filtered.every((j) => selected.has(j.id))
+
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      if (allFilteredSelected) {
+        // only clear the ones currently visible under the active filters
+        const next = new Set(prev)
+        filtered.forEach((j) => next.delete(j.id))
+        return next
+      }
+      const next = new Set(prev)
+      filtered.forEach((j) => next.add(j.id))
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelected(new Set())
+
+  const downloadSelected = async (format: 'pdf' | 'zip') => {
+    if (selected.size === 0) return
+    setDownloading(format)
+    setDownloadError('')
+    try {
+      const blob = await patrolApi.bulkReport(Array.from(selected), format)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `patrol-reports-${Date.now()}.${format === 'pdf' ? 'pdf' : 'zip'}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      setDownloadError('Failed to download reports. Please try again.')
+    } finally {
+      setDownloading(null)
+    }
+  }
+
   const presets: { key: DatePreset; label: string }[] = [
     { key: 'all', label: 'All time' },
     { key: 'today', label: 'Today' },
@@ -190,11 +266,11 @@ export default function Reports() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <div className="toolbar-right">
-          <ViewToggle mode={view} onChange={setView} />
           <p className="reports-count">{filtered.length} reports</p>
         </div>
       </div>
 
+      <div className="reports-controls-row">
       <div className="date-presets-wrap" ref={panelWrapRef}>
         <div className="date-presets">
           {presets.map((p) => (
@@ -218,7 +294,7 @@ export default function Reports() {
                     <label>From</label>
                     <DatePicker
                       selected={fromDate}
-                      onChange={(d) => setFromDate(d)}
+                      onChange={handleFromDateChange}
                       selectsStart
                       startDate={fromDate}
                       endDate={toDate}
@@ -231,7 +307,14 @@ export default function Reports() {
                     />
                   </div>
                   <div className="date-range-field">
-                    <label>To</label>
+                    <label>
+                      To
+                      {(datePreset === 'week' ||
+                        datePreset === 'month' ||
+                        datePreset === 'year') && (
+                        <span className="range-auto-hint"> (auto)</span>
+                      )}
+                    </label>
                     <DatePicker
                       selected={toDate}
                       onChange={(d) => setToDate(d)}
@@ -348,8 +431,41 @@ export default function Reports() {
           </div>
         </div>
       </div>
+      </div>
 
       {error && <div className="reports-error">{error}</div>}
+      {downloadError && <div className="reports-error">{downloadError}</div>}
+
+      {selected.size > 0 && (
+        <div className="reports-selection-bar">
+          <span>{selected.size} selected</span>
+          <div className="reports-selection-actions">
+            <button
+              className="selection-clear"
+              onClick={clearSelection}
+              disabled={downloading !== null}
+            >
+              <X size={14} /> Clear
+            </button>
+            <button
+              className="selection-download"
+              onClick={() => downloadSelected('zip')}
+              disabled={downloading !== null}
+            >
+              <FileArchive size={14} />
+              {downloading === 'zip' ? 'Zipping…' : 'Download as ZIP'}
+            </button>
+            <button
+              className="selection-download primary"
+              onClick={() => downloadSelected('pdf')}
+              disabled={downloading !== null}
+            >
+              <FileStack size={14} />
+              {downloading === 'pdf' ? 'Merging…' : 'Download as one PDF'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="reports-loading">Loading…</p>
@@ -362,60 +478,66 @@ export default function Reports() {
         <div className="reports-empty">
           <p>No reports match your filters.</p>
         </div>
-      ) : view === 'list' ? (
+      ) : (
         <div className="reports-table-wrap">
           <table className="reports-table">
             <thead>
               <tr>
+                <th className="report-select-col">
+                  <input
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all reports"
+                  />
+                </th>
                 <th>Route</th>
                 <th>Site</th>
                 <th>Operator</th>
                 <th>Completed</th>
                 <th>Checkpoints</th>
-                <th>Actions</th>
+                <th>Download</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((j) => (
-                <tr key={j.id}>
+                <tr
+                  key={j.id}
+                  className={selected.has(j.id) ? 'row-selected' : ''}
+                  onClick={() => openReport(j.id)}
+                >
+                  <td
+                    className="report-select-col"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(j.id)}
+                      onChange={() => toggleSelected(j.id)}
+                      aria-label={`Select report for ${j.route.name}`}
+                    />
+                  </td>
                   <td className="report-route">{j.route.name}</td>
                   <td>{j.route.site.name}</td>
                   <td>{j.operator.fullName}</td>
                   <td>{fmt(j.completedAt)}</td>
                   <td>{j._count.results}</td>
-                  <td className="report-actions">
-                    <button onClick={() => openReport(j.id)}>
-                      <Eye size={14} /> View
-                    </button>
-                    <a href={patrolApi.reportUrl(j.id)} download className="report-download"><Download size={14} /> PDF</a>
+                  <td
+                    className="report-actions"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <a
+                      href={patrolApi.reportUrl(j.id)}
+                      download
+                      className="report-download"
+                    >
+                      <Download size={14} /> PDF
+                    </a>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      ) : (
-        <div className="reports-grid">
-          {filtered.map((j) => (
-            <div key={j.id} className="report-card">
-              <div className="report-card-head">
-                <FileText size={18} className="report-card-icon" />
-                <strong>{j.route.name}</strong>
-              </div>
-              <p className="report-card-site">{j.route.site.name}</p>
-              <div className="report-card-meta">
-                <span>{j.operator.fullName}</span>
-                <span>{fmt(j.completedAt)}</span>
-                <span>{j._count.results} checkpoints</span>
-              </div>
-              <div className="report-card-actions">
-                <button onClick={() => openReport(j.id)}>
-                  <Eye size={14} /> View
-                </button>
-                <a href={patrolApi.reportUrl(j.id)} download className="report-download"><Download size={14} /> PDF</a>
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>

@@ -9,7 +9,9 @@ import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import * as fs from 'fs'
 import { join } from 'path'
-import puppeteer from 'puppeteer'
+import puppeteer, { Browser } from 'puppeteer'
+import { PDFDocument } from 'pdf-lib'
+import { ZipArchive } from 'archiver'
 
 @Injectable()
 export class PatrolService {
@@ -363,15 +365,59 @@ export class PatrolService {
     }
     // ADMIN → sees all active/draft patrols
 
-    return this.prisma.patrolJob.findMany({
+    const jobs = await this.prisma.patrolJob.findMany({
       where,
       orderBy: { lastActivityAt: 'desc' },
       include: {
         operator: { select: { fullName: true, username: true } },
-        route: { include: { site: { select: { name: true } } } },
+        route: {
+          include: {
+            site: { select: { name: true } },
+            checkpoints: {
+              orderBy: { orderIndex: 'asc' },
+              include: { camera: { select: { name: true } } },
+            },
+          },
+        },
         activePatrol: true,
+        results: {
+          orderBy: { completedAt: 'desc' },
+          include: { checkpoint: { include: { camera: { select: { name: true } } } } },
+        },
         _count: { select: { results: true } },
       },
+    })
+
+    return jobs.map((job) => {
+      const totalCheckpoints = job.route.checkpoints.length
+      const doneIds = new Set(job.results.map((r) => r.checkpointId))
+      const lastResult = job.results[0] ?? null
+      const nextCheckpoint =
+        job.route.checkpoints.find((cp) => !doneIds.has(cp.id)) ?? null
+
+      const { results, route, ...rest } = job
+      return {
+        ...rest,
+        route: {
+          name: route.name,
+          site: route.site,
+        },
+        totalCheckpoints,
+        lastCheckpoint: lastResult
+          ? {
+              name: lastResult.checkpoint.camera.name,
+              orderIndex: lastResult.checkpoint.orderIndex,
+              allClear: lastResult.allClear,
+              completedAt: lastResult.completedAt,
+            }
+          : null,
+        nextCheckpoint: nextCheckpoint
+          ? {
+              name: nextCheckpoint.camera.name,
+              orderIndex: nextCheckpoint.orderIndex,
+            }
+          : null,
+      }
     })
   }
 
@@ -413,6 +459,119 @@ export class PatrolService {
   }
 
   async generateReport(user: { id: string; role: string }, jobId: string) {
+    const job = await this.fetchJobForReport(user, jobId)
+    const html = this.buildReportHtml(job)
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+    try {
+      return await this.renderHtmlToPdf(browser, html)
+    } finally {
+      await browser.close()
+    }
+  }
+
+  // Generates multiple reports and packages them together, either as one
+  // merged PDF (in the same order as jobIds) or a zip of individual PDFs.
+  async generateBulkReport(
+    user: { id: string; role: string },
+    jobIds: string[],
+    format: 'pdf' | 'zip',
+  ) {
+    // dedupe while preserving the order the caller asked for
+    const uniqueIds = Array.from(new Set(jobIds))
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+
+    try {
+      const reports: { jobId: string; fileName: string; pdf: Buffer }[] = []
+
+      for (const jobId of uniqueIds) {
+        const job = await this.fetchJobForReport(user, jobId)
+        const html = this.buildReportHtml(job)
+        const pdf = await this.renderHtmlToPdf(browser, html)
+        const safeRoute = job.route.name.replace(/[^a-z0-9-_]+/gi, '_')
+        const dateStamp = job.completedAt
+          ? new Date(job.completedAt).toISOString().slice(0, 10)
+          : 'undated'
+        reports.push({
+          jobId,
+          fileName: `${safeRoute}-${dateStamp}-${jobId.slice(0, 8)}.pdf`,
+          pdf,
+        })
+      }
+
+      if (reports.length === 0) {
+        throw new NotFoundException('No reports found for the given jobs')
+      }
+
+      if (format === 'pdf') {
+        const merged = await PDFDocument.create()
+        for (const r of reports) {
+          const src = await PDFDocument.load(r.pdf)
+          const pages = await merged.copyPages(src, src.getPageIndices())
+          pages.forEach((p) => merged.addPage(p))
+        }
+        const mergedBytes = await merged.save()
+        return { buffer: Buffer.from(mergedBytes), contentType: 'application/pdf' }
+      }
+
+      // zip
+      const archive = new ZipArchive({ zlib: { level: 9 } })
+      const chunks: Buffer[] = []
+      const done = new Promise<Buffer>((resolve, reject) => {
+        archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+        archive.on('end', () => resolve(Buffer.concat(chunks)))
+        archive.on('warning', (err: any) => {
+          if (err.code !== 'ENOENT') reject(err)
+        })
+        archive.on('error', reject)
+      })
+
+      const usedNames = new Set<string>()
+      for (const r of reports) {
+        let name = r.fileName
+        let i = 2
+        while (usedNames.has(name)) {
+          name = r.fileName.replace(/\.pdf$/, `-${i}.pdf`)
+          i++
+        }
+        usedNames.add(name)
+        archive.append(r.pdf, { name })
+      }
+
+      await archive.finalize()
+      const buffer = await done
+      return { buffer, contentType: 'application/zip' }
+    } finally {
+      await browser.close()
+    }
+  }
+
+  private async renderHtmlToPdf(browser: Browser, html: string) {
+    const page = await browser.newPage()
+    try {
+      await page.setContent(html, { waitUntil: 'load' })
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '16px', bottom: '16px', left: '16px', right: '16px' },
+      })
+      return Buffer.from(pdf)
+    } finally {
+      await page.close()
+    }
+  }
+
+  private async fetchJobForReport(
+    user: { id: string; role: string },
+    jobId: string,
+  ) {
     const job = await this.prisma.patrolJob.findUnique({
       where: { id: jobId },
       include: {
@@ -446,6 +605,10 @@ export class PatrolService {
       }
     }
 
+    return job
+  }
+
+  private buildReportHtml(job: Awaited<ReturnType<PatrolService['fetchJobForReport']>>) {
     const resultByCp = new Map(job.results.map((r) => [r.checkpointId, r]))
     const issues = job.results.filter((r) => !r.allClear)
 
@@ -575,19 +738,7 @@ export class PatrolService {
         ${sections}
       </body></html>`
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    })
-    const page = await browser.newPage()
-    await page.setContent(html, { waitUntil: 'load' })
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '16px', bottom: '16px', left: '16px', right: '16px' },
-    })
-    await browser.close()
-    return pdf
+    return html
   }
 
   private async assignedSiteIds(userId: string) {

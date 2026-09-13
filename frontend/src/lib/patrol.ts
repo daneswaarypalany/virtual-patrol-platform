@@ -74,6 +74,14 @@ export interface ActivePatrolItem {
   route: { name: string; site: { name: string } }
   activePatrol: { siteId: string } | null
   _count: { results: number }
+  totalCheckpoints: number
+  lastCheckpoint: {
+    name: string
+    orderIndex: number
+    allClear: boolean
+    completedAt: string
+  } | null
+  nextCheckpoint: { name: string; orderIndex: number } | null
 }
 
 export const patrolApi = {
@@ -91,6 +99,14 @@ export const patrolApi = {
   listJobs: () =>
     api.get<PatrolJobSummary[]>('/patrol/jobs').then((r) => r.data),
   reportUrl: (jobId: string) => `${api.defaults.baseURL}/patrol/${jobId}/report`,
+  bulkReport: (jobIds: string[], format: 'pdf' | 'zip') =>
+    api
+      .post(
+        '/patrol/reports/bulk',
+        { jobIds, format },
+        { responseType: 'blob' },
+      )
+      .then((r) => r.data as Blob),
   listActive: () =>
     api.get<ActivePatrolItem[]>('/patrol/active').then((r) => r.data),
   discard: (siteId: string) =>

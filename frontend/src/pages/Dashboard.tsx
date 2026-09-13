@@ -8,7 +8,6 @@ import {
   Activity,
   X,
 } from 'lucide-react'
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { DashboardData, TimelineItem, IssueItem } from '../lib/dashboard'
 import { dashboardApi } from '../lib/dashboard'
 import { patrolApi } from '../lib/patrol'
@@ -112,29 +111,6 @@ export default function Dashboard() {
 
   const s = data?.stats
 
-  const ACTIVE_PATROLS_TOTAL = 50
-  const ISSUES_FLAGGED_TOTAL = 100
-
-  const donut = [
-    { name: 'Issues', value: s?.issuesFlagged ?? 0, color: '#cf5b5b' },
-    {
-      name: 'Clear',
-      value:
-        Math.max(0, ISSUES_FLAGGED_TOTAL - (s?.issuesFlagged ?? 0)) || 1,
-      color: '#e5ecf3',
-    },
-  ]
-
-  const activeDonut = [
-    { name: 'Active', value: s?.activePatrols ?? 0, color: '#2e9e6b' },
-    {
-      name: 'Idle',
-      value:
-        Math.max(0, ACTIVE_PATROLS_TOTAL - (s?.activePatrols ?? 0)) || 1,
-      color: '#e5ecf3',
-    },
-  ]
-
   return (
     <div className="dash">
       {/* Hero header */}
@@ -164,76 +140,38 @@ export default function Dashboard() {
           <span className="dash-sub">Click to view by site</span>
         </div>
 
-        {/* Active Patrols — infographic + clickable */}
+        {/* Active Patrols — clickable */}
         <div
-          className="dash-card dash-card-clickable dash-card-chart"
+          className="dash-card dash-card-clickable"
           onClick={openActive}
         >
-          <div className="dash-chart-ring">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={activeDonut}
-                  dataKey="value"
-                  innerRadius={28}
-                  outerRadius={40}
-                  startAngle={90}
-                  endAngle={-270}
-                  stroke="none"
-                >
-                  {activeDonut.map((d, i) => (
-                    <Cell key={i} fill={d.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="dash-chart-center green-center">
-              <MonitorDot size={15} />
+          <div className="dash-card-top">
+            <div className="dash-ico ico-green">
+              <MonitorDot size={18} />
             </div>
           </div>
-          <div className="dash-chart-info">
-            <strong className="dash-value">
-              {loading ? '—' : `${s?.activePatrols ?? 0}/${ACTIVE_PATROLS_TOTAL}`}
-            </strong>
-            <span className="dash-label">Active Patrols</span>
-            <span className="dash-sub">Click to view details</span>
-          </div>
+          <strong className="dash-value">
+            {loading ? '—' : s?.activePatrols ?? 0}
+          </strong>
+          <span className="dash-label">Active Patrols</span>
+          <span className="dash-sub">Click to view details</span>
         </div>
 
-        {/* Issues — infographic + clickable */}
+        {/* Issues — clickable */}
         <div
-          className="dash-card dash-card-clickable dash-card-chart"
+          className="dash-card dash-card-clickable"
           onClick={openIssues}
         >
-          <div className="dash-chart-ring">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={donut}
-                  dataKey="value"
-                  innerRadius={28}
-                  outerRadius={40}
-                  startAngle={90}
-                  endAngle={-270}
-                  stroke="none"
-                >
-                  {donut.map((d, i) => (
-                    <Cell key={i} fill={d.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="dash-chart-center">
-              <AlertTriangle size={15} />
+          <div className="dash-card-top">
+            <div className="dash-ico ico-red">
+              <AlertTriangle size={18} />
             </div>
           </div>
-          <div className="dash-chart-info">
-            <strong className="dash-value">
-              {loading ? '—' : `${s?.issuesFlagged ?? 0}/${ISSUES_FLAGGED_TOTAL}`}
-            </strong>
-            <span className="dash-label">Issues Flagged</span>
-            <span className="dash-sub">Click to view details</span>
-          </div>
+          <strong className="dash-value">
+            {loading ? '—' : s?.issuesFlagged ?? 0}
+          </strong>
+          <span className="dash-label">Issues Flagged</span>
+          <span className="dash-sub">Click to view details</span>
         </div>
 
         {/* Completed Today */}

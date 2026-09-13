@@ -15,6 +15,12 @@
   margin: 0;
 }
 
+.active-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .active-refresh {
   display: inline-flex;
   align-items: center;
@@ -31,6 +37,83 @@
 
 .active-refresh:hover {
   background: var(--bg);
+}
+
+.active-delete-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--white);
+  border: 1px solid rgba(207, 91, 91, 0.3);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--status-red);
+}
+
+.active-delete-toggle:hover {
+  background: rgba(207, 91, 91, 0.08);
+}
+
+.active-select-info {
+  display: flex;
+  align-items: center;
+}
+
+.active-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.active-select-all input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--navy);
+}
+
+.active-select-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.active-select-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--text);
+}
+
+.active-select-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.active-select-actions .active-cancel {
+  color: var(--text-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+.active-select-actions .active-delete-confirm {
+  background: var(--status-red);
+  border-color: var(--status-red);
+  color: white;
 }
 
 .active-error {
@@ -59,11 +142,12 @@
   background: var(--white);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow-x: auto;
 }
 
 .active-table {
   width: 100%;
+  min-width: 900px;
   border-collapse: collapse;
 }
 
@@ -88,15 +172,30 @@
   border-bottom: none;
 }
 
+.active-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.active-table tbody tr:hover {
+  background: rgba(0, 91, 150, 0.05);
+}
+
+.active-table tbody tr.row-clickable {
+  cursor: pointer;
+}
+
 .active-site {
   font-weight: 600;
 }
 
 .active-status {
+  display: inline-block;
   font-size: 11px;
   font-weight: 700;
-  padding: 3px 10px;
+  padding: 4px 10px;
   border-radius: 12px;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
 }
 
 .st-progress {
@@ -109,26 +208,64 @@
   color: var(--status-amber);
 }
 
-.active-actions {
-  display: flex;
-  gap: 8px;
+.active-select-col {
+  width: 32px;
+  text-align: center;
 }
 
-.active-actions button {
-  background: var(--white);
-  border: 1px solid var(--border);
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 12px;
+.active-select-col input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
   cursor: pointer;
+  accent-color: var(--navy);
+}
+
+.active-table tbody tr.row-selected {
+  background: rgba(0, 91, 150, 0.06);
+}
+
+.active-stopped {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 220px;
+}
+
+.stopped-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--status-green);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.stopped-dot.issue {
+  background: var(--status-red);
+}
+
+.stopped-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.stopped-text strong {
   color: var(--text);
 }
 
-.active-actions button:hover {
-  background: var(--bg);
+.stopped-text span {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
-.active-actions button.danger {
-  color: var(--status-red);
-  border-color: rgba(207, 91, 91, 0.3);
+.stopped-next {
+  color: var(--blue) !important;
+}
+
+.stopped-none {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
 }

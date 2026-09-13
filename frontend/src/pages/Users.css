@@ -89,6 +89,14 @@
   border-bottom: none;
 }
 
+.users-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.users-table tbody tr:hover {
+  background: rgba(0, 91, 150, 0.05);
+}
+
 .role-badge,
 .status-badge {
   display: inline-block;

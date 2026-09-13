@@ -117,44 +117,6 @@
   transform: translateY(-2px);
 }
 
-.dash-card-chart {
-  flex-direction: row !important;
-  align-items: center;
-  gap: 16px;
-}
-
-.dash-chart-ring {
-  position: relative;
-  width: 80px;
-  height: 80px;
-  flex-shrink: 0;
-}
-
-.dash-chart-center {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--status-red);
-}
-
-.dash-chart-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.dash-chart-info .dash-value {
-  font-size: 26px;
-  margin: 0;
-}
-
-.dash-chart-info .dash-label {
-  margin-top: 4px;
-}
-
 /* Panel */
 .dash-panel {
   background: var(--white);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, Search, X } from 'lucide-react'
+import { Check, Search, Trash2, X } from 'lucide-react'
 import type { Site, SiteInput } from '../lib/sites'
 import { sitesApi } from '../lib/sites'
 import SiteDetail from './SiteDetail'
@@ -22,6 +22,9 @@ export default function Sites() {
   )
   const [sortBy, setSortBy] = useState<SortOption>('custom')
   const [view, setView] = useState<ViewMode>('list')
+  const [selectMode, setSelectMode] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -50,20 +53,47 @@ export default function Sites() {
     setShowForm(true)
   }
 
-  const remove = async (site: Site) => {
+  const enterSelectMode = () => {
+    setSelectMode(true)
+    setSelected(new Set())
+  }
+
+  const cancelSelectMode = () => {
+    setSelectMode(false)
+    setSelected(new Set())
+  }
+
+  const toggleSelected = (siteId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(siteId)) next.delete(siteId)
+      else next.add(siteId)
+      return next
+    })
+  }
+
+  const deleteSelected = async () => {
+    if (selected.size === 0) return
     if (
       !window.confirm(
-        `Delete "${site.name}"? This also removes its cameras and assignments.`,
+        `Delete ${selected.size} site${
+          selected.size > 1 ? 's' : ''
+        }? This also removes their cameras and assignments.`,
       )
-    ) {
+    )
       return
-    }
 
+    setDeleting(true)
+    setError('')
     try {
-      await sitesApi.remove(site.id)
-      load()
+      await Promise.all(Array.from(selected).map((id) => sitesApi.remove(id)))
+      setSelectMode(false)
+      setSelected(new Set())
+      await load()
     } catch {
-      setError('Failed to delete site')
+      setError('Failed to delete one or more sites')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -93,58 +123,108 @@ export default function Sites() {
   return (
     <div className="sites-page">
       <div className="sites-toolbar">
-        <div className="toolbar-left">
-          <div className="search-box">
-            <Search size={16} className="search-icon" />
-            <input
-              placeholder="Search sites…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </div>
+        {selectMode ? (
+          <>
+            <div className="active-select-info">
+              <label className="active-select-all">
+                <input
+                  type="checkbox"
+                  checked={
+                    sortedSites.length > 0 &&
+                    sortedSites.every((s) => selected.has(s.id))
+                  }
+                  onChange={() =>
+                    setSelected(
+                      sortedSites.every((s) => selected.has(s.id))
+                        ? new Set()
+                        : new Set(sortedSites.map((s) => s.id)),
+                    )
+                  }
+                />
+                {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+              </label>
+            </div>
+            <div className="active-select-actions">
+              <button
+                className="active-cancel"
+                onClick={cancelSelectMode}
+                disabled={deleting}
+              >
+                <X size={14} /> Cancel
+              </button>
+              <button
+                className="active-delete-confirm"
+                onClick={deleteSelected}
+                disabled={selected.size === 0 || deleting}
+              >
+                <Trash2 size={14} />
+                {deleting
+                  ? 'Deleting…'
+                  : `Delete${selected.size ? ` (${selected.size})` : ''}`}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="toolbar-left">
+              <div className="search-box">
+                <Search size={16} className="search-icon" />
+                <input
+                  placeholder="Search sites…"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </div>
 
-          <div className="segmented">
-            <button
-              className={statusFilter === 'all' ? 'active' : ''}
-              onClick={() => setStatusFilter('all')}
-            >
-              All
-            </button>
+              <div className="segmented">
+                <button
+                  className={statusFilter === 'all' ? 'active' : ''}
+                  onClick={() => setStatusFilter('all')}
+                >
+                  All
+                </button>
 
-            <button
-              className={statusFilter === 'active' ? 'active' : ''}
-              onClick={() => setStatusFilter('active')}
-            >
-              Active
-            </button>
+                <button
+                  className={statusFilter === 'active' ? 'active' : ''}
+                  onClick={() => setStatusFilter('active')}
+                >
+                  Active
+                </button>
 
-            <button
-              className={statusFilter === 'inactive' ? 'active' : ''}
-              onClick={() => setStatusFilter('inactive')}
-            >
-              Inactive
-            </button>
-          </div>
+                <button
+                  className={statusFilter === 'inactive' ? 'active' : ''}
+                  onClick={() => setStatusFilter('inactive')}
+                >
+                  Inactive
+                </button>
+              </div>
 
-          <div className="site-sort-w">
-            <SearchableSelect
-              value={sortBy}
-              onChange={(v) => setSortBy(v as SortOption)}
-              searchable={false}
-              options={[
-                { value: 'custom', label: 'Custom order' },
-                { value: 'alphabetical', label: 'Alphabetical (A–Z)' },
-              ]}
-            />
-          </div>
-        </div>
+              <div className="site-sort-w">
+                <SearchableSelect
+                  value={sortBy}
+                  onChange={(v) => setSortBy(v as SortOption)}
+                  searchable={false}
+                  options={[
+                    { value: 'custom', label: 'Custom order' },
+                    { value: 'alphabetical', label: 'Alphabetical (A–Z)' },
+                  ]}
+                />
+              </div>
+            </div>
 
-        <div className="toolbar-right">
-          <ViewToggle mode={view} onChange={setView} />
-          <button className="btn-primary" onClick={openCreate}>
-            + Add Site
-          </button>
-        </div>
+            <div className="toolbar-right">
+              <ViewToggle mode={view} onChange={setView} />
+              {sites.length > 0 && (
+                <button className="active-delete-toggle" onClick={enterSelectMode}>
+                  <Trash2 size={14} /> Delete
+                </button>
+              )}
+              <button className="btn-primary" onClick={openCreate}>
+                + Add Site
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <p className="sites-count">
@@ -168,6 +248,7 @@ export default function Sites() {
           <table className="sites-table">
             <thead>
               <tr>
+                {selectMode && <th className="active-select-col" />}
                 <th>Name</th>
                 <th>Address</th>
                 <th>Timezone</th>
@@ -180,14 +261,28 @@ export default function Sites() {
 
             <tbody>
               {sortedSites.map((site) => (
-                <tr key={site.id}>
-                  <td className="site-name">
-                    <button
-                      className="site-link"
-                      onClick={() => setDetailSite(site)}
+                <tr
+                  key={site.id}
+                  className={selected.has(site.id) ? 'row-selected' : ''}
+                  onClick={() =>
+                    selectMode ? toggleSelected(site.id) : setDetailSite(site)
+                  }
+                >
+                  {selectMode && (
+                    <td
+                      className="active-select-col"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {site.name}
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={selected.has(site.id)}
+                        onChange={() => toggleSelected(site.id)}
+                        aria-label={`Select ${site.name}`}
+                      />
+                    </td>
+                  )}
+                  <td className="site-name">
+                    <span className="site-link">{site.name}</span>
                   </td>
 
                   <td>{site.address || '—'}</td>
@@ -205,11 +300,8 @@ export default function Sites() {
                     </span>
                   </td>
 
-                  <td className="row-actions">
+                  <td className="row-actions" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => openEdit(site)}>Edit</button>
-                    <button className="danger" onClick={() => remove(site)}>
-                      Delete
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -219,14 +311,26 @@ export default function Sites() {
       ) : (
         <div className="sites-grid">
           {sortedSites.map((site) => (
-            <div key={site.id} className="site-card">
+            <div
+              key={site.id}
+              className={`site-card ${selected.has(site.id) ? 'card-selected' : ''}`}
+              onClick={() =>
+                selectMode ? toggleSelected(site.id) : setDetailSite(site)
+              }
+            >
               <div className="site-card-head">
-                <button
-                  className="site-link"
-                  onClick={() => setDetailSite(site)}
-                >
-                  {site.name}
-                </button>
+                <div className="site-card-title">
+                  {selectMode && (
+                    <input
+                      type="checkbox"
+                      checked={selected.has(site.id)}
+                      onChange={() => toggleSelected(site.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Select ${site.name}`}
+                    />
+                  )}
+                  <span className="site-link">{site.name}</span>
+                </div>
                 <span
                   className={`status-badge ${
                     site.isActive ? 'status-active' : 'status-inactive'
@@ -244,11 +348,11 @@ export default function Sites() {
                 <span>{site._count.assignments} operators</span>
               </div>
 
-              <div className="site-card-actions">
+              <div
+                className="site-card-actions"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button onClick={() => openEdit(site)}>Edit</button>
-                <button className="danger" onClick={() => remove(site)}>
-                  Delete
-                </button>
               </div>
             </div>
           ))}

@@ -20,6 +20,7 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PatrolService } from "./patrol.service";
 import { StartPatrolDto } from "./dto/start-patrol.dto";
 import { SaveCheckpointDto } from "./dto/checkpoint-result.dto";
+import { BulkReportDto } from "./dto/bulk-report.dto";
 
 // Resolved relative to process.cwd() -- matches main.ts's static file root
 // and the report generator's file reads (patrol.service.ts), so uploads,
@@ -65,6 +66,28 @@ export class PatrolController {
   }
 
   // ---- :jobId routes (specific paths before the bare catch-all) ----
+
+  // Bulk download: several completed patrol reports as one merged PDF
+  // or a zip of individual PDFs. Must stay above ":jobId" routes since
+  // it's a static path.
+  @Post("reports/bulk")
+  async bulkReport(
+    @Req() req: Request,
+    @Body() dto: BulkReportDto,
+    @Res() res: Response,
+  ) {
+    const { buffer, contentType } = await this.patrolService.generateBulkReport(
+      req.user as any,
+      dto.jobIds,
+      dto.format,
+    );
+    const ext = dto.format === "pdf" ? "pdf" : "zip";
+    res.set({
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="patrol-reports-${Date.now()}.${ext}"`,
+    });
+    res.send(buffer);
+  }
 
   @Get(":jobId/report")
   async report(
