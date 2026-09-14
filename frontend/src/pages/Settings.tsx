@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { Settings as SettingsIcon, Sun, Moon, Monitor } from 'lucide-react'
+import { useTheme } from '../theme/ThemeContext'
+import type { ThemeMode } from '../theme/ThemeContext'
 import './Settings.css'
 
 interface SettingsForm {
@@ -30,6 +32,7 @@ export default function Settings() {
   const [form, setForm] = useState<SettingsForm>(DEFAULTS)
   const [saved, setSaved] = useState<SettingsForm>(DEFAULTS)
   const [savedFlash, setSavedFlash] = useState(false)
+  const { mode, setMode } = useTheme()
 
   const dirty = JSON.stringify(form) !== JSON.stringify(saved)
 
@@ -86,6 +89,37 @@ export default function Settings() {
                   onChange={(e) => set('orgPhone', e.target.value)}
                 />
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Appearance */}
+        <section className="settings-section">
+          <div className="section-head">
+            <h3>Appearance</h3>
+            <p>Choose how the Virtual Patrol platform looks on this device.</p>
+          </div>
+          <div className="section-body">
+            <div className="theme-switch" role="radiogroup" aria-label="Theme">
+              {(
+                [
+                  { value: 'light' as ThemeMode, label: 'Light', icon: Sun },
+                  { value: 'dark' as ThemeMode, label: 'Dark', icon: Moon },
+                  { value: 'system' as ThemeMode, label: 'System', icon: Monitor },
+                ] as const
+              ).map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === value}
+                  className={`theme-option ${mode === value ? 'is-active' : ''}`}
+                  onClick={() => setMode(value)}
+                >
+                  <Icon size={16} />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         </section>

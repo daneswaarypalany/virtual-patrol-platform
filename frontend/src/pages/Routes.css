@@ -353,19 +353,63 @@
   border-radius: 8px;
   margin-bottom: 8px;
   background: var(--white);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* high-contrast shadow-lift while dragging */
+.checkpoint-row.is-dragging {
+  border-color: var(--blue);
+  box-shadow: 0 12px 28px rgba(1, 31, 75, 0.18), 0 2px 6px rgba(1, 31, 75, 0.08);
+  z-index: 2;
+}
+
+.checkpoint-row.is-dragging .drag-handle {
+  color: var(--blue);
+  background: rgba(0, 91, 150, 0.1);
+}
+
+.checkpoint-overlay {
+  border-color: var(--blue);
+  box-shadow: 0 16px 32px rgba(1, 31, 75, 0.24), 0 4px 10px rgba(1, 31, 75, 0.1);
+  cursor: grabbing;
+}
+
+.checkpoint-overlay-value {
+  flex: 1;
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border-radius: 6px;
 }
 
 .drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
+  border-radius: 6px;
   cursor: grab;
-  font-size: 16px;
   color: var(--slate-blue);
   padding: 4px;
+  touch-action: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.drag-handle:hover {
+  background: var(--bg);
+  color: var(--blue);
 }
 
 .drag-handle:active {
   cursor: grabbing;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checkpoint-row {
+    transition: none;
+  }
 }
 
 .checkpoint-num {

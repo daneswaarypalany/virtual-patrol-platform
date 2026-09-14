@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, GripVertical, X } from 'lucide-react'
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
+  KeyboardSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import type { DragEndEvent } from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import {
   SortableContext,
   verticalListSortingStrategy,
+  sortableKeyboardCoordinates,
   useSortable,
   arrayMove,
 } from '@dnd-kit/sortable'
@@ -230,8 +233,12 @@ function RouteBuilder({
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([])
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [activeKey, setActiveKey] = useState<string | null>(null)
 
-  const sensors = useSensors(useSensor(PointerSensor))
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   useEffect(() => {
     checklistsApi.list().then(setTemplates).catch(() => {})
@@ -300,8 +307,11 @@ function RouteBuilder({
     setCheckpoints((cps) => cps.filter((cp) => cp.key !== key))
   }
 
+  const onDragStart = (event: DragStartEvent) => setActiveKey(String(event.active.id))
+
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
+    setActiveKey(null)
     if (!over || active.id === over.id) return
     setCheckpoints((cps) => {
       const oldIndex = cps.findIndex((c) => c.key === active.id)
@@ -309,6 +319,8 @@ function RouteBuilder({
       return arrayMove(cps, oldIndex, newIndex)
     })
   }
+
+  const activeCheckpoint = checkpoints.find((c) => c.key === activeKey)
 
   const submit = async () => {
     setError('')
@@ -433,7 +445,9 @@ function RouteBuilder({
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
+              onDragStart={onDragStart}
               onDragEnd={onDragEnd}
+              onDragCancel={() => setActiveKey(null)}
             >
               <SortableContext
                 items={checkpoints.map((c) => c.key)}
@@ -451,6 +465,16 @@ function RouteBuilder({
                   />
                 ))}
               </SortableContext>
+              <DragOverlay>
+                {activeCheckpoint ? (
+                  <CheckpointOverlay
+                    cp={activeCheckpoint}
+                    index={checkpoints.findIndex((c) => c.key === activeCheckpoint.key)}
+                    cameras={cameras}
+                    templates={templates}
+                  />
+                ) : null}
+              </DragOverlay>
             </DndContext>
           </div>
         </div>
@@ -493,13 +517,16 @@ function SortableCheckpoint({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   }
 
   return (
-    <div ref={setNodeRef} style={style} className="checkpoint-row">
-      <button className="drag-handle" {...attributes} {...listeners}>
-        ⠿
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`checkpoint-row${isDragging ? ' is-dragging' : ''}`}
+    >
+      <button className="drag-handle" {...attributes} {...listeners} aria-label="Drag to reorder">
+        <GripVertical size={16} />
       </button>
       <span className="checkpoint-num">{index + 1}</span>
 
@@ -527,9 +554,36 @@ function SortableCheckpoint({
         ))}
       </select>
 
-      <button className="checkpoint-remove" onClick={() => onRemove(cp.key)}>
-        ✕
+      <button className="checkpoint-remove" onClick={() => onRemove(cp.key)} aria-label="Remove checkpoint">
+        <X size={14} />
       </button>
+    </div>
+  )
+}
+
+function CheckpointOverlay({
+  cp,
+  index,
+  cameras,
+  templates,
+}: {
+  cp: DraftCheckpoint
+  index: number
+  cameras: Camera[]
+  templates: ChecklistTemplate[]
+}) {
+  const cameraName = cameras.find((c) => c.id === cp.cameraId)?.name ?? 'Camera…'
+  const templateName =
+    templates.find((t) => t.id === cp.checklistTemplateId)?.name ?? 'Checklist…'
+
+  return (
+    <div className="checkpoint-row checkpoint-overlay">
+      <span className="drag-handle">
+        <GripVertical size={16} />
+      </span>
+      <span className="checkpoint-num">{index + 1}</span>
+      <span className="checkpoint-overlay-value">{cameraName}</span>
+      <span className="checkpoint-overlay-value">{templateName}</span>
     </div>
   )
 }

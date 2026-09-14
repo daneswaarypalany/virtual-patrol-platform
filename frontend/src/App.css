@@ -26,6 +26,45 @@
   --gap: clamp(14px, 1.2vw, 22px);
   --pad-page: clamp(20px, 2.2vw, 40px);
   --radius: 12px;
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --navy: #0a1622;
+  --navy-hover: #0f2233;
+  --blue: #4c9fe0;
+  --slate-blue: #86aec7;
+  --sky: #1c3247;
+  --bg: #0b1420;
+  --white: #121f2e;
+
+  --text: #e6edf5;
+  --text-muted: #8ea3b8;
+  --border: #253a4d;
+
+  --status-green: #3fbf87;
+  --status-amber: #e0ac47;
+  --status-red: #e17d7d;
+
+  color-scheme: dark;
+}
+
+[data-theme='dark'] body {
+  background: var(--bg);
+}
+
+[data-theme='dark'] .sidebar {
+  background: linear-gradient(180deg, #06111d 0%, #0d2237 100%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+[data-theme='dark'] ::selection {
+  background: rgba(76, 159, 224, 0.35);
+}
+
+* {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 * {
