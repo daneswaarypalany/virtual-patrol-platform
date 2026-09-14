@@ -1,0 +1,223 @@
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 90px;
+}
+
+.settings-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, #011f4b 0%, #03396c 100%);
+  border-radius: 18px;
+  padding: 24px 28px;
+  color: white;
+}
+
+.settings-hero-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settings-hero h2 {
+  margin: 0 0 4px;
+  font-size: 21px;
+  color: white;
+}
+
+.settings-hero p {
+  margin: 0;
+  color: var(--sky);
+  font-size: 14px;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-section {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+.section-head {
+  margin-bottom: 18px;
+}
+
+.section-head h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.section-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.field input,
+.field select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--white);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+}
+
+.field-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--bg);
+}
+
+.toggle-row:first-child {
+  border-top: none;
+}
+
+.toggle-row strong {
+  display: block;
+  font-size: 14px;
+}
+
+.toggle-row span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 20px;
+  border: none;
+  background: var(--border);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggle.on {
+  background: var(--status-green);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s;
+}
+
+.toggle.on .toggle-knob {
+  transform: translateX(18px);
+}
+
+/* Action bar */
+.settings-actionbar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translate(-50%, 120%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 18px;
+  box-shadow: 0 12px 32px rgba(1, 31, 75, 0.16);
+  transition: transform 0.25s ease;
+  z-index: 50;
+}
+
+.settings-actionbar.show {
+  transform: translate(-50%, 0);
+}
+
+.actionbar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.dot-unsaved,
+.dot-saved {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot-unsaved {
+  background: var(--status-amber);
+}
+
+.dot-saved {
+  background: var(--status-green);
+}
+
+.actionbar-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-bottom: 90px;
+}

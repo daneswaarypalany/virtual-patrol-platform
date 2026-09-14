@@ -30,6 +30,7 @@ import Reports from './pages/Reports'
 import ActivePatrols from './pages/ActivePatrols'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
+import Settings from './pages/Settings'
 import './App.css'
 
 type Page =
@@ -201,6 +202,7 @@ function Shell() {
           {activePage === 'active-patrols' && <ActivePatrols />}
           {activePage === 'reports' && <Reports />}
           {activePage === 'history' && <History />}
+          {activePage === 'settings' && <Settings />}
 
           {!builtPages.includes(activePage) && (
             <div className="module-placeholder">

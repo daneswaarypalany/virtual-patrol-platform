@@ -38,18 +38,75 @@ export class SitesService {
 
   async remove(id: string) {
     await this.findOne(id);
-    await this.prisma.site.delete({ where: { id } });
+
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Routes belonging to this site
+      const routes = await tx.route.findMany({
+        where: { siteId: id },
+        select: { id: true },
+      });
+      const routeIds = routes.map((r) => r.id);
+
+      // 2. Cameras belonging to this site
+      const cameras = await tx.camera.findMany({
+        where: { siteId: id },
+        select: { id: true },
+      });
+      const cameraIds = cameras.map((c) => c.id);
+
+      // 3. Patrol jobs on those routes -> clear results, locks, then jobs
+      if (routeIds.length) {
+        const jobs = await tx.patrolJob.findMany({
+          where: { routeId: { in: routeIds } },
+          select: { id: true },
+        });
+        const jobIds = jobs.map((j) => j.id);
+        if (jobIds.length) {
+          await tx.checkpointResult.deleteMany({
+            where: { jobId: { in: jobIds } },
+          });
+          await tx.activePatrol.deleteMany({
+            where: { jobId: { in: jobIds } },
+          });
+          await tx.patrolJob.deleteMany({ where: { id: { in: jobIds } } });
+        }
+      }
+
+      // 4. Route checkpoints — reference both routes AND cameras (the blocker)
+      const cpWhere: any[] = [];
+      if (routeIds.length) cpWhere.push({ routeId: { in: routeIds } });
+      if (cameraIds.length) cpWhere.push({ cameraId: { in: cameraIds } });
+      if (cpWhere.length) {
+        await tx.routeCheckpoint.deleteMany({ where: { OR: cpWhere } });
+      }
+
+      // 5. Legacy / non-cascading site relations
+      await tx.alert.deleteMany({ where: { siteId: id } });
+      await tx.incident.deleteMany({ where: { siteId: id } });
+      await tx.patrol.deleteMany({ where: { siteId: id } });
+      await tx.activePatrol.deleteMany({ where: { siteId: id } });
+
+      // 6. Now cameras, routes, and assignments cascade cleanly
+      await tx.site.delete({ where: { id } });
+    });
+
     return { message: 'Site deleted' };
   }
 
-    // List operators assigned to a site
+  // List operators assigned to a site
   async getAssignments(siteId: string) {
     await this.findOne(siteId);
     const assignments = await this.prisma.operatorSiteAssignment.findMany({
       where: { siteId },
       include: {
         user: {
-          select: { id: true, username: true, fullName: true, role: true, status: true },
+          select: {
+            id: true,
+            username: true,
+            fullName: true,
+            role: true,
+            status: true,
+          },
         },
       },
     });
@@ -63,7 +120,6 @@ export class SitesService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    // upsert-style: ignore if already assigned (unique constraint protects us)
     await this.prisma.operatorSiteAssignment.upsert({
       where: { userId_siteId: { userId, siteId } },
       create: { userId, siteId },
@@ -81,5 +137,4 @@ export class SitesService {
     });
     return { message: 'User removed from site' };
   }
-  
 }
