@@ -1,0 +1,182 @@
+.report-builder {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+}
+
+.rb-loading {
+  color: var(--text-muted);
+  padding: 20px;
+}
+
+.rb-intro {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--blue);
+}
+
+.rb-intro h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--navy);
+}
+
+.rb-intro p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 640px;
+  line-height: 1.5;
+}
+
+.rb-error {
+  background: #fdeaea;
+  color: var(--status-red);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+
+.rb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rb-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  transition: opacity 0.15s ease;
+}
+
+.rb-row.dragging {
+  opacity: 0.4;
+}
+
+.rb-row.disabled {
+  opacity: 0.55;
+}
+
+.rb-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 4px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.rb-handle:active {
+  cursor: grabbing;
+}
+
+.rb-checkbox {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.rb-checkbox input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.rb-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rb-info-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rb-info-top strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.rb-group {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.rb-group-summary {
+  background: rgba(46, 158, 158, 0.12);
+  color: var(--slate-blue);
+}
+
+.rb-group-checkpoint {
+  background: rgba(38, 99, 235, 0.1);
+  color: var(--blue);
+}
+
+.rb-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rb-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.rb-save,
+.rb-revert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.rb-save {
+  background: var(--blue);
+  color: var(--white);
+  border: none;
+}
+
+.rb-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rb-revert {
+  background: var(--white);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.rb-saved-flash {
+  color: #2e9e6b;
+  font-size: 13px;
+  font-weight: 600;
+}

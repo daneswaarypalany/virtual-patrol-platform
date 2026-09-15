@@ -12,10 +12,15 @@ import { join } from 'path'
 import puppeteer, { Browser } from 'puppeteer'
 import { PDFDocument } from 'pdf-lib'
 import { ZipArchive } from 'archiver'
+import { ReportTemplateService } from '../report-template/report-template.service'
+import type { ReportTemplateField } from '../report-template/report-fields'
 
 @Injectable()
 export class PatrolService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private reportTemplateService: ReportTemplateService,
+  ) {}
 
   async mySites(operatorId: string) {
     const assignments = await this.prisma.operatorSiteAssignment.findMany({
@@ -460,7 +465,8 @@ export class PatrolService {
 
   async generateReport(user: { id: string; role: string }, jobId: string) {
     const job = await this.fetchJobForReport(user, jobId)
-    const html = this.buildReportHtml(job)
+    const layout = await this.reportTemplateService.getFieldOrder()
+    const html = this.buildReportHtml(job, layout)
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -482,6 +488,7 @@ export class PatrolService {
   ) {
     // dedupe while preserving the order the caller asked for
     const uniqueIds = Array.from(new Set(jobIds))
+    const layout = await this.reportTemplateService.getFieldOrder()
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -493,7 +500,7 @@ export class PatrolService {
 
       for (const jobId of uniqueIds) {
         const job = await this.fetchJobForReport(user, jobId)
-        const html = this.buildReportHtml(job)
+        const html = this.buildReportHtml(job, layout)
         const pdf = await this.renderHtmlToPdf(browser, html)
         const safeRoute = job.route.name.replace(/[^a-z0-9-_]+/gi, '_')
         const dateStamp = job.completedAt
@@ -608,56 +615,113 @@ export class PatrolService {
     return job
   }
 
-  private buildReportHtml(job: Awaited<ReturnType<PatrolService['fetchJobForReport']>>) {
+  private buildReportHtml(
+    job: Awaited<ReturnType<PatrolService['fetchJobForReport']>>,
+    layout: ReportTemplateField[],
+  ) {
     const resultByCp = new Map(job.results.map((r) => [r.checkpointId, r]))
     const issues = job.results.filter((r) => !r.allClear)
 
     const fmt = (d: Date | null) => (d ? new Date(d).toLocaleString() : '—')
 
-    let logoTag = ''
-    try {
-      const logoB64 = fs
-        .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
-        .toString('base64')
-      logoTag = `<img class="logo" src="data:image/png;base64,${logoB64}" />`
-    } catch {
-      logoTag = ''
+    const isOn = (key: string) =>
+      layout.find((f) => f.key === key)?.enabled ?? true
+    // position within the saved order, used so "screenshots" vs
+    // "checklistItems" can be swapped left/right inside each checkpoint card
+    const orderOf = (key: string) => {
+      const i = layout.findIndex((f) => f.key === key)
+      return i === -1 ? 999 : i
     }
+
+    let logoTag = ''
+    if (isOn('header')) {
+      try {
+        const logoB64 = fs
+          .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
+          .toString('base64')
+        logoTag = `<img class="logo" src="data:image/png;base64,${logoB64}" />`
+      } catch {
+        logoTag = ''
+      }
+    }
+
+    // top summary block -- only the enabled meta fields, in the saved order
+    const metaFieldHtml: Record<string, string> = {
+      site: `<div><span class="label">Site</span><br>${job.route.site.name}</div>`,
+      route: `<div><span class="label">Route</span><br>${job.route.name}</div>`,
+      operator: `<div><span class="label">Operator</span><br>${job.operator.fullName}</div>`,
+      status: `<div><span class="label">Status</span><br>${job.status}</div>`,
+      startTime: `<div><span class="label">Start Time</span><br>${fmt(job.startedAt)}</div>`,
+      endTime: `<div><span class="label">End Time</span><br>${fmt(job.completedAt)}</div>`,
+      checkpointCount: `<div><span class="label">Checkpoints</span><br>${job.route.checkpoints.length}</div>`,
+    }
+    const metaHtml = layout
+      .filter((f) => f.enabled && metaFieldHtml[f.key])
+      .map((f) => metaFieldHtml[f.key])
+      .join('')
+
+    const shotOrder = orderOf('screenshots')
+    const checklistOrder = orderOf('checklistItems')
 
     const sections = job.route.checkpoints
       .map((cp, i) => {
         const result = resultByCp.get(cp.id)
         const flagged = result && !result.allClear
 
-        let imgTag = '<div class="noimg">No screenshot</div>'
-        if (result?.screenshotPath) {
-          const filePath = join(
-            process.cwd(),
-            'uploads',
-            result.screenshotPath,
-          )
-          try {
-            const b64 = fs.readFileSync(filePath).toString('base64')
-            imgTag = `<img src="data:image/png;base64,${b64}" />`
-          } catch {
-            imgTag = '<div class="noimg">Screenshot unavailable</div>'
+        let shotBlock = ''
+        if (isOn('screenshots')) {
+          let imgTag = '<div class="noimg">No screenshot</div>'
+          if (result?.screenshotPath) {
+            const filePath = join(
+              process.cwd(),
+              'uploads',
+              result.screenshotPath,
+            )
+            try {
+              const b64 = fs.readFileSync(filePath).toString('base64')
+              imgTag = `<img src="data:image/png;base64,${b64}" />`
+            } catch {
+              imgTag = '<div class="noimg">Screenshot unavailable</div>'
+            }
           }
+          shotBlock = `<div class="cp-shot" style="order:${shotOrder}">${imgTag}</div>`
         }
 
-        const state = (result?.checklistState as any[]) || []
-        const items =
-          state.length > 0
-            ? state
-                .map(
-                  (s) =>
-                    `<li class="${s.checked ? 'ok' : 'fail'}">${
-                      s.checked ? '✓' : '✗'
-                    } ${s.label}</li>`,
-                )
-                .join('')
-            : cp.checklistTemplate.items
-                .map((it) => `<li>• ${it.label}</li>`)
-                .join('')
+        let checkBlock = ''
+        if (isOn('checklistItems')) {
+          const state = (result?.checklistState as any[]) || []
+          const items =
+            state.length > 0
+              ? state
+                  .map(
+                    (s) =>
+                      `<li class="${s.checked ? 'ok' : 'fail'}">${
+                        s.checked ? '✓' : '✗'
+                      } ${s.label}</li>`,
+                  )
+                  .join('')
+              : cp.checklistTemplate.items
+                  .map((it) => `<li>• ${it.label}</li>`)
+                  .join('')
+
+          checkBlock = `
+              <div class="cp-check" style="order:${checklistOrder}">
+                <p class="cp-cl-name">${cp.checklistTemplate.name}</p>
+                <ul>${items}</ul>
+                ${
+                  isOn('comments') && result?.comment
+                    ? `<div class="cp-comment"><strong>Comment:</strong> ${result.comment}</div>`
+                    : ''
+                }
+              </div>`
+        } else if (isOn('comments') && result?.comment) {
+          // checklist itself hidden, but comments were kept on -- still show
+          // the note so it isn't silently lost
+          checkBlock = `
+              <div class="cp-check" style="order:${checklistOrder}">
+                <div class="cp-comment"><strong>Comment:</strong> ${result.comment}</div>
+              </div>`
+        }
 
         return `
           <div class="cp ${flagged ? 'flagged' : ''}">
@@ -672,16 +736,8 @@ export class PatrolService {
               </span>
             </div>
             <div class="cp-body">
-              <div class="cp-shot">${imgTag}</div>
-              <div class="cp-check">
-                <p class="cp-cl-name">${cp.checklistTemplate.name}</p>
-                <ul>${items}</ul>
-                ${
-                  result?.comment
-                    ? `<div class="cp-comment"><strong>Comment:</strong> ${result.comment}</div>`
-                    : ''
-                }
-              </div>
+              ${shotBlock}
+              ${checkBlock}
             </div>
           </div>`
       })
@@ -718,23 +774,23 @@ export class PatrolService {
         .cp-check li.fail { color: #cf5b5b; }
         .cp-comment { margin-top: 10px; padding: 8px 12px; background: #fdeaea; border-radius: 6px; font-size: 12px; }
       </style></head><body>
-        <div class="header">
+        ${
+          isOn('header')
+            ? `<div class="header">
           ${logoTag}
           <h1>Security Patrol Report</h1>
           <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
-        </div>
-        <div class="meta">
-          <div><span class="label">Site</span><br>${job.route.site.name}</div>
-          <div><span class="label">Route</span><br>${job.route.name}</div>
-          <div><span class="label">Operator</span><br>${job.operator.fullName}</div>
-          <div><span class="label">Status</span><br>${job.status}</div>
-          <div><span class="label">Start Time</span><br>${fmt(job.startedAt)}</div>
-          <div><span class="label">End Time</span><br>${fmt(job.completedAt)}</div>
-          <div><span class="label">Checkpoints</span><br>${job.route.checkpoints.length}</div>
-        </div>
-        <div class="issues-banner">
+        </div>`
+            : ''
+        }
+        ${metaHtml ? `<div class="meta">${metaHtml}</div>` : ''}
+        ${
+          isOn('issuesBanner')
+            ? `<div class="issues-banner">
           ${issues.length ? `⚠ ${issues.length} issue(s) flagged during this patrol` : '✓ All checkpoints cleared — no issues flagged'}
-        </div>
+        </div>`
+            : ''
+        }
         ${sections}
       </body></html>`
 

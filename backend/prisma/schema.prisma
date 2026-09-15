@@ -283,6 +283,14 @@ enum IncidentStatus {
   DISMISSED
 }
 
+model ReportTemplate {
+  id        String   @id @default(uuid())
+  key       String   @unique @default("default")
+  fields    Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 enum IncidentSeverity {
   LOW
   MEDIUM

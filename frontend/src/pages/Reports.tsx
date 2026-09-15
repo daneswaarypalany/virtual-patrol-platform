@@ -1,16 +1,18 @@
 import { useEffect, useState, useMemo, useRef } from 'react'
-import { FileText, Download, X, FileArchive, FileStack } from 'lucide-react'
+import { FileText, Download, X, FileArchive, FileStack, FileCog } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import SearchableSelect from '../components/SearchableSelect'
 import TimeWheelPicker from '../components/TimeWheelPicker'
+import ReportBuilder from './ReportBuilder'
 import './Reports.css'
 
 type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
 type SortKey = 'newest' | 'oldest' | 'site'
 type ShiftKey = 'night' | 'morning'
+type ReportsTab = 'list' | 'builder'
 
 const SHIFTS: { key: ShiftKey; label: string; from: string; to: string }[] = [
   { key: 'night', label: 'Night Shift (8:00 PM – 8:00 AM)', from: '20:00', to: '08:00' },
@@ -18,6 +20,7 @@ const SHIFTS: { key: ShiftKey; label: string; from: string; to: string }[] = [
 ]
 
 export default function Reports() {
+  const [tab, setTab] = useState<ReportsTab>('list')
   const [jobs, setJobs] = useState<PatrolJobSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -258,6 +261,25 @@ export default function Reports() {
 
   return (
     <div className="reports-page">
+      <div className="reports-tabs">
+        <button
+          className={tab === 'list' ? 'active' : ''}
+          onClick={() => setTab('list')}
+        >
+          <FileText size={15} /> Generated Reports
+        </button>
+        <button
+          className={tab === 'builder' ? 'active' : ''}
+          onClick={() => setTab('builder')}
+        >
+          <FileCog size={15} /> Report Builder
+        </button>
+      </div>
+
+      {tab === 'builder' ? (
+        <ReportBuilder />
+      ) : (
+        <>
       <div className="reports-toolbar">
         <input
           className="reports-search"
@@ -539,6 +561,8 @@ export default function Reports() {
             </tbody>
           </table>
         </div>
+      )}
+        </>
       )}
     </div>
   )

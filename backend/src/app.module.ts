@@ -12,6 +12,7 @@ import { CamerasModule } from './cameras/cameras.module';
 import { PatrolModule } from './patrol/patrol.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { StreamsModule } from './streams/streams.module';
+import { ReportTemplateModule } from './report-template/report-template.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { StreamsModule } from './streams/streams.module';
     PatrolModule,
     DashboardModule,
     StreamsModule,
+    ReportTemplateModule,
   ],
   controllers: [AppController],
   providers: [AppService],

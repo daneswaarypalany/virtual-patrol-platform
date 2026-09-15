@@ -2,6 +2,33 @@
   max-width: 100%;
 }
 
+.reports-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.reports-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 4px;
+  margin-right: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.reports-tabs button.active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
+}
+
 .reports-toolbar {
   display: flex;
   justify-content: space-between;
