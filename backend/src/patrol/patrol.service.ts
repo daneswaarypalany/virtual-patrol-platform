@@ -452,15 +452,29 @@ export class PatrolService {
     }
     // ADMIN → {} (all)
 
-    return this.prisma.patrolJob.findMany({
+    const jobs = await this.prisma.patrolJob.findMany({
       where,
       orderBy: { startedAt: 'desc' },
       include: {
-        route: { include: { site: { select: { name: true } } } },
+        route: {
+          include: { site: { select: { id: true, name: true } } },
+        },
         operator: { select: { fullName: true } },
         _count: { select: { results: true } },
+        results: { select: { allClear: true } },
       },
     })
+
+    return jobs.map((j) => ({
+      id: j.id,
+      status: j.status,
+      startedAt: j.startedAt,
+      completedAt: j.completedAt,
+      route: { name: j.route.name, site: j.route.site },
+      operator: j.operator,
+      _count: j._count,
+      issues: j.results.filter((r) => !r.allClear).length,
+    }))
   }
 
   async generateReport(user: { id: string; role: string }, jobId: string) {
