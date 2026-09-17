@@ -1,0 +1,145 @@
+.templates-page {
+  max-width: 100%;
+}
+
+.templates-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.templates-count {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.templates-create {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.templates-create input {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+}
+
+.templates-create input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+}
+
+.templates-error {
+  background: rgba(207, 91, 91, 0.15);
+  color: var(--status-red);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.templates-loading {
+  color: var(--text-muted);
+}
+
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.template-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.template-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--sky);
+  color: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.template-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.template-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.template-card-title strong {
+  font-size: 15px;
+}
+
+.template-default-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--status-amber);
+  background: rgba(209, 154, 46, 0.15);
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.template-card-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.template-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.template-card-actions {
+  align-self: center;
+}
+
+.template-card-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.template-card-actions button:hover {
+  background: var(--bg);
+}
+
+.template-card-actions button.danger {
+  color: var(--status-red);
+  border-color: rgba(207, 91, 91, 0.3);
+}

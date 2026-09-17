@@ -17,12 +17,19 @@ import './ReportBuilder.css'
 
 type DragSource = 'palette' | 'canvas'
 
-// key -> {key, enabled, height} tuples, in order, for dirty-checking / saving
+// key -> {key, enabled, height, width} tuples, in order, for dirty-checking / saving
 const toSnapshot = (list: ReportField[]) =>
-  list.map((f) => ({ key: f.key, enabled: f.enabled, height: f.height }))
+  list.map((f) => ({
+    key: f.key,
+    enabled: f.enabled,
+    height: f.height,
+    width: f.width,
+  }))
 
 const MIN_HEIGHT = 50
 const MAX_HEIGHT = 400
+const MIN_WIDTH = 25
+const MAX_WIDTH = 100
 
 export default function ReportBuilder() {
   const [canvas, setCanvas] = useState<ReportField[]>([])
@@ -151,6 +158,7 @@ export default function ReportBuilder() {
     resetDrag()
   }
 
+  // ---- vertical (height) resize ----
   const resizeStart = (key: string) => (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -167,6 +175,34 @@ export default function ReportBuilder() {
       )
       setCanvas((c) =>
         c.map((f) => (f.key === key ? { ...f, height: next } : f)),
+      )
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  // ---- horizontal (width) resize ----
+  const widthResizeStart = (key: string) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const wrapEl = (e.currentTarget as HTMLElement).closest(
+      '.rb-block-wrap',
+    ) as HTMLElement | null
+    const pageEl = wrapEl?.closest('.rb-page') as HTMLElement | null
+    const startX = e.clientX
+    const startW = wrapEl?.getBoundingClientRect().width ?? 300
+    const pageW = pageEl?.getBoundingClientRect().width ?? 600
+
+    const onMove = (ev: MouseEvent) => {
+      const pxWidth = startW + (ev.clientX - startX)
+      let pct = Math.round((pxWidth / pageW) * 100)
+      pct = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, pct))
+      setCanvas((c) =>
+        c.map((f) => (f.key === key ? { ...f, width: pct } : f)),
       )
     }
     const onUp = () => {
@@ -204,9 +240,9 @@ export default function ReportBuilder() {
           <h3>Report Builder</h3>
           <p>
             Drag components from the left onto the page on the right to build
-            your patrol report. Reorder blocks by dragging them up or down,
-            drag the bottom edge of a block to resize it, and drag a block
-            back to the panel (or hit ×) to remove it.
+            your patrol report. Reorder blocks by dragging them, drag the
+            bottom edge to resize height and the right edge to resize width,
+            and drag a block back to the panel (or hit ×) to remove it.
           </p>
         </div>
       </div>
@@ -272,7 +308,11 @@ export default function ReportBuilder() {
               </div>
             ) : (
               canvas.map((f, i) => (
-                <div key={f.key}>
+                <div
+                  key={f.key}
+                  className="rb-block-wrap"
+                  style={{ width: `${f.width ?? 100}%` }}
+                >
                   {overIndex === i && dragKey !== f.key && (
                     <div className="rb-drop-line" />
                   )}
@@ -301,7 +341,15 @@ export default function ReportBuilder() {
                       className="rb-resize-handle"
                       draggable={false}
                       onMouseDown={resizeStart(f.key)}
-                      title="Drag to resize"
+                      title="Drag to resize height"
+                    >
+                      <span />
+                    </div>
+                    <div
+                      className="rb-resize-handle-x"
+                      draggable={false}
+                      onMouseDown={widthResizeStart(f.key)}
+                      title="Drag to resize width"
                     >
                       <span />
                     </div>

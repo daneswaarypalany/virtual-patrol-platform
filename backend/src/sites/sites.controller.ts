@@ -60,5 +60,13 @@ export class SitesController {
   unassignUser(@Param('id') id: string, @Param('userId') userId: string) {
     return this.sitesService.unassignUser(id, userId);
   }
+
+    @Patch(':id/template')
+    setTemplate(
+    @Param('id') id: string,
+    @Body() body: { reportTemplateId: string | null },
+  ) {
+    return this.sitesService.setTemplate(id, body.reportTemplateId);
+  }
   
 }

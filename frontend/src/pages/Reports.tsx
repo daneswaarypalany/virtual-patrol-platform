@@ -7,12 +7,13 @@ import { patrolApi } from '../lib/patrol'
 import SearchableSelect from '../components/SearchableSelect'
 import TimeWheelPicker from '../components/TimeWheelPicker'
 import ReportBuilder from './ReportBuilder'
+import Templates from './Templates'
 import './Reports.css'
 
 type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
 type SortKey = 'newest' | 'oldest' | 'site'
 type ShiftKey = 'night' | 'morning'
-type ReportsTab = 'list' | 'builder'
+type ReportsTab = 'list' | 'builder' | 'templates'
 
 const SHIFTS: { key: ShiftKey; label: string; from: string; to: string }[] = [
   { key: 'night', label: 'Night Shift (8:00 PM – 8:00 AM)', from: '20:00', to: '08:00' },
@@ -274,10 +275,18 @@ export default function Reports() {
         >
           <FileCog size={15} /> Report Builder
         </button>
+        <button
+          className={tab === 'templates' ? 'active' : ''}
+          onClick={() => setTab('templates')}
+        >
+          <FileStack size={15} /> Templates
+        </button>
       </div>
 
       {tab === 'builder' ? (
         <ReportBuilder />
+      ) : tab === 'templates' ? (
+        <Templates onEdit={() => setTab('builder')} />
       ) : (
         <>
       <div className="reports-toolbar">

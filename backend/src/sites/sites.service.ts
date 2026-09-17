@@ -137,4 +137,12 @@ export class SitesService {
     });
     return { message: 'User removed from site' };
   }
+
+    async setTemplate(siteId: string, reportTemplateId: string | null) {
+    await this.findOne(siteId);
+    return this.prisma.site.update({
+      where: { id: siteId },
+      data: { reportTemplateId },
+    });
+  }
 }

@@ -467,3 +467,51 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+.rb-page {
+  background: var(--white);
+  width: 100%;
+  max-width: 680px;
+  min-height: 460px;
+  border-radius: 4px;
+  box-shadow: 0 4px 18px rgba(1, 31, 75, 0.1);
+  padding: 24px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 10px;
+}
+.rb-block-wrap {
+  box-sizing: border-box;
+  padding: 4px;
+  position: relative;
+}
+
+.rb-block {
+  position: relative;
+  height: 100%;
+}
+
+.rb-resize-handle-x {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 10px;
+  height: 100%;
+  cursor: ew-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rb-resize-handle-x span {
+  width: 3px;
+  height: 30px;
+  border-radius: 3px;
+  background: var(--border);
+}
+
+.rb-resize-handle-x:hover span {
+  background: var(--blue);
+}

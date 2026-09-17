@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateReportTemplateDto } from './dto/report-template.dto';
@@ -9,54 +9,138 @@ import {
   ReportTemplateField,
 } from './report-fields';
 
-const TEMPLATE_KEY = 'default';
+const DEFAULT_KEY = 'default';
 
 @Injectable()
 export class ReportTemplateService {
   constructor(private prisma: PrismaService) {}
 
-  // Returns the field defs (label/description/group) merged with the saved
-  // order/enabled state, so the frontend never has to hardcode labels.
-  async getTemplate() {
-    const row = await this.prisma.reportTemplate.findUnique({
-      where: { key: TEMPLATE_KEY },
+  // Ensure the built-in default template row exists
+  private async ensureDefault() {
+    const existing = await this.prisma.reportTemplate.findUnique({
+      where: { key: DEFAULT_KEY },
     });
+    if (!existing) {
+      await this.prisma.reportTemplate.create({
+        data: {
+          key: DEFAULT_KEY,
+          name: 'Default Template',
+          fields: DEFAULT_REPORT_FIELDS as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
+  }
 
-    const fields = (row?.fields as ReportTemplateField[] | undefined) ??
+  // merge saved field state with the defs (labels/descriptions/groups)
+  private mergeFields(saved: ReportTemplateField[]) {
+    const byKey = new Map(REPORT_FIELD_DEFS.map((f) => [f.key, f]));
+    return saved
+      .filter((f) => byKey.has(f.key))
+      .map((f) => ({
+        ...byKey.get(f.key)!,
+        enabled: f.enabled,
+        height: (f as any).height,
+        width: (f as any).width,
+      }));
+  }
+
+  // ---- List all templates (for the library page + pickers) ----
+  async listTemplates() {
+    await this.ensureDefault();
+    const rows = await this.prisma.reportTemplate.findMany({
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      key: r.key,
+      name: r.name,
+      isDefault: r.key === DEFAULT_KEY,
+      updatedAt: r.updatedAt,
+    }));
+  }
+
+  // ---- Get one template's full field layout (by id, or the default) ----
+  async getTemplateById(id?: string) {
+    await this.ensureDefault();
+    const row = id
+      ? await this.prisma.reportTemplate.findUnique({ where: { id } })
+      : await this.prisma.reportTemplate.findUnique({
+          where: { key: DEFAULT_KEY },
+        });
+
+    if (!row) throw new NotFoundException('Template not found');
+
+    const saved =
+      (row.fields as unknown as ReportTemplateField[] | undefined) ??
       DEFAULT_REPORT_FIELDS;
 
-    const byKey = new Map(REPORT_FIELD_DEFS.map((f) => [f.key, f]));
-
     return {
-      fields: fields
-        .filter((f) => byKey.has(f.key))
-        .map((f) => ({ ...byKey.get(f.key)!, enabled: f.enabled })),
-      updatedAt: row?.updatedAt ?? null,
+      id: row.id,
+      key: row.key,
+      name: row.name,
+      isDefault: row.key === DEFAULT_KEY,
+      fields: this.mergeFields(saved),
+      updatedAt: row.updatedAt,
     };
   }
 
-  // Returns just the ordered {key, enabled} list -- what patrol.service.ts
-  // actually needs when rendering a report, without the label/description
-  // fluff the frontend wants.
-  async getFieldOrder(): Promise<ReportTemplateField[]> {
-    const row = await this.prisma.reportTemplate.findUnique({
-      where: { key: TEMPLATE_KEY },
-    });
-    const saved = row?.fields as ReportTemplateField[] | undefined;
+  // Backward-compat: the old getTemplate() returns the default
+  async getTemplate() {
+    return this.getTemplateById(undefined);
+  }
+
+  // What patrol.service needs: ordered {key, enabled} for a given site's template
+  async getFieldOrder(templateId?: string | null): Promise<ReportTemplateField[]> {
+    await this.ensureDefault();
+    const row = templateId
+      ? await this.prisma.reportTemplate.findUnique({ where: { id: templateId } })
+      : await this.prisma.reportTemplate.findUnique({
+          where: { key: DEFAULT_KEY },
+        });
+
+    const saved = row?.fields as unknown as ReportTemplateField[] | undefined;
     if (!saved) return DEFAULT_REPORT_FIELDS;
 
-    // Guard against a stale saved list missing a field that was added to
-    // REPORT_FIELD_DEFS after the template was last saved -- append any
-    // missing ones at the end, enabled by default, rather than silently
-    // dropping that section from every report forever.
     const knownKeys = new Set(saved.map((f) => f.key));
     const missing = REPORT_FIELD_DEFS.filter((f) => !knownKeys.has(f.key)).map(
       (f) => ({ key: f.key, enabled: true }),
     );
-    return [...saved.filter((f) => REPORT_FIELD_KEYS.includes(f.key)), ...missing];
+    return [
+      ...saved.filter((f) => REPORT_FIELD_KEYS.includes(f.key)),
+      ...missing,
+    ];
   }
 
-  async updateTemplate(dto: UpdateReportTemplateDto) {
+  // ---- Create a new named template (starts from defaults) ----
+  async createTemplate(name: string) {
+    if (!name || !name.trim()) {
+      throw new BadRequestException('Template name is required');
+    }
+    const key = `tpl_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
+    const row = await this.prisma.reportTemplate.create({
+      data: {
+        key,
+        name: name.trim(),
+        fields: DEFAULT_REPORT_FIELDS as unknown as Prisma.InputJsonValue,
+      },
+    });
+    return this.getTemplateById(row.id);
+  }
+
+  // ---- Rename ----
+  async renameTemplate(id: string, name: string) {
+    if (!name || !name.trim()) {
+      throw new BadRequestException('Template name is required');
+    }
+    await this.prisma.reportTemplate.update({
+      where: { id },
+      data: { name: name.trim() },
+    });
+    return this.getTemplateById(id);
+  }
+
+  // ---- Save a template's fields (by id) ----
+  async updateTemplateById(id: string, dto: UpdateReportTemplateDto) {
     const givenKeys = dto.fields.map((f) => f.key);
     const uniqueGivenKeys = new Set(givenKeys);
 
@@ -70,21 +154,40 @@ export class ReportTemplateService {
       );
     }
 
-    const fields: ReportTemplateField[] = dto.fields.map((f) => ({
+    const fields = dto.fields.map((f) => ({
       key: f.key,
       enabled: f.enabled,
+      ...(f.height !== undefined ? { height: f.height } : {}),
+      ...(f.width !== undefined ? { width: f.width } : {}),
     }));
-    // Cast: ReportTemplateField[] is plain JSON-safe data (string + boolean
-    // fields only), but TypeScript can't structurally verify a named
-    // interface satisfies Prisma's InputJsonObject index signature.
     const jsonFields = fields as unknown as Prisma.InputJsonValue;
 
-    await this.prisma.reportTemplate.upsert({
-      where: { key: TEMPLATE_KEY },
-      create: { key: TEMPLATE_KEY, fields: jsonFields },
-      update: { fields: jsonFields },
+    await this.prisma.reportTemplate.update({
+      where: { id },
+      data: { fields: jsonFields },
     });
 
-    return this.getTemplate();
+    return this.getTemplateById(id);
+  }
+
+  // Backward-compat: old updateTemplate() saves the default
+  async updateTemplate(dto: UpdateReportTemplateDto) {
+    await this.ensureDefault();
+    const def = await this.prisma.reportTemplate.findUnique({
+      where: { key: DEFAULT_KEY },
+    });
+    return this.updateTemplateById(def!.id, dto);
+  }
+
+  // ---- Delete (cannot delete the default) ----
+  async deleteTemplate(id: string) {
+    const row = await this.prisma.reportTemplate.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Template not found');
+    if (row.key === DEFAULT_KEY) {
+      throw new BadRequestException('The default template cannot be deleted');
+    }
+    // sites referencing it fall back to null via onDelete: SetNull
+    await this.prisma.reportTemplate.delete({ where: { id } });
+    return { deleted: true };
   }
 }

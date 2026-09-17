@@ -32,6 +32,8 @@ model Site {
   createdAt   DateTime                 @default(now())
   updatedAt   DateTime                 @updatedAt
   timezone    String                   @default("Asia/Kuala_Lumpur")
+  reportTemplateId String?
+  reportTemplate   ReportTemplate? @relation(fields: [reportTemplateId], references: [id], onDelete: SetNull)
   alerts      Alert[]
   cameras     Camera[]
   incidents   Incident[]
@@ -286,7 +288,9 @@ enum IncidentStatus {
 model ReportTemplate {
   id        String   @id @default(uuid())
   key       String   @unique @default("default")
+  name      String   @default("Default Template")
   fields    Json
+  sites     Site[]
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
 }
