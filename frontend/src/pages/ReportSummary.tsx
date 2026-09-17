@@ -64,7 +64,8 @@ export default function ReportSummary({
             <strong>Summary covers {filtered.length} report{filtered.length === 1 ? '' : 's'}</strong>
             <span>
               Based on the filters above — adjust them to change what the
-              summary includes.
+              summary includes. The PDF includes an outcomes chart and an
+              issues-by-site breakdown, not just tables.
             </span>
           </div>
         </div>

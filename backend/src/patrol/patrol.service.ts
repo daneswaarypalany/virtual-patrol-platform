@@ -452,29 +452,15 @@ export class PatrolService {
     }
     // ADMIN → {} (all)
 
-    const jobs = await this.prisma.patrolJob.findMany({
+    return this.prisma.patrolJob.findMany({
       where,
       orderBy: { startedAt: 'desc' },
       include: {
-        route: {
-          include: { site: { select: { id: true, name: true } } },
-        },
+        route: { include: { site: { select: { name: true } } } },
         operator: { select: { fullName: true } },
         _count: { select: { results: true } },
-        results: { select: { allClear: true } },
       },
     })
-
-    return jobs.map((j) => ({
-      id: j.id,
-      status: j.status,
-      startedAt: j.startedAt,
-      completedAt: j.completedAt,
-      route: { name: j.route.name, site: j.route.site },
-      operator: j.operator,
-      _count: j._count,
-      issues: j.results.filter((r) => !r.allClear).length,
-    }))
   }
 
   async generateReport(user: { id: string; role: string }, jobId: string) {
@@ -605,6 +591,133 @@ export class PatrolService {
     }
   }
 
+  private escapeXml(s: string) {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  }
+
+  // Donut chart (pure SVG, no client libs needed since this is rendered
+  // server-side by Puppeteer): share of checkpoints that came back clear
+  // vs. flagged, across all the included patrols.
+  private donutChart(clearCount: number, issueCount: number) {
+    const total = clearCount + issueCount
+    const size = 150
+    const stroke = 20
+    const r = (size - stroke) / 2
+    const c = 2 * Math.PI * r
+    const clearPct = total ? clearCount / total : 1
+    const clearDash = clearPct * c
+    const issueDash = c - clearDash
+    const pctLabel = total ? Math.round(clearPct * 100) : 100
+
+    return `
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="#eef2f6" stroke-width="${stroke}" />
+        <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="#2e9e6b" stroke-width="${stroke}"
+          stroke-dasharray="${clearDash} ${c}" stroke-linecap="butt"
+          transform="rotate(-90 ${size / 2} ${size / 2})" />
+        ${
+          issueCount > 0
+            ? `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="#cf5b5b" stroke-width="${stroke}"
+          stroke-dasharray="${issueDash} ${c}" stroke-dashoffset="${-clearDash}" stroke-linecap="butt"
+          transform="rotate(-90 ${size / 2} ${size / 2})" />`
+            : ''
+        }
+        <text x="${size / 2}" y="${size / 2 - 3}" text-anchor="middle" font-size="24" font-weight="bold" fill="#011f4b">${pctLabel}%</text>
+        <text x="${size / 2}" y="${size / 2 + 16}" text-anchor="middle" font-size="9" fill="#5f7488" letter-spacing="0.5">CLEAR</text>
+      </svg>`
+  }
+
+  // Horizontal bar chart (pure SVG): issues per group (site or route,
+  // depending on context), so problem areas jump out visually instead of
+  // being buried in the table below.
+  private issuesBarChart(rows: { label: string; issues: number }[]) {
+    if (rows.length === 0) {
+      return '<p style="color:#5f7488;font-size:12px;">No data</p>'
+    }
+    const max = Math.max(1, ...rows.map((s) => s.issues))
+    const rowH = 26
+    const chartW = 380
+    const labelW = 108
+    const barMaxW = chartW - labelW - 36
+    const height = rows.length * rowH + 6
+
+    const bars = rows
+      .map((s, i) => {
+        const y = i * rowH
+        const w = s.issues > 0 ? Math.max(4, (s.issues / max) * barMaxW) : 0
+        const color = s.issues > 0 ? '#cf5b5b' : '#2e9e6b'
+        const label = this.escapeXml(
+          s.label.length > 16 ? `${s.label.slice(0, 15)}…` : s.label,
+        )
+        return `
+          <text x="0" y="${y + 15}" font-size="10.5" fill="#011f4b">${label}</text>
+          <rect x="${labelW}" y="${y + 3}" width="${barMaxW}" height="14" rx="3" fill="#f4f7fa" />
+          <rect x="${labelW}" y="${y + 3}" width="${w}" height="14" rx="3" fill="${color}" />
+          <text x="${labelW + barMaxW + 8}" y="${y + 15}" font-size="10.5" font-weight="bold" fill="#011f4b">${s.issues}</text>`
+      })
+      .join('')
+
+    return `<svg width="${chartW}" height="${height}" viewBox="0 0 ${chartW} ${height}">${bars}</svg>`
+  }
+
+  // Line + area chart (pure SVG): issues per day across the included date
+  // range, so upward/downward trends are visible instead of just a total.
+  private trendLineChart(data: { date: string; issues: number; total: number }[]) {
+    if (data.length === 0) {
+      return '<p style="color:#5f7488;font-size:12px;">No data</p>'
+    }
+    const w = 620
+    const h = 160
+    const padL = 28
+    const padR = 10
+    const padT = 12
+    const padB = 24
+    const chartW = w - padL - padR
+    const chartH = h - padT - padB
+    const maxIssues = Math.max(1, ...data.map((d) => d.issues))
+    const n = data.length
+
+    const x = (i: number) => (n === 1 ? padL + chartW / 2 : padL + (i / (n - 1)) * chartW)
+    const y = (v: number) => padT + chartH - (v / maxIssues) * chartH
+
+    const points = data.map((d, i) => `${x(i)},${y(d.issues)}`).join(' ')
+    const areaPoints = `${x(0)},${padT + chartH} ${points} ${x(n - 1)},${padT + chartH}`
+
+    const labelIdxs = Array.from(
+      new Set([0, Math.floor((n - 1) / 2), n - 1]),
+    )
+    const labels = labelIdxs
+      .map((i) => {
+        const d = new Date(data[i].date)
+        const txt = d.toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+        })
+        return `<text x="${x(i)}" y="${h - 6}" font-size="9.5" fill="#5f7488" text-anchor="middle">${txt}</text>`
+      })
+      .join('')
+
+    const dots = data
+      .map((d, i) => `<circle cx="${x(i)}" cy="${y(d.issues)}" r="3" fill="#cf5b5b" />`)
+      .join('')
+
+    return `
+      <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+        <line x1="${padL}" y1="${padT}" x2="${padL + chartW}" y2="${padT}" stroke="#eef2f6" stroke-width="1" />
+        <line x1="${padL}" y1="${padT + chartH}" x2="${padL + chartW}" y2="${padT + chartH}" stroke="#d8e2ec" stroke-width="1" />
+        <text x="${padL - 6}" y="${padT + 4}" font-size="9" fill="#5f7488" text-anchor="end">${maxIssues}</text>
+        <text x="${padL - 6}" y="${padT + chartH + 4}" font-size="9" fill="#5f7488" text-anchor="end">0</text>
+        <polygon points="${areaPoints}" fill="#cf5b5b" fill-opacity="0.08" />
+        <polyline points="${points}" fill="none" stroke="#cf5b5b" stroke-width="2" />
+        ${dots}
+        ${labels}
+      </svg>`
+  }
+
   private buildSummaryHtml(
     jobs: Awaited<ReturnType<PatrolService['fetchJobForReport']>>[],
   ) {
@@ -624,6 +737,13 @@ export class PatrolService {
       (sum, j) => sum + j.results.filter((r) => !r.allClear).length,
       0,
     )
+    const totalResults = jobs.reduce((sum, j) => sum + j.results.length, 0)
+    const clearResults = totalResults - totalIssues
+
+    // When every included patrol is from the same site, the "by site"
+    // breakdown is redundant (there's only one row) -- swap it for a
+    // by-route breakdown instead, which is actually useful at that scope.
+    const singleSite = siteNames.length === 1
 
     // per-site rollup: patrols, checkpoints, and issues for each site
     const bySite = siteNames.map((siteName) => {
@@ -638,6 +758,67 @@ export class PatrolService {
         ),
       }
     })
+
+    // per-route rollup, used instead of bySite when singleSite is true
+    const routeNames = Array.from(new Set(jobs.map((j) => j.route.name)))
+    const byRoute = routeNames.map((routeName) => {
+      const routeJobs = jobs.filter((j) => j.route.name === routeName)
+      return {
+        routeName,
+        patrols: routeJobs.length,
+        checkpoints: routeJobs.reduce((s, j) => s + j.route.checkpoints.length, 0),
+        issues: routeJobs.reduce(
+          (s, j) => s + j.results.filter((r) => !r.allClear).length,
+          0,
+        ),
+      }
+    })
+
+    // per-operator rollup, shown alongside the route breakdown when
+    // singleSite is true -- who patrolled this site and how it went
+    const byOperator = operatorNames.map((name) => {
+      const opJobs = jobs.filter((j) => j.operator.fullName === name)
+      return {
+        name,
+        patrols: opJobs.length,
+        issues: opJobs.reduce(
+          (s, j) => s + j.results.filter((r) => !r.allClear).length,
+          0,
+        ),
+      }
+    })
+
+    // issues-over-time trend, bucketed by day using each checkpoint's own
+    // completedAt (finer-grained than the job's overall completedAt, so a
+    // long patrol spanning midnight still lands its checkpoints correctly)
+    const dayMap = new Map<string, { issues: number; total: number }>()
+    for (const j of jobs) {
+      for (const r of j.results) {
+        const day = new Date(r.completedAt).toISOString().slice(0, 10)
+        const entry = dayMap.get(day) ?? { issues: 0, total: 0 }
+        entry.total += 1
+        if (!r.allClear) entry.issues += 1
+        dayMap.set(day, entry)
+      }
+    }
+    const trendData = Array.from(dayMap.keys())
+      .sort()
+      .map((date) => ({ date, ...dayMap.get(date)! }))
+
+    // shift breakdown -- night (8pm-8am) vs morning/day (8am-8pm), by each
+    // checkpoint's own completedAt hour
+    const shiftTally = {
+      night: { issues: 0, total: 0 },
+      morning: { issues: 0, total: 0 },
+    }
+    for (const j of jobs) {
+      for (const r of j.results) {
+        const hour = new Date(r.completedAt).getHours()
+        const bucket = hour >= 20 || hour < 8 ? shiftTally.night : shiftTally.morning
+        bucket.total += 1
+        if (!r.allClear) bucket.issues += 1
+      }
+    }
 
     const earliestDate = jobs.reduce<Date | null>((min, j) => {
       const at = j.startedAt ? new Date(j.startedAt) : null
@@ -660,7 +841,7 @@ export class PatrolService {
         const issues = j.results.filter((r) => !r.allClear).length
         return `
           <tr>
-            <td>${j.route.site.name}</td>
+            ${singleSite ? '' : `<td>${j.route.site.name}</td>`}
             <td>${j.route.name}</td>
             <td>${j.operator.fullName}</td>
             <td>${fmt(j.completedAt)}</td>
@@ -682,6 +863,29 @@ export class PatrolService {
       )
       .join('')
 
+    const routeRows = byRoute
+      .map(
+        (r) => `
+          <tr>
+            <td>${r.routeName}</td>
+            <td>${r.patrols}</td>
+            <td>${r.checkpoints}</td>
+            <td class="${r.issues > 0 ? 'issue-cell' : ''}">${r.issues}</td>
+          </tr>`,
+      )
+      .join('')
+
+    const operatorRows = byOperator
+      .map(
+        (o) => `
+          <tr>
+            <td>${o.name}</td>
+            <td>${o.patrols}</td>
+            <td class="${o.issues > 0 ? 'issue-cell' : ''}">${o.issues}</td>
+          </tr>`,
+      )
+      .join('')
+
     let logoTag = ''
     try {
       const logoB64 = fs
@@ -691,6 +895,18 @@ export class PatrolService {
     } catch {
       logoTag = ''
     }
+
+    const donutSvg = this.donutChart(clearResults, totalIssues)
+    const barSvg = singleSite
+      ? this.issuesBarChart(byRoute.map((r) => ({ label: r.routeName, issues: r.issues })))
+      : this.issuesBarChart(bySite.map((s) => ({ label: s.siteName, issues: s.issues })))
+    const trendSvg = this.trendLineChart(trendData)
+    const shiftSvg = this.issuesBarChart([
+      { label: 'Night Shift', issues: shiftTally.night.issues },
+      { label: 'Morning Shift', issues: shiftTally.morning.issues },
+    ])
+    const shiftRate = (b: { issues: number; total: number }) =>
+      b.total ? Math.round((b.issues / b.total) * 100) : 0
 
     return `
       <html><head><style>
@@ -711,14 +927,25 @@ export class PatrolService {
         td { padding: 8px 10px; border-bottom: 1px solid #eef2f6; }
         .issue-cell { color: #cf5b5b; font-weight: bold; }
         .meta-line { font-size: 12px; color: #5f7488; margin-bottom: 4px; }
+        .charts-row { display: flex; gap: 16px; margin: 20px 0 28px; }
+        .chart-card { border: 1px solid #d8e2ec; border-radius: 10px; padding: 16px; }
+        .chart-card h3 { margin: 0 0 12px; font-size: 12px; color: #5f7488; text-transform: uppercase; letter-spacing: 0.4px; }
+        .chart-card.donut { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 0 0 200px; }
+        .chart-card.bars { flex: 1; }
+        .chart-legend { display: flex; gap: 16px; margin-top: 12px; font-size: 11px; color: #5f7488; }
+        .chart-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        .chart-legend .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+        .chart-card.full { flex: 1 1 100%; }
+        .shift-stats { display: flex; gap: 24px; margin-top: 10px; font-size: 11.5px; color: #5f7488; }
+        .shift-stats strong { color: #011f4b; }
       </style></head><body>
         <div class="header">
           ${logoTag}
-          <h1>Patrol Summary Report</h1>
+          <h1>${singleSite ? `${siteNames[0]} — Patrol Summary` : 'Patrol Summary Report'}</h1>
           <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
         </div>
 
-        <div class="meta-line">Sites: ${siteNames.join(', ')}</div>
+        ${singleSite ? '' : `<div class="meta-line">Sites: ${siteNames.join(', ')}</div>`}
         <div class="meta-line">Operators: ${operatorNames.join(', ')}</div>
         ${
           earliestDate && latestDate
@@ -745,18 +972,74 @@ export class PatrolService {
           </div>
         </div>
 
+        <div class="charts-row">
+          <div class="chart-card donut">
+            <h3>Checkpoint Outcomes</h3>
+            ${donutSvg}
+            <div class="chart-legend">
+              <span><span class="dot" style="background:#2e9e6b"></span>Clear (${clearResults})</span>
+              <span><span class="dot" style="background:#cf5b5b"></span>Issues (${totalIssues})</span>
+            </div>
+          </div>
+          <div class="chart-card bars">
+            <h3>Issues by ${singleSite ? 'Route' : 'Site'}</h3>
+            ${barSvg}
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card full">
+            <h3>Issues Over Time</h3>
+            ${trendSvg}
+          </div>
+        </div>
+
+        <div class="charts-row">
+          <div class="chart-card bars full">
+            <h3>Issues by Shift</h3>
+            ${shiftSvg}
+            <div class="shift-stats">
+              <span><strong>Night (8PM–8AM):</strong> ${shiftTally.night.issues} of ${shiftTally.night.total} checkpoints (${shiftRate(shiftTally.night)}%)</span>
+              <span><strong>Morning (8AM–8PM):</strong> ${shiftTally.morning.issues} of ${shiftTally.morning.total} checkpoints (${shiftRate(shiftTally.morning)}%)</span>
+            </div>
+          </div>
+        </div>
+
+        ${
+          singleSite
+            ? `
+        <h2>By Route</h2>
+        <table>
+          <thead>
+            <tr><th>Route</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
+          </thead>
+          <tbody>${routeRows}</tbody>
+        </table>
+
+        <h2>By Operator</h2>
+        <table>
+          <thead>
+            <tr><th>Operator</th><th>Patrols</th><th>Issues</th></tr>
+          </thead>
+          <tbody>${operatorRows}</tbody>
+        </table>`
+            : `
         <h2>By Site</h2>
         <table>
           <thead>
             <tr><th>Site</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
           </thead>
           <tbody>${siteRows}</tbody>
-        </table>
+        </table>`
+        }
 
         <h2>Included Patrols</h2>
         <table>
           <thead>
-            <tr><th>Site</th><th>Route</th><th>Operator</th><th>Completed</th><th>Checkpoints</th><th>Issues</th></tr>
+            <tr>
+              ${singleSite ? '' : '<th>Site</th>'}
+              <th>Route</th><th>Operator</th><th>Completed</th><th>Checkpoints</th><th>Issues</th>
+            </tr>
           </thead>
           <tbody>${jobRows}</tbody>
         </table>
