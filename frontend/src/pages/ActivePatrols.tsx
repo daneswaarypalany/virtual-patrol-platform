@@ -159,7 +159,6 @@ export default function ActivePatrols() {
                 <th>Status</th>
                 <th>Started</th>
                 <th>Last Activity</th>
-                <th>Progress</th>
                 <th>Stopped At</th>
               </tr>
             </thead>
@@ -199,9 +198,6 @@ export default function ActivePatrols() {
                   </td>
                   <td>{fmt(j.startedAt)}</td>
                   <td>{fmt(j.lastActivityAt)}</td>
-                  <td>
-                    {j._count.results}/{j.totalCheckpoints} checkpoints
-                  </td>
                   <td className="active-stopped">
                     {j.lastCheckpoint ? (
                       <>

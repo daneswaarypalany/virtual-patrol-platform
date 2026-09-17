@@ -465,7 +465,9 @@ export class PatrolService {
 
   async generateReport(user: { id: string; role: string }, jobId: string) {
     const job = await this.fetchJobForReport(user, jobId)
-    const layout = await this.reportTemplateService.getFieldOrder()
+    const layout = await this.reportTemplateService.getFieldOrder(
+      job.route.site.reportTemplateId,
+    )
     const html = this.buildReportHtml(job, layout)
 
     const browser = await puppeteer.launch({
@@ -488,7 +490,20 @@ export class PatrolService {
   ) {
     // dedupe while preserving the order the caller asked for
     const uniqueIds = Array.from(new Set(jobIds))
-    const layout = await this.reportTemplateService.getFieldOrder()
+    // jobs can span sites with different assigned templates, so layouts are
+    // resolved per job — cached by templateId since several jobs often
+    // share the same site/template
+    const layoutCache = new Map<string, ReportTemplateField[]>()
+    const getLayout = async (templateId: string | null) => {
+      const cacheKey = templateId ?? '__default__'
+      if (!layoutCache.has(cacheKey)) {
+        layoutCache.set(
+          cacheKey,
+          await this.reportTemplateService.getFieldOrder(templateId),
+        )
+      }
+      return layoutCache.get(cacheKey)!
+    }
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -500,6 +515,7 @@ export class PatrolService {
 
       for (const jobId of uniqueIds) {
         const job = await this.fetchJobForReport(user, jobId)
+        const layout = await getLayout(job.route.site.reportTemplateId)
         const html = this.buildReportHtml(job, layout)
         const pdf = await this.renderHtmlToPdf(browser, html)
         const safeRoute = job.route.name.replace(/[^a-z0-9-_]+/gi, '_')

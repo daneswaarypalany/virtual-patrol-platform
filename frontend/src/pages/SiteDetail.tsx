@@ -8,10 +8,12 @@ import type { Camera, CameraInput } from '../lib/cameras'
 import { camerasApi } from '../lib/cameras'
 import type { Route } from '../lib/routes'
 import { routesApi } from '../lib/routes'
+import type { ReportTemplateSummary } from '../lib/report-template'
+import { reportTemplateApi } from '../lib/report-template'
 import './SiteDetail.css'
 import SearchableSelect from '../components/SearchableSelect'
 
-type Tab = 'operators' | 'cameras' | 'routes'
+type Tab = 'operators' | 'template' | 'cameras' | 'routes'
 
 export default function SiteDetail({
   site,
@@ -25,6 +27,9 @@ export default function SiteDetail({
   const [allUsers, setAllUsers] = useState<AppUser[]>([])
   const [cameras, setCameras] = useState<Camera[]>([])
   const [routes, setRoutes] = useState<Route[]>([])
+  const [templates, setTemplates] = useState<ReportTemplateSummary[]>([])
+  const [templateId, setTemplateId] = useState<string | null>(site.reportTemplateId)
+  const [savingTemplate, setSavingTemplate] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -35,16 +40,18 @@ export default function SiteDetail({
     setLoading(true)
     setError('')
     try {
-      const [a, u, c, r] = await Promise.all([
+      const [a, u, c, r, t] = await Promise.all([
         sitesApi.getAssignments(site.id),
         usersApi.list(),
         camerasApi.list(site.id),
         routesApi.list(site.id),
+        reportTemplateApi.list(),
       ])
       setAssigned(a)
       setAllUsers(u)
       setCameras(c)
       setRoutes(r)
+      setTemplates(t)
     } catch {
       setError('Failed to load site details')
     } finally {
@@ -54,6 +61,7 @@ export default function SiteDetail({
 
   useEffect(() => {
     load()
+    setTemplateId(site.reportTemplateId)
   }, [site.id])
 
   const assignedIds = new Set(assigned.map((a) => a.id))
@@ -76,6 +84,21 @@ export default function SiteDetail({
       load()
     } catch {
       setError('Failed to remove user')
+    }
+  }
+
+  const changeTemplate = async (id: string) => {
+    const nextId = id || null
+    const prevId = templateId
+    setTemplateId(nextId) // optimistic
+    setSavingTemplate(true)
+    try {
+      await sitesApi.setTemplate(site.id, nextId)
+    } catch {
+      setTemplateId(prevId)
+      setError('Failed to update report template')
+    } finally {
+      setSavingTemplate(false)
     }
   }
 
@@ -141,6 +164,12 @@ export default function SiteDetail({
             Assigned Operators
           </button>
           <button
+            className={tab === 'template' ? 'active' : ''}
+            onClick={() => setTab('template')}
+          >
+            Report Template
+          </button>
+          <button
             className={tab === 'cameras' ? 'active' : ''}
             onClick={() => setTab('cameras')}
           >
@@ -202,6 +231,30 @@ export default function SiteDetail({
                         </div>
                       ))
                     )}
+                  </div>
+                </>
+              )}
+
+              {/* ---------- Report Template ---------- */}
+              {tab === 'template' && (
+                <>
+                  <div className="assign-add">
+                    <label>Report template for this site</label>
+                    <SearchableSelect
+                      value={templateId ?? ''}
+                      onChange={(v) => changeTemplate(v)}
+                      placeholder="Default Template"
+                      searchable={false}
+                      options={templates.map((t) => ({
+                        value: t.id,
+                        label: t.isDefault ? `${t.name} (Default)` : t.name,
+                      }))}
+                    />
+                    <p className="detail-muted">
+                      {savingTemplate
+                        ? 'Saving…'
+                        : 'Used when generating reports for patrols at this site. Manage the templates themselves from the Reports → Templates screen.'}
+                    </p>
                   </div>
                 </>
               )}

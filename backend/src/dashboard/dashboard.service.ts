@@ -7,6 +7,7 @@ export class DashboardService {
 
   async getData(user: { id: string; role: string }) {
     const isAdmin = user.role === "ADMIN";
+    const isViewer = user.role === "VIEWER";
 
     // For operators, restrict to their assigned sites
     let siteIds: string[] | null = null;
@@ -18,8 +19,14 @@ export class DashboardService {
       siteIds = assignments.map((a) => a.siteId);
     }
 
-    // Scope helper for jobs (by route.siteId for operators, or own jobs)
-    const jobWhere = isAdmin ? {} : { operatorId: user.id };
+    // Scope helper for jobs: admins see everything, viewers see every job
+    // on their assigned sites (they don't run patrols themselves), and
+    // operators see only jobs they personally performed.
+    const jobWhere = isAdmin
+      ? {}
+      : isViewer
+        ? { route: { siteId: { in: siteIds ?? [] } } }
+        : { operatorId: user.id };
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -49,14 +56,14 @@ export class DashboardService {
     const issuesFlagged = await this.prisma.checkpointResult.count({
       where: {
         allClear: false,
-        job: isAdmin ? {} : { operatorId: user.id },
+        job: jobWhere,
       },
     });
 
     // Total checkpoint results (all checks done) — denominator for the ratio
     const totalChecks = await this.prisma.checkpointResult.count({
       where: {
-        job: isAdmin ? {} : { operatorId: user.id },
+        job: jobWhere,
       },
     });
 
@@ -76,7 +83,7 @@ export class DashboardService {
     const recentIssues = await this.prisma.checkpointResult.findMany({
       where: {
         allClear: false,
-        job: isAdmin ? {} : { operatorId: user.id },
+        job: jobWhere,
       },
       orderBy: { completedAt: "desc" },
       take: 8,
@@ -131,11 +138,27 @@ export class DashboardService {
 
   async getIssues(user: { id: string; role: string }) {
     const isAdmin = user.role === "ADMIN";
+    const isViewer = user.role === "VIEWER";
+
+    let siteIds: string[] | null = null;
+    if (isViewer) {
+      const assignments = await this.prisma.operatorSiteAssignment.findMany({
+        where: { userId: user.id },
+        select: { siteId: true },
+      });
+      siteIds = assignments.map((a) => a.siteId);
+    }
+
+    const jobWhere = isAdmin
+      ? {}
+      : isViewer
+        ? { route: { siteId: { in: siteIds ?? [] } } }
+        : { operatorId: user.id };
 
     return this.prisma.checkpointResult.findMany({
       where: {
         allClear: false,
-        job: isAdmin ? {} : { operatorId: user.id },
+        job: jobWhere,
       },
       orderBy: { completedAt: "desc" },
       include: {

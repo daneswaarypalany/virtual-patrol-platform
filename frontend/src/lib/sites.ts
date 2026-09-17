@@ -8,6 +8,7 @@ export interface Site {
   timezone: string
   isActive: boolean
   createdAt: string
+  reportTemplateId: string | null
   _count: { cameras: number; assignments: number }
 }
 
@@ -39,4 +40,8 @@ export const sitesApi = {
     api.post(`/sites/${siteId}/assignments/${userId}`).then((r) => r.data),
   unassignUser: (siteId: string, userId: string) =>
     api.delete(`/sites/${siteId}/assignments/${userId}`).then((r) => r.data),
+  setTemplate: (siteId: string, reportTemplateId: string | null) =>
+    api
+      .patch<Site>(`/sites/${siteId}/template`, { reportTemplateId })
+      .then((r) => r.data),
 }

@@ -8,6 +8,7 @@ import SearchableSelect from '../components/SearchableSelect'
 import TimeWheelPicker from '../components/TimeWheelPicker'
 import ReportBuilder from './ReportBuilder'
 import Templates from './Templates'
+import { useAuth } from '../auth/AuthContext'
 import './Reports.css'
 
 type DatePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom'
@@ -21,7 +22,10 @@ const SHIFTS: { key: ShiftKey; label: string; from: string; to: string }[] = [
 ]
 
 export default function Reports() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const [tab, setTab] = useState<ReportsTab>('list')
+  const [editTemplateId, setEditTemplateId] = useState<string | undefined>(undefined)
   const [jobs, setJobs] = useState<PatrolJobSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -269,24 +273,42 @@ export default function Reports() {
         >
           <FileText size={15} /> Generated Reports
         </button>
-        <button
-          className={tab === 'builder' ? 'active' : ''}
-          onClick={() => setTab('builder')}
-        >
-          <FileCog size={15} /> Report Builder
-        </button>
-        <button
-          className={tab === 'templates' ? 'active' : ''}
-          onClick={() => setTab('templates')}
-        >
-          <FileStack size={15} /> Templates
-        </button>
+        {isAdmin && (
+          <>
+            <button
+              className={tab === 'builder' ? 'active' : ''}
+              onClick={() => {
+                setEditTemplateId(undefined)
+                setTab('builder')
+              }}
+            >
+              <FileCog size={15} /> Report Builder
+            </button>
+            <button
+              className={tab === 'templates' ? 'active' : ''}
+              onClick={() => setTab('templates')}
+            >
+              <FileStack size={15} /> Templates
+            </button>
+          </>
+        )}
       </div>
 
-      {tab === 'builder' ? (
-        <ReportBuilder />
-      ) : tab === 'templates' ? (
-        <Templates onEdit={() => setTab('builder')} />
+      {tab === 'builder' && isAdmin ? (
+        <ReportBuilder
+          editTemplateId={editTemplateId}
+          onSaved={() => {
+            setTab('templates')
+            setEditTemplateId(undefined)
+          }}
+        />
+      ) : tab === 'templates' && isAdmin ? (
+        <Templates
+          onEdit={(id) => {
+            setEditTemplateId(id)
+            setTab('builder')
+          }}
+        />
       ) : (
         <>
       <div className="reports-toolbar">

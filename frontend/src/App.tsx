@@ -89,6 +89,7 @@ const builtPages: Page[] = [
   'cameras',
   'reports',
   'history',
+  'settings',
 ]
 
 function Shell() {
