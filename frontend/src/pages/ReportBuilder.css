@@ -43,137 +43,220 @@
   margin-bottom: 14px;
 }
 
-/* ---------- Workspace: palette (left) + canvas (right) ---------- */
+/* ---- two-pane layout ---- */
 
-.rb-workspace {
+.rb-builder-layout {
   display: grid;
-  grid-template-columns: 290px 1fr;
-  gap: 20px;
+  grid-template-columns: 260px 1fr;
+  gap: 18px;
   align-items: start;
 }
 
-@media (max-width: 900px) {
-  .rb-workspace {
-    grid-template-columns: 1fr;
-  }
-}
-
-.rb-palette {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px;
-  min-height: 420px;
-  position: sticky;
-  top: 12px;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.rb-palette.drag-over {
-  background: rgba(207, 91, 91, 0.06);
-  border-color: var(--status-red);
-  border-style: dashed;
-}
-
-.rb-palette-title {
+.rb-pane-head {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
   margin-bottom: 10px;
 }
 
-.rb-palette-empty {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  line-height: 1.5;
-  padding: 10px 2px;
+/* ---- left palette ---- */
+
+.rb-palette {
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  min-height: 420px;
+  background: var(--bg);
 }
 
-.rb-palette-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.rb-empty-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
 }
 
 .rb-chip {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 8px;
-  padding: 10px;
-  background: var(--white);
+  padding: 9px 10px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
+  background: var(--white);
+  margin-bottom: 8px;
   cursor: grab;
+  transition: opacity 0.15s ease;
 }
 
 .rb-chip:active {
   cursor: grabbing;
 }
 
-.rb-chip-handle {
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
-  flex-shrink: 0;
-  margin-top: 2px;
+.rb-chip.dragging {
+  opacity: 0.4;
 }
 
-.rb-chip-info {
+.rb-chip-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
   flex: 1;
 }
 
-.rb-chip-top {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.rb-chip-top strong {
-  font-size: 12.5px;
+.rb-chip-text strong {
+  font-size: 12px;
   color: var(--text);
 }
 
-.rb-chip-desc {
-  font-size: 11.5px;
+.rb-chip-text span {
+  font-size: 11px;
   color: var(--text-muted);
-  line-height: 1.4;
 }
 
-.rb-chip-add {
-  flex-shrink: 0;
+/* ---- right canvas ("blank page") ---- */
+
+.rb-canvas-wrap {
+  min-width: 0;
+}
+
+.rb-canvas {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(1, 31, 75, 0.08), 0 8px 24px rgba(1, 31, 75, 0.05);
+  min-height: 480px;
+  padding: 18px 22px;
+}
+
+.rb-canvas-empty {
+  height: 440px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--white);
-  color: var(--blue);
-  cursor: pointer;
+  gap: 10px;
+  color: var(--text-muted);
+  border: 2px dashed var(--border);
+  border-radius: 8px;
 }
 
-.rb-chip-add:hover {
-  background: var(--blue);
-  color: var(--white);
-  border-color: var(--blue);
+.rb-canvas-empty p {
+  margin: 0;
+  font-size: 13px;
 }
+
+/* a thin drop-zone strip between rows (and above the first / below the
+   last) used to start a new row -- i.e. vertical placement */
+.rb-gap {
+  height: 10px;
+  margin: -1px 0;
+  border-radius: 4px;
+}
+
+.rb-gap.active {
+  height: 22px;
+  background: rgba(38, 99, 235, 0.1);
+  border: 1.5px dashed var(--blue);
+}
+
+/* a row holds one or more blocks placed side by side -- horizontal
+   placement */
+.rb-row-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.rb-block {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: grab;
+  transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.rb-block:active {
+  cursor: grabbing;
+}
+
+.rb-block.dragging {
+  opacity: 0.35;
+}
+
+/* highlight showing which side of the block the dragged item will land on */
+.rb-block.hover-left {
+  box-shadow: inset 4px 0 0 var(--blue);
+}
+
+.rb-block.hover-right {
+  box-shadow: inset -4px 0 0 var(--blue);
+}
+
+.rb-block-handle {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.rb-block-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.rb-block-text strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.rb-block-text span {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rb-block-remove {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+}
+
+.rb-block-remove:hover {
+  color: var(--status-red);
+  background: #fdeaea;
+}
+
+/* ---- shared group badge ---- */
 
 .rb-group {
-  font-size: 9.5px;
+  flex-shrink: 0;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 10px;
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .rb-group-summary {
@@ -186,243 +269,7 @@
   color: var(--blue);
 }
 
-/* ---------- Canvas: the "blank page" ---------- */
-
-.rb-canvas-wrap {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 24px;
-  min-height: 420px;
-  display: flex;
-  justify-content: center;
-}
-
-.rb-page {
-  background: var(--white);
-  width: 100%;
-  max-width: 680px;
-  min-height: 460px;
-  border-radius: 4px;
-  box-shadow: 0 4px 18px rgba(1, 31, 75, 0.1);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.rb-page-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13.5px;
-  border: 2px dashed var(--border);
-  border-radius: 8px;
-  min-height: 400px;
-  padding: 20px;
-}
-
-.rb-drop-line {
-  height: 3px;
-  border-radius: 2px;
-  background: var(--blue);
-  margin: 2px 0;
-}
-
-.rb-block {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--white);
-  transition: opacity 0.15s ease, box-shadow 0.15s ease;
-  cursor: grab;
-  overflow: hidden;
-}
-
-.rb-block:active {
-  cursor: grabbing;
-}
-
-.rb-block:hover {
-  box-shadow: 0 2px 10px rgba(1, 31, 75, 0.08);
-}
-
-.rb-block.dragging {
-  opacity: 0.35;
-}
-
-.rb-block-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-}
-
-.rb-block-handle {
-  display: flex;
-  align-items: center;
-  color: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.rb-block-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  flex: 1;
-}
-
-.rb-block-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 5px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.rb-block-remove:hover {
-  background: rgba(207, 91, 91, 0.12);
-  color: var(--status-red);
-}
-
-.rb-resize-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 12px;
-  cursor: ns-resize;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-}
-
-.rb-resize-handle span {
-  width: 32px;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--border);
-}
-
-.rb-resize-handle:hover {
-  background: rgba(38, 99, 235, 0.08);
-}
-
-.rb-resize-handle:hover span {
-  background: var(--blue);
-}
-
-/* ---------- Block preview mocks ---------- */
-
-.rb-preview {
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.rb-bar {
-  display: block;
-  height: 8px;
-  border-radius: 4px;
-  background: var(--border);
-}
-
-.rb-bar-title {
-  height: 12px;
-  width: 55%;
-  background: var(--slate-blue);
-  opacity: 0.35;
-  margin-bottom: 6px;
-}
-
-.rb-bar-value {
-  background: var(--blue);
-  opacity: 0.3;
-}
-
-.rb-bar-w30 { width: 30%; }
-.rb-bar-w40 { width: 40%; }
-.rb-bar-w50 { width: 50%; }
-.rb-bar-w60 { width: 60%; }
-.rb-bar-w70 { width: 70%; }
-.rb-bar-w80 { width: 80%; }
-.rb-bar-w90 { width: 90%; }
-
-.rb-preview-lines {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-
-.rb-preview-header {
-  padding: 16px 14px;
-}
-
-.rb-logo-box {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
-  background: var(--navy);
-  opacity: 0.85;
-  flex-shrink: 0;
-}
-
-.rb-preview-field {
-  gap: 10px;
-}
-
-.rb-preview-field .rb-bar-w30 {
-  background: var(--text-muted);
-  opacity: 0.5;
-}
-
-.rb-preview-banner {
-  background: rgba(217, 119, 6, 0.1);
-  color: #b45309;
-  border-radius: 6px;
-  margin: 4px 14px 12px;
-  padding: 10px 12px;
-}
-
-.rb-bar-on-banner {
-  background: #b45309;
-  opacity: 0.35;
-}
-
-.rb-preview-shots {
-  gap: 8px;
-}
-
-.rb-shot-icon {
-  width: 56px;
-  height: 42px;
-  padding: 12px;
-  border-radius: 6px;
-  background: var(--bg);
-  border: 1px dashed var(--border);
-  color: var(--text-muted);
-  box-sizing: content-box;
-}
-
-.rb-inline-icon {
-  color: var(--slate-blue);
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-/* ---------- Footer actions ---------- */
+/* ---- actions ---- */
 
 .rb-actions {
   display: flex;
@@ -466,70 +313,4 @@
   color: #2e9e6b;
   font-size: 13px;
   font-weight: 600;
-}
-
-.rb-page {
-  background: var(--white);
-  width: 100%;
-  max-width: 680px;
-  min-height: 460px;
-  border-radius: 4px;
-  box-shadow: 0 4px 18px rgba(1, 31, 75, 0.1);
-  padding: 24px;
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 10px;
-}
-.rb-block-wrap {
-  box-sizing: border-box;
-  padding: 4px;
-  position: relative;
-}
-
-.rb-block {
-  position: relative;
-  height: 100%;
-}
-
-.rb-resize-handle-x {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 10px;
-  height: 100%;
-  cursor: ew-resize;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rb-resize-handle-x span {
-  width: 3px;
-  height: 30px;
-  border-radius: 3px;
-  background: var(--border);
-}
-
-.rb-resize-handle-x:hover span {
-  background: var(--blue);
-}
-
-.rb-name-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.rb-name-input {
-  padding: 9px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 14px;
-  outline: none;
-  min-width: 220px;
-}
-.rb-name-input:focus {
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
 }

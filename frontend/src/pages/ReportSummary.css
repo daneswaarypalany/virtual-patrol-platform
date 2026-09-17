@@ -1,0 +1,54 @@
+.rs-generate-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin-bottom: 16px;
+}
+
+.rs-generate-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--blue);
+}
+
+.rs-generate-info div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rs-generate-info strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.rs-generate-info span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rs-generate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--blue);
+  color: var(--white);
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rs-generate-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

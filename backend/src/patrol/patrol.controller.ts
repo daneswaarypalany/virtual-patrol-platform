@@ -21,6 +21,7 @@ import { PatrolService } from "./patrol.service";
 import { StartPatrolDto } from "./dto/start-patrol.dto";
 import { SaveCheckpointDto } from "./dto/checkpoint-result.dto";
 import { BulkReportDto } from "./dto/bulk-report.dto";
+import { SummaryReportDto } from "./dto/summary-report.dto";
 
 // Resolved relative to process.cwd() -- matches main.ts's static file root
 // and the report generator's file reads (patrol.service.ts), so uploads,
@@ -85,6 +86,26 @@ export class PatrolController {
     res.set({
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="patrol-reports-${Date.now()}.${ext}"`,
+    });
+    res.send(buffer);
+  }
+
+  // Aggregated summary PDF across several patrols (stats + per-site
+  // breakdown + included-patrols table), as opposed to bulkReport above
+  // which packages the individual per-patrol reports together.
+  @Post("reports/summary")
+  async summaryReport(
+    @Req() req: Request,
+    @Body() dto: SummaryReportDto,
+    @Res() res: Response,
+  ) {
+    const { buffer, contentType } = await this.patrolService.generateSummaryReport(
+      req.user as any,
+      dto.jobIds,
+    );
+    res.set({
+      "Content-Type": contentType,
+      "Content-Disposition": `attachment; filename="patrol-summary-${Date.now()}.pdf"`,
     });
     res.send(buffer);
   }

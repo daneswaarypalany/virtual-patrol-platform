@@ -465,9 +465,7 @@ export class PatrolService {
 
   async generateReport(user: { id: string; role: string }, jobId: string) {
     const job = await this.fetchJobForReport(user, jobId)
-    const layout = await this.reportTemplateService.getFieldOrder(
-      job.route.site.reportTemplateId,
-    )
+    const layout = await this.reportTemplateService.getFieldOrder()
     const html = this.buildReportHtml(job, layout)
 
     const browser = await puppeteer.launch({
@@ -490,20 +488,7 @@ export class PatrolService {
   ) {
     // dedupe while preserving the order the caller asked for
     const uniqueIds = Array.from(new Set(jobIds))
-    // jobs can span sites with different assigned templates, so layouts are
-    // resolved per job — cached by templateId since several jobs often
-    // share the same site/template
-    const layoutCache = new Map<string, ReportTemplateField[]>()
-    const getLayout = async (templateId: string | null) => {
-      const cacheKey = templateId ?? '__default__'
-      if (!layoutCache.has(cacheKey)) {
-        layoutCache.set(
-          cacheKey,
-          await this.reportTemplateService.getFieldOrder(templateId),
-        )
-      }
-      return layoutCache.get(cacheKey)!
-    }
+    const layout = await this.reportTemplateService.getFieldOrder()
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -515,7 +500,6 @@ export class PatrolService {
 
       for (const jobId of uniqueIds) {
         const job = await this.fetchJobForReport(user, jobId)
-        const layout = await getLayout(job.route.site.reportTemplateId)
         const html = this.buildReportHtml(job, layout)
         const pdf = await this.renderHtmlToPdf(browser, html)
         const safeRoute = job.route.name.replace(/[^a-z0-9-_]+/gi, '_')
@@ -574,6 +558,195 @@ export class PatrolService {
     } finally {
       await browser.close()
     }
+  }
+
+  // Generates a single aggregated PDF covering multiple patrols: overall
+  // stats, a per-site breakdown, and a table listing every included patrol
+  // -- as opposed to generateBulkReport, which packages the *individual*
+  // per-patrol reports together rather than summarizing across them.
+  async generateSummaryReport(
+    user: { id: string; role: string },
+    jobIds: string[],
+  ) {
+    const uniqueIds = Array.from(new Set(jobIds))
+    const jobs = await Promise.all(
+      uniqueIds.map((id) => this.fetchJobForReport(user, id)),
+    )
+
+    if (jobs.length === 0) {
+      throw new NotFoundException('No reports found for the given jobs')
+    }
+
+    const html = this.buildSummaryHtml(jobs)
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    })
+    try {
+      const pdf = await this.renderHtmlToPdf(browser, html)
+      return { buffer: pdf, contentType: 'application/pdf' }
+    } finally {
+      await browser.close()
+    }
+  }
+
+  private buildSummaryHtml(
+    jobs: Awaited<ReturnType<PatrolService['fetchJobForReport']>>[],
+  ) {
+    const fmt = (d: Date | null) => (d ? new Date(d).toLocaleString() : '—')
+
+    const totalPatrols = jobs.length
+    const completedCount = jobs.filter((j) => j.status === 'COMPLETED').length
+    const siteNames = Array.from(new Set(jobs.map((j) => j.route.site.name)))
+    const operatorNames = Array.from(
+      new Set(jobs.map((j) => j.operator.fullName)),
+    )
+    const totalCheckpoints = jobs.reduce(
+      (sum, j) => sum + j.route.checkpoints.length,
+      0,
+    )
+    const totalIssues = jobs.reduce(
+      (sum, j) => sum + j.results.filter((r) => !r.allClear).length,
+      0,
+    )
+
+    // per-site rollup: patrols, checkpoints, and issues for each site
+    const bySite = siteNames.map((siteName) => {
+      const siteJobs = jobs.filter((j) => j.route.site.name === siteName)
+      return {
+        siteName,
+        patrols: siteJobs.length,
+        checkpoints: siteJobs.reduce((s, j) => s + j.route.checkpoints.length, 0),
+        issues: siteJobs.reduce(
+          (s, j) => s + j.results.filter((r) => !r.allClear).length,
+          0,
+        ),
+      }
+    })
+
+    const earliestDate = jobs.reduce<Date | null>((min, j) => {
+      const at = j.startedAt ? new Date(j.startedAt) : null
+      if (!at) return min
+      return !min || at < min ? at : min
+    }, null)
+    const latestDate = jobs.reduce<Date | null>((max, j) => {
+      const at = j.completedAt ? new Date(j.completedAt) : null
+      if (!at) return max
+      return !max || at > max ? at : max
+    }, null)
+
+    const jobRows = [...jobs]
+      .sort((a, b) => {
+        const at = a.completedAt ? new Date(a.completedAt).getTime() : 0
+        const bt = b.completedAt ? new Date(b.completedAt).getTime() : 0
+        return bt - at
+      })
+      .map((j) => {
+        const issues = j.results.filter((r) => !r.allClear).length
+        return `
+          <tr>
+            <td>${j.route.site.name}</td>
+            <td>${j.route.name}</td>
+            <td>${j.operator.fullName}</td>
+            <td>${fmt(j.completedAt)}</td>
+            <td>${j.route.checkpoints.length}</td>
+            <td class="${issues > 0 ? 'issue-cell' : ''}">${issues}</td>
+          </tr>`
+      })
+      .join('')
+
+    const siteRows = bySite
+      .map(
+        (s) => `
+          <tr>
+            <td>${s.siteName}</td>
+            <td>${s.patrols}</td>
+            <td>${s.checkpoints}</td>
+            <td class="${s.issues > 0 ? 'issue-cell' : ''}">${s.issues}</td>
+          </tr>`,
+      )
+      .join('')
+
+    let logoTag = ''
+    try {
+      const logoB64 = fs
+        .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
+        .toString('base64')
+      logoTag = `<img class="logo" src="data:image/png;base64,${logoB64}" />`
+    } catch {
+      logoTag = ''
+    }
+
+    return `
+      <html><head><style>
+        * { font-family: Arial, sans-serif; box-sizing: border-box; }
+        body { margin: 0; padding: 32px; color: #011f4b; }
+        .header { position: relative; border-bottom: 3px solid #011f4b; padding-bottom: 16px; margin-bottom: 24px; }
+        .header h1 { margin: 0 0 4px; font-size: 24px; }
+        .header .sub { color: #5f7488; font-size: 13px; }
+        .header .logo { position: absolute; top: 0; right: 0; height: 54px; width: auto; }
+        .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0 28px; }
+        .stat-card { border: 1px solid #d8e2ec; border-radius: 10px; padding: 14px; text-align: center; }
+        .stat-card .num { font-size: 22px; font-weight: bold; color: #011f4b; }
+        .stat-card .lbl { font-size: 11px; color: #5f7488; text-transform: uppercase; margin-top: 4px; }
+        .stat-card.issues .num { color: ${totalIssues > 0 ? '#cf5b5b' : '#2e9e6b'}; }
+        h2 { font-size: 15px; margin: 28px 0 10px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th { text-align: left; background: #f4f7fa; padding: 8px 10px; border-bottom: 1px solid #d8e2ec; font-size: 11px; text-transform: uppercase; color: #5f7488; }
+        td { padding: 8px 10px; border-bottom: 1px solid #eef2f6; }
+        .issue-cell { color: #cf5b5b; font-weight: bold; }
+        .meta-line { font-size: 12px; color: #5f7488; margin-bottom: 4px; }
+      </style></head><body>
+        <div class="header">
+          ${logoTag}
+          <h1>Patrol Summary Report</h1>
+          <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
+        </div>
+
+        <div class="meta-line">Sites: ${siteNames.join(', ')}</div>
+        <div class="meta-line">Operators: ${operatorNames.join(', ')}</div>
+        ${
+          earliestDate && latestDate
+            ? `<div class="meta-line">Period: ${earliestDate.toLocaleDateString()} – ${latestDate.toLocaleDateString()}</div>`
+            : ''
+        }
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="num">${totalPatrols}</div>
+            <div class="lbl">Patrols</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">${completedCount}</div>
+            <div class="lbl">Completed</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">${totalCheckpoints}</div>
+            <div class="lbl">Checkpoints</div>
+          </div>
+          <div class="stat-card issues">
+            <div class="num">${totalIssues}</div>
+            <div class="lbl">Issues Flagged</div>
+          </div>
+        </div>
+
+        <h2>By Site</h2>
+        <table>
+          <thead>
+            <tr><th>Site</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
+          </thead>
+          <tbody>${siteRows}</tbody>
+        </table>
+
+        <h2>Included Patrols</h2>
+        <table>
+          <thead>
+            <tr><th>Site</th><th>Route</th><th>Operator</th><th>Completed</th><th>Checkpoints</th><th>Issues</th></tr>
+          </thead>
+          <tbody>${jobRows}</tbody>
+        </table>
+      </body></html>`
   }
 
   private async renderHtmlToPdf(browser: Browser, html: string) {

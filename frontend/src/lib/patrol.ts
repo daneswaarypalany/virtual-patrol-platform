@@ -107,6 +107,14 @@ export const patrolApi = {
         { responseType: 'blob' },
       )
       .then((r) => r.data as Blob),
+  summaryReport: (jobIds: string[]) =>
+    api
+      .post(
+        '/patrol/reports/summary',
+        { jobIds },
+        { responseType: 'blob' },
+      )
+      .then((r) => r.data as Blob),
   listActive: () =>
     api.get<ActivePatrolItem[]>('/patrol/active').then((r) => r.data),
   discard: (siteId: string) =>
