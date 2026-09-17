@@ -31,10 +31,20 @@ const MAX_HEIGHT = 400
 const MIN_WIDTH = 25
 const MAX_WIDTH = 100
 
-export default function ReportBuilder() {
+export default function ReportBuilder({
+  editTemplateId,
+  onSaved,
+}: {
+  editTemplateId?: string
+  onSaved?: () => void
+}) {
   const [canvas, setCanvas] = useState<ReportField[]>([])
   const [palette, setPalette] = useState<ReportField[]>([])
   const [savedFields, setSavedFields] = useState<ReportField[]>([])
+  const [templateName, setTemplateName] = useState('')
+  const [newName, setNewName] = useState('')
+  const [showNameInput, setShowNameInput] = useState(false)
+  const isEdit = !!editTemplateId
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -51,13 +61,18 @@ export default function ReportBuilder() {
     setSavedFields(fields)
   }
 
+
   useEffect(() => {
+    setLoading(true)
     reportTemplateApi
-      .get()
-      .then((t) => load(t.fields))
+      .get(editTemplateId)
+      .then((t) => {
+        load(t.fields)
+        setTemplateName(t.name)
+      })
       .catch(() => setError('Failed to load report template'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [editTemplateId])
 
   const combinedNow = [
     ...canvas.map((f) => ({ ...f, enabled: true })),
@@ -215,16 +230,37 @@ export default function ReportBuilder() {
 
   const revert = () => load(savedFields)
 
-  const save = async () => {
+  // edit mode: save back to the same template
+  const saveEdit = async () => {
     setSaving(true)
     setError('')
     try {
-      const result = await reportTemplateApi.update(toSnapshot(combinedNow))
-      load(result.fields)
+      await reportTemplateApi.updateById(editTemplateId!, toSnapshot(combinedNow))
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 2500)
+      onSaved?.()
     } catch {
-      setError('Failed to save report template')
+      setError('Failed to save template')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // create mode: make a new named template from the built layout
+  const saveAsNew = async () => {
+    if (!newName.trim()) return
+    setSaving(true)
+    setError('')
+    try {
+      const created = await reportTemplateApi.create(newName.trim())
+      await reportTemplateApi.updateById(created.id, toSnapshot(combinedNow))
+      setSavedFlash(true)
+      setNewName('')
+      setShowNameInput(false)
+      setTimeout(() => setSavedFlash(false), 2500)
+      onSaved?.()
+    } catch {
+      setError('Failed to create template')
     } finally {
       setSaving(false)
     }
@@ -237,7 +273,9 @@ export default function ReportBuilder() {
       <div className="rb-intro">
         <FileCog size={18} />
         <div>
-          <h3>Report Builder</h3>
+          <h3>
+            {isEdit ? `Editing: ${templateName}` : 'Report Builder — New Template'}
+          </h3>
           <p>
             Drag components from the left onto the page on the right to build
             your patrol report. Reorder blocks by dragging them, drag the
@@ -365,15 +403,52 @@ export default function ReportBuilder() {
       </div>
 
       <div className="rb-actions">
-        {dirty && (
-          <button className="rb-revert" onClick={revert} disabled={saving}>
-            <RotateCcw size={14} /> Discard changes
+        {isEdit ? (
+          <button
+            className="rb-save"
+            onClick={saveEdit}
+            disabled={!dirty || saving}
+          >
+            <Save size={14} /> {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        ) : showNameInput ? (
+          <div className="rb-name-row">
+            <input
+              autoFocus
+              className="rb-name-input"
+              placeholder="Template name…"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveAsNew()}
+            />
+            <button
+              className="rb-save"
+              onClick={saveAsNew}
+              disabled={!newName.trim() || saving}
+            >
+              <Save size={14} /> {saving ? 'Creating…' : 'Create template'}
+            </button>
+            <button
+              className="rb-revert"
+              onClick={() => {
+                setShowNameInput(false)
+                setNewName('')
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button className="rb-save" onClick={() => setShowNameInput(true)}>
+            <Plus size={14} /> Save as new template
           </button>
         )}
-        <button className="rb-save" onClick={save} disabled={!dirty || saving}>
-          <Save size={14} /> {saving ? 'Saving…' : 'Save report layout'}
-        </button>
-        {savedFlash && <span className="rb-saved-flash">Saved</span>}
+        {savedFlash && (
+          <span className="rb-saved-flash">
+            {isEdit ? 'Saved' : 'Template created'}
+          </span>
+        )}
       </div>
     </div>
   )

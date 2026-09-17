@@ -515,3 +515,21 @@
 .rb-resize-handle-x:hover span {
   background: var(--blue);
 }
+
+.rb-name-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.rb-name-input {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  min-width: 220px;
+}
+.rb-name-input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.1);
+}
