@@ -269,6 +269,22 @@
   color: var(--blue);
 }
 
+/* summary report builder's group badges (three groups instead of two) */
+.rb-group-overview {
+  background: rgba(46, 158, 158, 0.12);
+  color: var(--slate-blue);
+}
+
+.rb-group-chart {
+  background: rgba(38, 99, 235, 0.1);
+  color: var(--blue);
+}
+
+.rb-group-table {
+  background: rgba(207, 91, 91, 0.1);
+  color: var(--status-red);
+}
+
 /* ---- actions ---- */
 
 .rb-actions {

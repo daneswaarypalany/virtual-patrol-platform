@@ -107,11 +107,11 @@ export const patrolApi = {
         { responseType: 'blob' },
       )
       .then((r) => r.data as Blob),
-  summaryReport: (jobIds: string[]) =>
+  summaryReport: (jobIds: string[], templateId?: string) =>
     api
       .post(
         '/patrol/reports/summary',
-        { jobIds },
+        { jobIds, ...(templateId ? { templateId } : {}) },
         { responseType: 'blob' },
       )
       .then((r) => r.data as Blob),

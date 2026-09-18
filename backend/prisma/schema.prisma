@@ -295,6 +295,18 @@ model ReportTemplate {
   createdAt DateTime @default(now())
 }
 
+// Layout for the aggregated multi-patrol Summary Report (see ReportSummary
+// page). Single global row, unlike ReportTemplate which supports many
+// named per-site templates -- the summary report has no per-site scoping.
+model SummaryReportTemplate {
+  id        String   @id @default(uuid())
+  key       String   @unique @default("summary_default")
+  name      String   @default("Default Template")
+  fields    Json
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}
+
 enum IncidentSeverity {
   LOW
   MEDIUM

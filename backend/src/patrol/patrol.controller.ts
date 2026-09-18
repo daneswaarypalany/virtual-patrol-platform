@@ -102,6 +102,7 @@ export class PatrolController {
     const { buffer, contentType } = await this.patrolService.generateSummaryReport(
       req.user as any,
       dto.jobIds,
+      dto.templateId,
     );
     res.set({
       "Content-Type": contentType,

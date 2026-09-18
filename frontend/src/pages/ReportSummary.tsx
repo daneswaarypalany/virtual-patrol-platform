@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { BarChart3, FileText, Download } from 'lucide-react'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ReportsFilterBar from '../components/ReportsFilterBar'
 import { useReportFilters } from '../hooks/useReportFilters'
+import type { SummaryReportTemplateSummary } from '../lib/summary-report-template'
+import { summaryReportTemplateApi } from '../lib/summary-report-template'
 import './ReportSummary.css'
 
 export default function ReportSummary({
@@ -19,6 +21,22 @@ export default function ReportSummary({
   const { completed, filtered } = f
   const [generating, setGenerating] = useState(false)
   const [genError, setGenError] = useState('')
+  const [templates, setTemplates] = useState<SummaryReportTemplateSummary[]>([])
+  const [templateId, setTemplateId] = useState<string>('')
+
+  useEffect(() => {
+    summaryReportTemplateApi
+      .list()
+      .then((list) => {
+        setTemplates(list)
+        const def = list.find((t) => t.isDefault)
+        setTemplateId(def?.id ?? list[0]?.id ?? '')
+      })
+      .catch(() => {
+        // template picker is a nice-to-have; generation still works with
+        // the backend's own default if this list fails to load
+      })
+  }, [])
 
   const fmt = (d: string | null) => (d ? new Date(d).toLocaleString() : '—')
   const openReport = (jobId: string) => {
@@ -30,7 +48,10 @@ export default function ReportSummary({
     setGenerating(true)
     setGenError('')
     try {
-      const blob = await patrolApi.summaryReport(filtered.map((j) => j.id))
+      const blob = await patrolApi.summaryReport(
+        filtered.map((j) => j.id),
+        templateId || undefined,
+      )
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -64,19 +85,37 @@ export default function ReportSummary({
             <strong>Summary covers {filtered.length} report{filtered.length === 1 ? '' : 's'}</strong>
             <span>
               Based on the filters above — adjust them to change what the
-              summary includes. The PDF includes an outcomes chart and an
-              issues-by-site breakdown, not just tables.
+              summary includes. What the PDF contains is controlled by the
+              Summary Report Builder.
             </span>
           </div>
         </div>
-        <button
-          className="rs-generate-btn"
-          onClick={generateSummary}
-          disabled={filtered.length === 0 || generating}
-        >
-          <Download size={14} />
-          {generating ? 'Generating…' : 'Generate Summary PDF'}
-        </button>
+        <div className="rs-generate-actions">
+          {templates.length > 1 && (
+            <select
+              className="rs-template-select"
+              value={templateId}
+              onChange={(e) => setTemplateId(e.target.value)}
+              disabled={generating}
+              title="Summary template to use"
+            >
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                  {t.isDefault ? ' (Default)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          <button
+            className="rs-generate-btn"
+            onClick={generateSummary}
+            disabled={filtered.length === 0 || generating}
+          >
+            <Download size={14} />
+            {generating ? 'Generating…' : 'Generate Summary PDF'}
+          </button>
+        </div>
       </div>
 
       {loading ? (

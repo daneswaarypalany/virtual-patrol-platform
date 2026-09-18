@@ -14,12 +14,15 @@ import { PDFDocument } from 'pdf-lib'
 import { ZipArchive } from 'archiver'
 import { ReportTemplateService } from '../report-template/report-template.service'
 import type { ReportTemplateField } from '../report-template/report-fields'
+import { SummaryReportTemplateService } from '../report-template/summary-report-template.service'
+import type { SummaryReportTemplateField } from '../report-template/summary-report-fields'
 
 @Injectable()
 export class PatrolService {
   constructor(
     private prisma: PrismaService,
     private reportTemplateService: ReportTemplateService,
+    private summaryReportTemplateService: SummaryReportTemplateService,
   ) {}
 
   async mySites(operatorId: string) {
@@ -567,6 +570,7 @@ export class PatrolService {
   async generateSummaryReport(
     user: { id: string; role: string },
     jobIds: string[],
+    templateId?: string,
   ) {
     const uniqueIds = Array.from(new Set(jobIds))
     const jobs = await Promise.all(
@@ -577,7 +581,8 @@ export class PatrolService {
       throw new NotFoundException('No reports found for the given jobs')
     }
 
-    const html = this.buildSummaryHtml(jobs)
+    const layout = await this.summaryReportTemplateService.getFieldOrder(templateId)
+    const html = this.buildSummaryHtml(jobs, layout)
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -720,7 +725,17 @@ export class PatrolService {
 
   private buildSummaryHtml(
     jobs: Awaited<ReturnType<PatrolService['fetchJobForReport']>>[],
+    layout: SummaryReportTemplateField[],
   ) {
+    const enabledKeys = layout.filter((f) => f.enabled).map((f) => f.key)
+    const isOn = (key: string) => enabledKeys.includes(key)
+    // position within the saved, enabled order -- used to interleave the
+    // sections below in whatever sequence the summary report builder saved
+    const orderOf = (key: string) => {
+      const i = enabledKeys.indexOf(key)
+      return i === -1 ? 999 : i
+    }
+
     const fmt = (d: Date | null) => (d ? new Date(d).toLocaleString() : '—')
 
     const totalPatrols = jobs.length
@@ -887,13 +902,15 @@ export class PatrolService {
       .join('')
 
     let logoTag = ''
-    try {
-      const logoB64 = fs
-        .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
-        .toString('base64')
-      logoTag = `<img class="logo" src="data:image/png;base64,${logoB64}" />`
-    } catch {
-      logoTag = ''
+    if (isOn('header')) {
+      try {
+        const logoB64 = fs
+          .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
+          .toString('base64')
+        logoTag = `<img class="logo" src="data:image/png;base64,${logoB64}" />`
+      } catch {
+        logoTag = ''
+      }
     }
 
     const donutSvg = this.donutChart(clearResults, totalIssues)
@@ -907,6 +924,140 @@ export class PatrolService {
     ])
     const shiftRate = (b: { issues: number; total: number }) =>
       b.total ? Math.round((b.issues / b.total) * 100) : 0
+
+    // ---- Assemble the body from whatever sections the summary report
+    // builder has enabled, in the order they were arranged there. The
+    // outcomes donut and the issues bar chart are still paired side by
+    // side when both are on (matches the builder's default look); either
+    // one on its own renders full width at its own position instead.
+    const overviewHtml = `
+        ${singleSite ? '' : `<div class="meta-line">Sites: ${siteNames.join(', ')}</div>`}
+        <div class="meta-line">Operators: ${operatorNames.join(', ')}</div>
+        ${
+          earliestDate && latestDate
+            ? `<div class="meta-line">Period: ${earliestDate.toLocaleDateString()} – ${latestDate.toLocaleDateString()}</div>`
+            : ''
+        }`
+
+    const statGridHtml = `
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="num">${totalPatrols}</div>
+            <div class="lbl">Patrols</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">${completedCount}</div>
+            <div class="lbl">Completed</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">${totalCheckpoints}</div>
+            <div class="lbl">Checkpoints</div>
+          </div>
+          <div class="stat-card issues">
+            <div class="num">${totalIssues}</div>
+            <div class="lbl">Issues Flagged</div>
+          </div>
+        </div>`
+
+    const outcomesOn = isOn('outcomesChart')
+    const issuesOn = isOn('issuesChart')
+    const outcomesCardHtml = (full: boolean) => `
+          <div class="chart-card donut${full ? ' full' : ''}">
+            <h3>Checkpoint Outcomes</h3>
+            ${donutSvg}
+            <div class="chart-legend">
+              <span><span class="dot" style="background:#2e9e6b"></span>Clear (${clearResults})</span>
+              <span><span class="dot" style="background:#cf5b5b"></span>Issues (${totalIssues})</span>
+            </div>
+          </div>`
+    const issuesCardHtml = (full: boolean) => `
+          <div class="chart-card bars${full ? ' full' : ''}">
+            <h3>Issues by ${singleSite ? 'Route' : 'Site'}</h3>
+            ${barSvg}
+          </div>`
+    const outcomesRowHtml =
+      outcomesOn && issuesOn
+        ? `<div class="charts-row">${outcomesCardHtml(false)}${issuesCardHtml(false)}</div>`
+        : outcomesOn
+          ? `<div class="charts-row">${outcomesCardHtml(true)}</div>`
+          : `<div class="charts-row">${issuesCardHtml(true)}</div>`
+
+    const trendHtml = `
+        <div class="charts-row">
+          <div class="chart-card full">
+            <h3>Issues Over Time</h3>
+            ${trendSvg}
+          </div>
+        </div>`
+
+    const shiftHtml = `
+        <div class="charts-row">
+          <div class="chart-card bars full">
+            <h3>Issues by Shift</h3>
+            ${shiftSvg}
+            <div class="shift-stats">
+              <span><strong>Night (8PM–8AM):</strong> ${shiftTally.night.issues} of ${shiftTally.night.total} checkpoints (${shiftRate(shiftTally.night)}%)</span>
+              <span><strong>Morning (8AM–8PM):</strong> ${shiftTally.morning.issues} of ${shiftTally.morning.total} checkpoints (${shiftRate(shiftTally.morning)}%)</span>
+            </div>
+          </div>
+        </div>`
+
+    const breakdownHtml = singleSite
+      ? `
+        <h2>By Route</h2>
+        <table>
+          <thead>
+            <tr><th>Route</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
+          </thead>
+          <tbody>${routeRows}</tbody>
+        </table>
+
+        <h2>By Operator</h2>
+        <table>
+          <thead>
+            <tr><th>Operator</th><th>Patrols</th><th>Issues</th></tr>
+          </thead>
+          <tbody>${operatorRows}</tbody>
+        </table>`
+      : `
+        <h2>By Site</h2>
+        <table>
+          <thead>
+            <tr><th>Site</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
+          </thead>
+          <tbody>${siteRows}</tbody>
+        </table>`
+
+    const jobsTableHtml = `
+        <h2>Included Patrols</h2>
+        <table>
+          <thead>
+            <tr>
+              ${singleSite ? '' : '<th>Site</th>'}
+              <th>Route</th><th>Operator</th><th>Completed</th><th>Checkpoints</th><th>Issues</th>
+            </tr>
+          </thead>
+          <tbody>${jobRows}</tbody>
+        </table>`
+
+    const sections: { order: number; html: string }[] = []
+    if (isOn('overview')) sections.push({ order: orderOf('overview'), html: overviewHtml })
+    if (isOn('statGrid')) sections.push({ order: orderOf('statGrid'), html: statGridHtml })
+    if (outcomesOn || issuesOn) {
+      sections.push({
+        order: Math.min(
+          outcomesOn ? orderOf('outcomesChart') : 999,
+          issuesOn ? orderOf('issuesChart') : 999,
+        ),
+        html: outcomesRowHtml,
+      })
+    }
+    if (isOn('trendChart')) sections.push({ order: orderOf('trendChart'), html: trendHtml })
+    if (isOn('shiftChart')) sections.push({ order: orderOf('shiftChart'), html: shiftHtml })
+    if (isOn('breakdownTable')) sections.push({ order: orderOf('breakdownTable'), html: breakdownHtml })
+    if (isOn('jobsTable')) sections.push({ order: orderOf('jobsTable'), html: jobsTableHtml })
+    sections.sort((a, b) => a.order - b.order)
+    const bodyHtml = sections.map((s) => s.html).join('\n')
 
     return `
       <html><head><style>
@@ -939,110 +1090,17 @@ export class PatrolService {
         .shift-stats { display: flex; gap: 24px; margin-top: 10px; font-size: 11.5px; color: #5f7488; }
         .shift-stats strong { color: #011f4b; }
       </style></head><body>
-        <div class="header">
+        ${
+          isOn('header')
+            ? `<div class="header">
           ${logoTag}
           <h1>${singleSite ? `${siteNames[0]} — Patrol Summary` : 'Patrol Summary Report'}</h1>
           <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
-        </div>
-
-        ${singleSite ? '' : `<div class="meta-line">Sites: ${siteNames.join(', ')}</div>`}
-        <div class="meta-line">Operators: ${operatorNames.join(', ')}</div>
-        ${
-          earliestDate && latestDate
-            ? `<div class="meta-line">Period: ${earliestDate.toLocaleDateString()} – ${latestDate.toLocaleDateString()}</div>`
+        </div>`
             : ''
         }
 
-        <div class="stat-grid">
-          <div class="stat-card">
-            <div class="num">${totalPatrols}</div>
-            <div class="lbl">Patrols</div>
-          </div>
-          <div class="stat-card">
-            <div class="num">${completedCount}</div>
-            <div class="lbl">Completed</div>
-          </div>
-          <div class="stat-card">
-            <div class="num">${totalCheckpoints}</div>
-            <div class="lbl">Checkpoints</div>
-          </div>
-          <div class="stat-card issues">
-            <div class="num">${totalIssues}</div>
-            <div class="lbl">Issues Flagged</div>
-          </div>
-        </div>
-
-        <div class="charts-row">
-          <div class="chart-card donut">
-            <h3>Checkpoint Outcomes</h3>
-            ${donutSvg}
-            <div class="chart-legend">
-              <span><span class="dot" style="background:#2e9e6b"></span>Clear (${clearResults})</span>
-              <span><span class="dot" style="background:#cf5b5b"></span>Issues (${totalIssues})</span>
-            </div>
-          </div>
-          <div class="chart-card bars">
-            <h3>Issues by ${singleSite ? 'Route' : 'Site'}</h3>
-            ${barSvg}
-          </div>
-        </div>
-
-        <div class="charts-row">
-          <div class="chart-card full">
-            <h3>Issues Over Time</h3>
-            ${trendSvg}
-          </div>
-        </div>
-
-        <div class="charts-row">
-          <div class="chart-card bars full">
-            <h3>Issues by Shift</h3>
-            ${shiftSvg}
-            <div class="shift-stats">
-              <span><strong>Night (8PM–8AM):</strong> ${shiftTally.night.issues} of ${shiftTally.night.total} checkpoints (${shiftRate(shiftTally.night)}%)</span>
-              <span><strong>Morning (8AM–8PM):</strong> ${shiftTally.morning.issues} of ${shiftTally.morning.total} checkpoints (${shiftRate(shiftTally.morning)}%)</span>
-            </div>
-          </div>
-        </div>
-
-        ${
-          singleSite
-            ? `
-        <h2>By Route</h2>
-        <table>
-          <thead>
-            <tr><th>Route</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
-          </thead>
-          <tbody>${routeRows}</tbody>
-        </table>
-
-        <h2>By Operator</h2>
-        <table>
-          <thead>
-            <tr><th>Operator</th><th>Patrols</th><th>Issues</th></tr>
-          </thead>
-          <tbody>${operatorRows}</tbody>
-        </table>`
-            : `
-        <h2>By Site</h2>
-        <table>
-          <thead>
-            <tr><th>Site</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
-          </thead>
-          <tbody>${siteRows}</tbody>
-        </table>`
-        }
-
-        <h2>Included Patrols</h2>
-        <table>
-          <thead>
-            <tr>
-              ${singleSite ? '' : '<th>Site</th>'}
-              <th>Route</th><th>Operator</th><th>Completed</th><th>Checkpoints</th><th>Issues</th>
-            </tr>
-          </thead>
-          <tbody>${jobRows}</tbody>
-        </table>
+        ${bodyHtml}
       </body></html>`
   }
 

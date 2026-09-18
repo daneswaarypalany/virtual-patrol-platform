@@ -52,3 +52,25 @@
   opacity: 0.5;
   cursor: default;
 }
+
+.rs-generate-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.rs-template-select {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--white);
+  cursor: pointer;
+}
+
+.rs-template-select:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { FileText, Download, X, FileArchive, FileStack, FileCog, BarChart3 } from 'lucide-react'
+import { FileText, Download, X, FileArchive, FileStack, FileCog, BarChart3, LayoutTemplate } from 'lucide-react'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ReportsFilterBar from '../components/ReportsFilterBar'
@@ -7,12 +7,23 @@ import { useReportFilters } from '../hooks/useReportFilters'
 import ReportBuilder from './ReportBuilder'
 import Templates from './Templates'
 import ReportSummary from './ReportSummary'
+import SummaryReportBuilder from './SummaryReportBuilder'
+import SummaryTemplates from './SummaryTemplates'
 import './Reports.css'
 
-type ReportsTab = 'list' | 'summary' | 'builder' | 'templates'
+type ReportsTab =
+  | 'list'
+  | 'summary'
+  | 'summary-builder'
+  | 'summary-templates'
+  | 'builder'
+  | 'templates'
 
 export default function Reports() {
   const [tab, setTab] = useState<ReportsTab>('list')
+  const [summaryBuilderTemplateId, setSummaryBuilderTemplateId] = useState<
+    string | undefined
+  >(undefined)
   const [jobs, setJobs] = useState<PatrolJobSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -112,6 +123,21 @@ export default function Reports() {
         >
           <BarChart3 size={15} /> Report Summary
         </button>
+        <button
+          className={tab === 'summary-builder' ? 'active' : ''}
+          onClick={() => {
+            setSummaryBuilderTemplateId(undefined)
+            setTab('summary-builder')
+          }}
+        >
+          <LayoutTemplate size={15} /> Summary Report Builder
+        </button>
+        <button
+          className={tab === 'summary-templates' ? 'active' : ''}
+          onClick={() => setTab('summary-templates')}
+        >
+          <FileStack size={15} /> Summary Templates
+        </button>
       </div>
 
       {tab === 'builder' ? (
@@ -120,6 +146,15 @@ export default function Reports() {
         <Templates onEdit={() => setTab('builder')} />
       ) : tab === 'summary' ? (
         <ReportSummary jobs={jobs} loading={loading} error={error} />
+      ) : tab === 'summary-builder' ? (
+        <SummaryReportBuilder templateId={summaryBuilderTemplateId} />
+      ) : tab === 'summary-templates' ? (
+        <SummaryTemplates
+          onEdit={(id) => {
+            setSummaryBuilderTemplateId(id)
+            setTab('summary-builder')
+          }}
+        />
       ) : (
         <>
           <ReportsFilterBar f={f} countLabel={`${filtered.length} reports`} />
