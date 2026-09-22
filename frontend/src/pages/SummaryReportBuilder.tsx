@@ -6,6 +6,7 @@ import {
   BarChart3,
   X,
   LayoutTemplate,
+  Plus,
 } from 'lucide-react'
 import type { SummaryReportField } from '../lib/summary-report-template'
 import { summaryReportTemplateApi } from '../lib/summary-report-template'
@@ -26,13 +27,12 @@ const GROUP_LABEL: Record<SummaryReportField['group'], string> = {
   table: 'Table',
 }
 
-// Same drag-and-drop builder as ReportBuilder, but for the sections of the
-// aggregated multi-patrol Summary Report (see ReportSummary's "Generate
-// Summary PDF") instead of a single patrol's report.
 export default function SummaryReportBuilder({
   templateId,
+  onSaved,
 }: {
   templateId?: string
+  onSaved?: () => void
 }) {
   const [rows, setRows] = useState<SummaryReportField[][]>([])
   const [palette, setPalette] = useState<SummaryReportField[]>([])
@@ -44,6 +44,9 @@ export default function SummaryReportBuilder({
   const [savedFlash, setSavedFlash] = useState(false)
   const [drag, setDrag] = useState<Drag | null>(null)
   const [hover, setHover] = useState<HoverTarget>(null)
+  const [newName, setNewName] = useState('')
+  const [showNameInput, setShowNameInput] = useState(false)
+  const isEdit = !!templateId
 
   useEffect(() => {
     setLoading(true)
@@ -206,7 +209,8 @@ export default function SummaryReportBuilder({
     setPalette(savedSnapshot.filter((f) => !f.enabled))
   }
 
-  const save = async () => {
+  // edit mode: save back to the same template
+  const saveEdit = async () => {
     setSaving(true)
     setError('')
     try {
@@ -214,17 +218,40 @@ export default function SummaryReportBuilder({
         ...flatCanvas.map((f) => ({ key: f.key, enabled: true })),
         ...palette.map((f) => ({ key: f.key, enabled: false })),
       ]
-      const result = templateId
-        ? await summaryReportTemplateApi.updateById(templateId, fields)
-        : await summaryReportTemplateApi.update(fields)
+      const result = await summaryReportTemplateApi.updateById(templateId!, fields)
       setRows(result.fields.filter((f) => f.enabled).map((f) => [f]))
       setPalette(result.fields.filter((f) => !f.enabled))
       setSavedSnapshot(result.fields)
       setTemplateName(result.name)
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 2500)
+      onSaved?.()
     } catch {
       setError('Failed to save summary report layout')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // create mode: make a new named template from the built layout
+  const saveAsNew = async () => {
+    if (!newName.trim()) return
+    setSaving(true)
+    setError('')
+    try {
+      const fields = [
+        ...flatCanvas.map((f) => ({ key: f.key, enabled: true })),
+        ...palette.map((f) => ({ key: f.key, enabled: false })),
+      ]
+      const created = await summaryReportTemplateApi.create(newName.trim())
+      await summaryReportTemplateApi.updateById(created.id, fields)
+      setNewName('')
+      setShowNameInput(false)
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 2500)
+      onSaved?.()
+    } catch {
+      setError('Failed to create summary template')
     } finally {
       setSaving(false)
     }
@@ -237,13 +264,15 @@ export default function SummaryReportBuilder({
       <div className="rb-intro">
         <BarChart3 size={18} />
         <div>
-          <h3>Summary Report Builder{templateName ? ` — ${templateName}` : ''}</h3>
+          <h3>
+            {isEdit
+              ? `Editing: ${templateName}`
+              : 'Summary Report Builder — New Template'}
+          </h3>
           <p>
-            Drag sections from the left onto the summary page to control
-            what appears in the aggregated PDF generated from Report
-            Summary. Drop on the left or right half of an existing block to
-            place it side by side; drop in the gap above or below a row to
-            start a new row. Drag a block back to the sidebar to remove it.
+            {isEdit
+              ? 'Edit the layout for this summary template. Changes are saved back to this template only.'
+              : 'Drag sections from the left onto the summary page, then save as a new named template. The default template is not affected.'}
           </p>
         </div>
       </div>
@@ -382,15 +411,59 @@ export default function SummaryReportBuilder({
       </div>
 
       <div className="rb-actions">
-        {dirty && (
-          <button className="rb-revert" onClick={revert} disabled={saving}>
-            <RotateCcw size={14} /> Discard changes
+        {isEdit ? (
+          <>
+            {dirty && (
+              <button className="rb-revert" onClick={revert} disabled={saving}>
+                <RotateCcw size={14} /> Discard changes
+              </button>
+            )}
+            <button
+              className="rb-save"
+              onClick={saveEdit}
+              disabled={!dirty || saving}
+            >
+              <Save size={14} /> {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </>
+        ) : showNameInput ? (
+          <div className="rb-name-row">
+            <input
+              autoFocus
+              className="rb-name-input"
+              placeholder="Template name…"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveAsNew()}
+            />
+            <button
+              className="rb-save"
+              onClick={saveAsNew}
+              disabled={!newName.trim() || saving}
+            >
+              <Save size={14} /> {saving ? 'Creating…' : 'Create template'}
+            </button>
+            <button
+              className="rb-revert"
+              onClick={() => {
+                setShowNameInput(false)
+                setNewName('')
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button className="rb-save" onClick={() => setShowNameInput(true)}>
+            <Plus size={14} /> Save as new template
           </button>
         )}
-        <button className="rb-save" onClick={save} disabled={!dirty || saving}>
-          <Save size={14} /> {saving ? 'Saving…' : 'Save summary layout'}
-        </button>
-        {savedFlash && <span className="rb-saved-flash">Saved</span>}
+        {savedFlash && (
+          <span className="rb-saved-flash">
+            {isEdit ? 'Saved' : 'Template created'}
+          </span>
+        )}
       </div>
     </div>
   )

@@ -13,6 +13,7 @@ import { PatrolModule } from './patrol/patrol.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { StreamsModule } from './streams/streams.module';
 import { ReportTemplateModule } from './report-template/report-template.module';
+import { SummaryTemplateModule } from './summary-template/summary-template.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ReportTemplateModule } from './report-template/report-template.module';
     DashboardModule,
     StreamsModule,
     ReportTemplateModule,
+    SummaryTemplateModule,
   ],
   controllers: [AppController],
   providers: [AppService],

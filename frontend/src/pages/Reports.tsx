@@ -5,6 +5,7 @@ import { patrolApi } from '../lib/patrol'
 import ReportsFilterBar from '../components/ReportsFilterBar'
 import { useReportFilters } from '../hooks/useReportFilters'
 import ReportBuilder from './ReportBuilder'
+import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import Templates from './Templates'
 import ReportSummary from './ReportSummary'
 import SummaryReportBuilder from './SummaryReportBuilder'
@@ -30,6 +31,7 @@ export default function Reports() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [downloading, setDownloading] = useState<'pdf' | 'zip' | null>(null)
   const [downloadError, setDownloadError] = useState('')
+  const [view, setView] = useState<ViewMode>('list')
 
   useEffect(() => {
     patrolApi
@@ -157,7 +159,10 @@ export default function Reports() {
         />
       ) : (
         <>
-          <ReportsFilterBar f={f} countLabel={`${filtered.length} reports`} />
+          <div className="reports-toolbar-row">
+            <ReportsFilterBar f={f} countLabel={`${filtered.length} reports`} />
+            <ViewToggle mode={view} onChange={setView} />
+          </div>
 
           {error && <div className="reports-error">{error}</div>}
           {downloadError && <div className="reports-error">{downloadError}</div>}
@@ -203,6 +208,28 @@ export default function Reports() {
           ) : filtered.length === 0 ? (
             <div className="reports-empty">
               <p>No reports match your filters.</p>
+            </div>
+          ) : view === 'grid' ? (
+            <div className="reports-grid">
+              {filtered.map((j) => (
+                <div key={j.id} className="report-card" onClick={() => openReport(j.id)}>
+                  <div className="report-card-head">
+                    <FileText size={18} className="report-card-icon" />
+                    <strong>{j.route.name}</strong>
+                  </div>
+                  <p className="report-card-site">{j.route.site.name}</p>
+                  <div className="report-card-meta">
+                    <span>{j.operator.fullName}</span>
+                    <span>{fmt(j.completedAt)}</span>
+                    <span>{j._count.results} checkpoints</span>
+                  </div>
+                  <div className="report-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <a href={patrolApi.reportUrl(j.id)} download className="report-download">
+                      <Download size={14} /> PDF
+                    </a>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="reports-table-wrap">

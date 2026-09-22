@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BarChart3, FileText, Download } from 'lucide-react'
+import SearchableSelect from '../components/SearchableSelect'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ReportsFilterBar from '../components/ReportsFilterBar'
@@ -91,21 +92,21 @@ export default function ReportSummary({
           </div>
         </div>
         <div className="rs-generate-actions">
-          {templates.length > 1 && (
-            <select
-              className="rs-template-select"
-              value={templateId}
-              onChange={(e) => setTemplateId(e.target.value)}
-              disabled={generating}
-              title="Summary template to use"
-            >
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                  {t.isDefault ? ' (Default)' : ''}
-                </option>
-              ))}
-            </select>
+          {templates.length > 0 && (
+            <div className="rs-template-picker">
+              <SearchableSelect
+                value={templateId}
+                onChange={(v) => setTemplateId(v)}
+                placeholder="Select template…"
+                searchable={false}
+                disabled={generating}
+                options={templates.map((t) => ({
+                  value: t.id,
+                  label: t.name,
+                  sub: t.isDefault ? 'Default' : undefined,
+                }))}
+              />
+            </div>
           )}
           <button
             className="rs-generate-btn"

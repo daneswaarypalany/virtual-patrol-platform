@@ -6,6 +6,7 @@ import {
   FileCog,
   X,
   LayoutTemplate,
+  Plus,
 } from 'lucide-react'
 import type { ReportField } from '../lib/report-template'
 import { reportTemplateApi } from '../lib/report-template'
@@ -20,32 +21,58 @@ type HoverTarget =
   | { kind: 'gap'; row: number }
   | null
 
-export default function ReportBuilder() {
+const GROUP_LABEL: Record<ReportField['group'], string> = {
+  summary: 'Summary',
+  checkpoint: 'Checkpoint',
+}
+
+export default function ReportBuilder({
+  editTemplateId,
+  onSaved,
+}: {
+  editTemplateId?: string
+  onSaved?: () => void
+}) {
   const [rows, setRows] = useState<ReportField[][]>([])
   const [palette, setPalette] = useState<ReportField[]>([])
   const [savedSnapshot, setSavedSnapshot] = useState<ReportField[]>([])
+  const [templateName, setTemplateName] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
   const [drag, setDrag] = useState<Drag | null>(null)
   const [hover, setHover] = useState<HoverTarget>(null)
+  const [newName, setNewName] = useState('')
+  const [showNameInput, setShowNameInput] = useState(false)
+  const isEdit = !!editTemplateId
 
   useEffect(() => {
-    reportTemplateApi
-      .get()
+    setLoading(true)
+    setError('')
+    const fetch = editTemplateId
+      ? reportTemplateApi.getById(editTemplateId)
+      : reportTemplateApi.get()
+    fetch
       .then((t) => {
-        setRows(t.fields.filter((f) => f.enabled).map((f) => [f]))
-        setPalette(t.fields.filter((f) => !f.enabled))
+        if (editTemplateId) {
+          setRows(t.fields.filter((f) => f.enabled).map((f) => [f]))
+          setPalette(t.fields.filter((f) => !f.enabled))
+        } else {
+          setRows([])
+          setPalette(t.fields)
+        }
         setSavedSnapshot(t.fields)
+        setTemplateName(t.name ?? '')
       })
       .catch(() => setError('Failed to load report template'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [editTemplateId])
 
   const flatCanvas = rows.flat()
   const currentCombined = [...flatCanvas, ...palette]
-  const dirty = JSON.stringify(currentCombined) !== JSON.stringify(savedSnapshot)
+  const dirty =
+    JSON.stringify(currentCombined) !== JSON.stringify(savedSnapshot)
 
   const handleDragStart = (source: Drag) => (e: React.DragEvent) => {
     setDrag(source)
@@ -57,10 +84,6 @@ export default function ReportBuilder() {
     setHover(null)
   }
 
-  // Remove the dragged item from wherever it currently is, pruning any row
-  // that becomes empty as a result. Returns the item plus the resulting
-  // rows/palette, and -- if a canvas row was removed -- its index, so the
-  // caller can shift a same-list drop target accordingly.
   const extractDragged = (): {
     item: ReportField
     rows: ReportField[][]
@@ -90,18 +113,23 @@ export default function ReportBuilder() {
     return { item, rows: prunedRows, palette, removedRowIndex }
   }
 
-  // Drop directly onto a block: places the dragged item beside it (left or
-  // right) in the same row -- this is the horizontal placement.
-  const dropOnBlock = (targetRow: number, targetCol: number, side: 'left' | 'right') => {
+  const dropOnBlock = (
+    targetRow: number,
+    targetCol: number,
+    side: 'left' | 'right',
+  ) => {
     const extracted = extractDragged()
     if (!extracted) return
-    let { rows: workingRows, palette: workingPalette, removedRowIndex } = extracted
+    let { rows: workingRows, palette: workingPalette, removedRowIndex } =
+      extracted
     let row = targetRow
-    if (drag?.from === 'canvas' && removedRowIndex !== -1 && removedRowIndex < row) {
+    if (
+      drag?.from === 'canvas' &&
+      removedRowIndex !== -1 &&
+      removedRowIndex < row
+    ) {
       row -= 1
     }
-    // if the item being removed was in the SAME row as the target and came
-    // before it, the target's column shifts left by one
     let col = targetCol
     if (
       drag?.from === 'canvas' &&
@@ -113,7 +141,9 @@ export default function ReportBuilder() {
     }
     const insertAt = side === 'left' ? col : col + 1
     const nextRows = workingRows.map((r, i) =>
-      i === row ? [...r.slice(0, insertAt), extracted.item, ...r.slice(insertAt)] : r,
+      i === row
+        ? [...r.slice(0, insertAt), extracted.item, ...r.slice(insertAt)]
+        : r,
     )
     setRows(nextRows)
     setPalette(workingPalette)
@@ -121,17 +151,24 @@ export default function ReportBuilder() {
     setHover(null)
   }
 
-  // Drop into the gap before/after a row: creates a brand new row containing
-  // just the dragged item -- this is the vertical placement.
   const dropInGap = (gapIndex: number) => {
     const extracted = extractDragged()
     if (!extracted) return
-    let { rows: workingRows, palette: workingPalette, removedRowIndex } = extracted
+    let { rows: workingRows, palette: workingPalette, removedRowIndex } =
+      extracted
     let at = gapIndex
-    if (drag?.from === 'canvas' && removedRowIndex !== -1 && removedRowIndex < at) {
+    if (
+      drag?.from === 'canvas' &&
+      removedRowIndex !== -1 &&
+      removedRowIndex < at
+    ) {
       at -= 1
     }
-    const nextRows = [...workingRows.slice(0, at), [extracted.item], ...workingRows.slice(at)]
+    const nextRows = [
+      ...workingRows.slice(0, at),
+      [extracted.item],
+      ...workingRows.slice(at),
+    ]
     setRows(nextRows)
     setPalette(workingPalette)
     setDrag(null)
@@ -156,21 +193,23 @@ export default function ReportBuilder() {
     setHover(null)
   }
 
-  const handleBlockDragOver = (row: number, col: number) => (e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    const rect = e.currentTarget.getBoundingClientRect()
-    const side = e.clientX - rect.left < rect.width / 2 ? 'left' : 'right'
-    setHover({ kind: 'block', row, col, side })
-  }
+  const handleBlockDragOver =
+    (row: number, col: number) => (e: React.DragEvent) => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      const rect = e.currentTarget.getBoundingClientRect()
+      const side = e.clientX - rect.left < rect.width / 2 ? 'left' : 'right'
+      setHover({ kind: 'block', row, col, side })
+    }
 
-  const handleBlockDrop = (row: number, col: number) => (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const rect = e.currentTarget.getBoundingClientRect()
-    const side = e.clientX - rect.left < rect.width / 2 ? 'left' : 'right'
-    dropOnBlock(row, col, side)
-  }
+  const handleBlockDrop =
+    (row: number, col: number) => (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const rect = e.currentTarget.getBoundingClientRect()
+      const side = e.clientX - rect.left < rect.width / 2 ? 'left' : 'right'
+      dropOnBlock(row, col, side)
+    }
 
   const handleGapDragOver = (gapIndex: number) => (e: React.DragEvent) => {
     e.preventDefault()
@@ -200,7 +239,8 @@ export default function ReportBuilder() {
     setPalette(savedSnapshot.filter((f) => !f.enabled))
   }
 
-  const save = async () => {
+  // edit mode: save back to the same template
+  const saveEdit = async () => {
     setSaving(true)
     setError('')
     try {
@@ -208,14 +248,40 @@ export default function ReportBuilder() {
         ...flatCanvas.map((f) => ({ key: f.key, enabled: true })),
         ...palette.map((f) => ({ key: f.key, enabled: false })),
       ]
-      const result = await reportTemplateApi.update(fields)
+      const result = await reportTemplateApi.updateById(editTemplateId!, fields)
       setRows(result.fields.filter((f) => f.enabled).map((f) => [f]))
       setPalette(result.fields.filter((f) => !f.enabled))
       setSavedSnapshot(result.fields)
+      setTemplateName(result.name)
       setSavedFlash(true)
       setTimeout(() => setSavedFlash(false), 2500)
+      onSaved?.()
     } catch {
-      setError('Failed to save report template')
+      setError('Failed to save template')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // create mode: make a new named template from the built layout
+  const saveAsNew = async () => {
+    if (!newName.trim()) return
+    setSaving(true)
+    setError('')
+    try {
+      const fields = [
+        ...flatCanvas.map((f) => ({ key: f.key, enabled: true })),
+        ...palette.map((f) => ({ key: f.key, enabled: false })),
+      ]
+      const created = await reportTemplateApi.create(newName.trim())
+      await reportTemplateApi.updateById(created.id, fields)
+      setNewName('')
+      setShowNameInput(false)
+      setSavedFlash(true)
+      setTimeout(() => setSavedFlash(false), 2500)
+      onSaved?.()
+    } catch {
+      setError('Failed to create template')
     } finally {
       setSaving(false)
     }
@@ -228,12 +294,15 @@ export default function ReportBuilder() {
       <div className="rb-intro">
         <FileCog size={18} />
         <div>
-          <h3>Report Builder</h3>
+          <h3>
+            {isEdit
+              ? `Editing: ${templateName}`
+              : 'Report Builder — New Template'}
+          </h3>
           <p>
-            Drag components from the left onto the report page. Drop on the
-            left or right half of an existing block to place it side by
-            side; drop in the gap above or below a row to start a new row.
-            Drag a block back to the sidebar to remove it.
+            {isEdit
+              ? 'Edit this template. Changes are saved back to this template only — the default is never touched.'
+              : 'Drag components onto the report page, then save as a new named template. The default template is never changed.'}
           </p>
         </div>
       </div>
@@ -272,7 +341,7 @@ export default function ReportBuilder() {
                   <span>{f.description}</span>
                 </div>
                 <span className={`rb-group rb-group-${f.group}`}>
-                  {f.group === 'summary' ? 'Summary' : 'Checkpoint'}
+                  {GROUP_LABEL[f.group]}
                 </span>
               </div>
             ))
@@ -344,7 +413,7 @@ export default function ReportBuilder() {
                           <span>{f.description}</span>
                         </div>
                         <span className={`rb-group rb-group-${f.group}`}>
-                          {f.group === 'summary' ? 'Summary' : 'Checkpoint'}
+                          {GROUP_LABEL[f.group]}
                         </span>
                         <button
                           className="rb-block-remove"
@@ -358,7 +427,9 @@ export default function ReportBuilder() {
                   </div>
                   <div
                     className={`rb-gap${
-                      hover?.kind === 'gap' && hover.row === rowIndex + 1 ? ' active' : ''
+                      hover?.kind === 'gap' && hover.row === rowIndex + 1
+                        ? ' active'
+                        : ''
                     }`}
                     onDragOver={handleGapDragOver(rowIndex + 1)}
                     onDrop={handleGapDrop(rowIndex + 1)}
@@ -372,15 +443,59 @@ export default function ReportBuilder() {
       </div>
 
       <div className="rb-actions">
-        {dirty && (
-          <button className="rb-revert" onClick={revert} disabled={saving}>
-            <RotateCcw size={14} /> Discard changes
+        {isEdit ? (
+          <>
+            {dirty && (
+              <button className="rb-revert" onClick={revert} disabled={saving}>
+                <RotateCcw size={14} /> Discard changes
+              </button>
+            )}
+            <button
+              className="rb-save"
+              onClick={saveEdit}
+              disabled={!dirty || saving}
+            >
+              <Save size={14} /> {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </>
+        ) : showNameInput ? (
+          <div className="rb-name-row">
+            <input
+              autoFocus
+              className="rb-name-input"
+              placeholder="Template name…"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && saveAsNew()}
+            />
+            <button
+              className="rb-save"
+              onClick={saveAsNew}
+              disabled={!newName.trim() || saving}
+            >
+              <Save size={14} /> {saving ? 'Creating…' : 'Create template'}
+            </button>
+            <button
+              className="rb-revert"
+              onClick={() => {
+                setShowNameInput(false)
+                setNewName('')
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button className="rb-save" onClick={() => setShowNameInput(true)}>
+            <Plus size={14} /> Save as new template
           </button>
         )}
-        <button className="rb-save" onClick={save} disabled={!dirty || saving}>
-          <Save size={14} /> {saving ? 'Saving…' : 'Save report layout'}
-        </button>
-        {savedFlash && <span className="rb-saved-flash">Saved</span>}
+        {savedFlash && (
+          <span className="rb-saved-flash">
+            {isEdit ? 'Saved' : 'Template created'}
+          </span>
+        )}
       </div>
     </div>
   )

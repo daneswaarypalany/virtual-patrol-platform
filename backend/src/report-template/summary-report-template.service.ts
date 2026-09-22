@@ -14,13 +14,12 @@ const DEFAULT_KEY = 'summary_default';
 export class SummaryReportTemplateService {
   constructor(private prisma: PrismaService) {}
 
-  // Ensure the built-in default row exists
   private async ensureDefault() {
-    const existing = await this.prisma.summaryReportTemplate.findUnique({
+    const existing = await this.prisma.summaryTemplate.findUnique({
       where: { key: DEFAULT_KEY },
     });
     if (!existing) {
-      await this.prisma.summaryReportTemplate.create({
+      await this.prisma.summaryTemplate.create({
         data: {
           key: DEFAULT_KEY,
           name: 'Default Template',
@@ -30,7 +29,6 @@ export class SummaryReportTemplateService {
     }
   }
 
-  // merge saved field state with the defs (labels/descriptions/groups)
   private mergeFields(saved: SummaryReportTemplateField[]) {
     const byKey = new Map(SUMMARY_REPORT_FIELD_DEFS.map((f) => [f.key, f]));
     return saved
@@ -38,10 +36,9 @@ export class SummaryReportTemplateService {
       .map((f) => ({ ...byKey.get(f.key)!, enabled: f.enabled }));
   }
 
-  // ---- List all summary templates (for the library page + pickers) ----
   async listTemplates() {
     await this.ensureDefault();
-    const rows = await this.prisma.summaryReportTemplate.findMany({
+    const rows = await this.prisma.summaryTemplate.findMany({
       orderBy: { createdAt: 'asc' },
     });
     return rows.map((r) => ({
@@ -53,12 +50,11 @@ export class SummaryReportTemplateService {
     }));
   }
 
-  // ---- Get one template's full field layout (by id, or the default) ----
   async getTemplateById(id?: string) {
     await this.ensureDefault();
     const row = id
-      ? await this.prisma.summaryReportTemplate.findUnique({ where: { id } })
-      : await this.prisma.summaryReportTemplate.findUnique({
+      ? await this.prisma.summaryTemplate.findUnique({ where: { id } })
+      : await this.prisma.summaryTemplate.findUnique({
           where: { key: DEFAULT_KEY },
         });
 
@@ -78,18 +74,15 @@ export class SummaryReportTemplateService {
     };
   }
 
-  // Backward-compat: the old getTemplate() returns the default
   async getTemplate() {
     return this.getTemplateById(undefined);
   }
 
-  // What patrol.service needs: ordered {key, enabled} for a given template
-  // (falls back to the default when no templateId is given/found)
   async getFieldOrder(templateId?: string | null): Promise<SummaryReportTemplateField[]> {
     await this.ensureDefault();
     const row = templateId
-      ? await this.prisma.summaryReportTemplate.findUnique({ where: { id: templateId } })
-      : await this.prisma.summaryReportTemplate.findUnique({
+      ? await this.prisma.summaryTemplate.findUnique({ where: { id: templateId } })
+      : await this.prisma.summaryTemplate.findUnique({
           where: { key: DEFAULT_KEY },
         });
 
@@ -106,13 +99,12 @@ export class SummaryReportTemplateService {
     ];
   }
 
-  // ---- Create a new named template (starts from defaults) ----
   async createTemplate(name: string) {
     if (!name || !name.trim()) {
       throw new BadRequestException('Template name is required');
     }
     const key = `summary_tpl_${Date.now()}_${Math.round(Math.random() * 1e6)}`;
-    const row = await this.prisma.summaryReportTemplate.create({
+    const row = await this.prisma.summaryTemplate.create({
       data: {
         key,
         name: name.trim(),
@@ -122,19 +114,17 @@ export class SummaryReportTemplateService {
     return this.getTemplateById(row.id);
   }
 
-  // ---- Rename ----
   async renameTemplate(id: string, name: string) {
     if (!name || !name.trim()) {
       throw new BadRequestException('Template name is required');
     }
-    await this.prisma.summaryReportTemplate.update({
+    await this.prisma.summaryTemplate.update({
       where: { id },
       data: { name: name.trim() },
     });
     return this.getTemplateById(id);
   }
 
-  // ---- Save a template's fields (by id) ----
   async updateTemplateById(id: string, fields: SummaryReportTemplateField[]) {
     const givenKeys = fields.map((f) => f.key);
     const uniqueGivenKeys = new Set(givenKeys);
@@ -154,7 +144,7 @@ export class SummaryReportTemplateService {
       enabled: f.enabled,
     })) as unknown as Prisma.InputJsonValue;
 
-    await this.prisma.summaryReportTemplate.update({
+    await this.prisma.summaryTemplate.update({
       where: { id },
       data: { fields: jsonFields },
     });
@@ -162,23 +152,21 @@ export class SummaryReportTemplateService {
     return this.getTemplateById(id);
   }
 
-  // Backward-compat: old updateTemplate() saves the default
   async updateTemplate(fields: SummaryReportTemplateField[]) {
     await this.ensureDefault();
-    const def = await this.prisma.summaryReportTemplate.findUnique({
+    const def = await this.prisma.summaryTemplate.findUnique({
       where: { key: DEFAULT_KEY },
     });
     return this.updateTemplateById(def!.id, fields);
   }
 
-  // ---- Delete (cannot delete the default) ----
   async deleteTemplate(id: string) {
-    const row = await this.prisma.summaryReportTemplate.findUnique({ where: { id } });
+    const row = await this.prisma.summaryTemplate.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('Summary report template not found');
     if (row.key === DEFAULT_KEY) {
       throw new BadRequestException('The default summary report template cannot be deleted');
     }
-    await this.prisma.summaryReportTemplate.delete({ where: { id } });
+    await this.prisma.summaryTemplate.delete({ where: { id } });
     return { deleted: true };
   }
 }
