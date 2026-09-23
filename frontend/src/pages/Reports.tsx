@@ -22,6 +22,9 @@ type ReportsTab =
 
 export default function Reports() {
   const [tab, setTab] = useState<ReportsTab>('list')
+  const [builderTemplateId, setBuilderTemplateId] = useState<
+    string | undefined
+  >(undefined)
   const [summaryBuilderTemplateId, setSummaryBuilderTemplateId] = useState<
     string | undefined
   >(undefined)
@@ -109,7 +112,10 @@ export default function Reports() {
         </button>
         <button
           className={tab === 'builder' ? 'active' : ''}
-          onClick={() => setTab('builder')}
+          onClick={() => {
+            setBuilderTemplateId(undefined)
+            setTab('builder')
+          }}
         >
           <FileCog size={15} /> Report Builder
         </button>
@@ -143,9 +149,14 @@ export default function Reports() {
       </div>
 
       {tab === 'builder' ? (
-        <ReportBuilder />
+        <ReportBuilder editTemplateId={builderTemplateId} />
       ) : tab === 'templates' ? (
-        <Templates onEdit={() => setTab('builder')} />
+        <Templates
+          onEdit={(id) => {
+            setBuilderTemplateId(id)
+            setTab('builder')
+          }}
+        />
       ) : tab === 'summary' ? (
         <ReportSummary jobs={jobs} loading={loading} error={error} />
       ) : tab === 'summary-builder' ? (

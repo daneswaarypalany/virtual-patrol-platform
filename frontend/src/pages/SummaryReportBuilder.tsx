@@ -63,7 +63,10 @@ export default function SummaryReportBuilder({
   }, [templateId])
 
   const flatCanvas = rows.flat()
-  const currentCombined = [...flatCanvas, ...palette]
+  const currentCombined = [
+    ...flatCanvas.map((f) => ({ ...f, enabled: true })),
+    ...palette.map((f) => ({ ...f, enabled: false })),
+  ]
   const dirty = JSON.stringify(currentCombined) !== JSON.stringify(savedSnapshot)
 
   const handleDragStart = (source: Drag) => (e: React.DragEvent) => {
