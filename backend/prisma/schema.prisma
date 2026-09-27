@@ -41,6 +41,8 @@ model Site {
   patrols     Patrol[]
   routes      Route[]
   activePatrol ActivePatrol?
+  communicationChannels SiteCommunicationChannel[]
+  notificationLogs      NotificationLog[]
 }
 
 model Route {
@@ -327,4 +329,51 @@ enum PatrolJobStatus {
   IN_PROGRESS
   DRAFT
   COMPLETED
+}
+
+model SiteCommunicationChannel {
+  id          String                  @id @default(uuid())
+  siteId      String
+  channelType CommunicationChannelType
+  enabled     Boolean                 @default(false)
+  destination String
+  displayName String?
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  site        Site                    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, channelType])
+  @@index([siteId])
+}
+
+model NotificationLog {
+  id                 String                  @id @default(uuid())
+  siteId             String
+  eventType          String
+  channelType        CommunicationChannelType
+  recipient          String
+  message            String
+  status             NotificationStatus      @default(PENDING)
+  providerMessageId  String?
+  errorMessage       String?
+  createdAt          DateTime                @default(now())
+  sentAt             DateTime?
+  site               Site                    @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId])
+  @@index([eventType])
+  @@index([status])
+}
+
+enum CommunicationChannelType {
+  WHATSAPP
+  TELEGRAM
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  CONFIGURATION_REQUIRED
 }

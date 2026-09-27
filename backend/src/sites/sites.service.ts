@@ -2,10 +2,16 @@
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
+import { CreateCommunicationChannelDto } from './dto/create-communication-channel.dto';
+import { UpdateCommunicationChannelDto } from './dto/update-communication-channel.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class SitesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   findAll() {
     return this.prisma.site.findMany({
@@ -143,6 +149,119 @@ export class SitesService {
     return this.prisma.site.update({
       where: { id: siteId },
       data: { reportTemplateId },
+    });
+  }
+
+  // ---------- Site communication channels (WhatsApp / Telegram / Email) ----------
+  // Each channel belongs to exactly one site (siteId + channelType unique), so
+  // resolving a site's channels can never leak another site's destinations.
+
+  async listCommunications(siteId: string) {
+    await this.findOne(siteId);
+    return this.prisma.siteCommunicationChannel.findMany({
+      where: { siteId },
+      orderBy: { channelType: 'asc' },
+    });
+  }
+
+  async createCommunication(
+    siteId: string,
+    dto: CreateCommunicationChannelDto,
+    userId: string,
+  ) {
+    await this.findOne(siteId);
+    const channel = await this.prisma.siteCommunicationChannel.create({
+      data: {
+        siteId,
+        channelType: dto.channelType,
+        destination: dto.destination,
+        displayName: dto.displayName,
+        enabled: dto.enabled ?? false,
+      },
+    });
+
+    await this.logAudit('COMMUNICATION_CREATED', siteId, userId, {
+      channelId: channel.id,
+      channelType: channel.channelType,
+    });
+
+    return channel;
+  }
+
+  async updateCommunication(
+    siteId: string,
+    channelId: string,
+    dto: UpdateCommunicationChannelDto,
+    userId: string,
+  ) {
+    const channel = await this.findCommunication(siteId, channelId);
+
+    const updated = await this.prisma.siteCommunicationChannel.update({
+      where: { id: channel.id },
+      data: dto,
+    });
+
+    await this.logAudit('COMMUNICATION_UPDATED', siteId, userId, {
+      channelId: channel.id,
+      channelType: channel.channelType,
+    });
+
+    return updated;
+  }
+
+  async removeCommunication(siteId: string, channelId: string, userId: string) {
+    const channel = await this.findCommunication(siteId, channelId);
+
+    await this.prisma.siteCommunicationChannel.delete({
+      where: { id: channel.id },
+    });
+
+    await this.logAudit('COMMUNICATION_DELETED', siteId, userId, {
+      channelId: channel.id,
+      channelType: channel.channelType,
+    });
+
+    return { message: 'Communication channel deleted' };
+  }
+
+  async testCommunication(siteId: string, channelId: string, userId: string) {
+    await this.findCommunication(siteId, channelId);
+
+    const result = await this.notifications.sendTest(siteId, channelId);
+
+    await this.logAudit('COMMUNICATION_TESTED', siteId, userId, {
+      channelId,
+      status: result.status,
+    });
+
+    return result;
+  }
+
+  private async findCommunication(siteId: string, channelId: string) {
+    const channel = await this.prisma.siteCommunicationChannel.findFirst({
+      where: { id: channelId, siteId },
+    });
+    if (!channel) {
+      throw new NotFoundException('Communication channel not found');
+    }
+    return channel;
+  }
+
+  // Never pass secrets/tokens here — only ids, channel types, and outcomes.
+  private async logAudit(
+    action: string,
+    siteId: string,
+    userId: string,
+    details: Record<string, unknown>,
+  ) {
+    await this.prisma.auditLog.create({
+      data: {
+        action,
+        entity: 'SiteCommunicationChannel',
+        entityId: siteId,
+        userId,
+        details: JSON.stringify(details),
+      },
     });
   }
 }

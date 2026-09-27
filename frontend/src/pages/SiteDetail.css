@@ -332,3 +332,74 @@
   background: var(--bg);
   border-radius: 8px;
 }
+/* ---------- Communication channels ---------- */
+.comm-item {
+  align-items: flex-start;
+}
+
+.comm-test-result {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.comm-sent {
+  color: var(--status-green, #1a8a4a);
+}
+
+.comm-failed {
+  color: var(--status-red);
+}
+
+.comm-configuration_required {
+  color: var(--text-muted);
+}
+
+.toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0 4px;
+}
+
+.toggle-row strong {
+  display: block;
+  font-size: 14px;
+}
+
+.toggle-row span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.toggle {
+  width: 44px;
+  height: 26px;
+  border-radius: 20px;
+  border: none;
+  background: var(--border);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.toggle.on {
+  background: var(--status-green, #1a8a4a);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s;
+}
+
+.toggle.on .toggle-knob {
+  transform: translateX(18px);
+}

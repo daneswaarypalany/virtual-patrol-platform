@@ -10,10 +10,16 @@ import type { Route } from '../lib/routes'
 import { routesApi } from '../lib/routes'
 import type { ReportTemplateSummary } from '../lib/report-template'
 import { reportTemplateApi } from '../lib/report-template'
+import type {
+  SiteCommunicationChannel,
+  ChannelType,
+  TestResult,
+} from '../lib/site-communications'
+import { siteCommunicationsApi } from '../lib/site-communications'
 import './SiteDetail.css'
 import SearchableSelect from '../components/SearchableSelect'
 
-type Tab = 'operators' | 'template' | 'cameras' | 'routes'
+type Tab = 'operators' | 'template' | 'cameras' | 'routes' | 'communications'
 
 export default function SiteDetail({
   site,
@@ -30,28 +36,35 @@ export default function SiteDetail({
   const [templates, setTemplates] = useState<ReportTemplateSummary[]>([])
   const [templateId, setTemplateId] = useState<string | null>(site.reportTemplateId)
   const [savingTemplate, setSavingTemplate] = useState(false)
+  const [channels, setChannels] = useState<SiteCommunicationChannel[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const [showCamForm, setShowCamForm] = useState(false)
   const [editingCam, setEditingCam] = useState<Camera | null>(null)
 
+  const [commFormType, setCommFormType] = useState<ChannelType | null>(null)
+  const [testResults, setTestResults] = useState<Record<string, TestResult>>({})
+  const [testingId, setTestingId] = useState<string | null>(null)
+
   const load = async () => {
     setLoading(true)
     setError('')
     try {
-      const [a, u, c, r, t] = await Promise.all([
+      const [a, u, c, r, t, comms] = await Promise.all([
         sitesApi.getAssignments(site.id),
         usersApi.list(),
         camerasApi.list(site.id),
         routesApi.list(site.id),
         reportTemplateApi.list(),
+        siteCommunicationsApi.list(site.id),
       ])
       setAssigned(a)
       setAllUsers(u)
       setCameras(c)
       setRoutes(r)
       setTemplates(t)
+      setChannels(comms)
     } catch {
       setError('Failed to load site details')
     } finally {
@@ -110,6 +123,57 @@ export default function SiteDetail({
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to delete camera')
     }
+  }
+
+  const toggleChannel = async (channel: SiteCommunicationChannel) => {
+    try {
+      await siteCommunicationsApi.update(site.id, channel.id, {
+        enabled: !channel.enabled,
+      })
+      load()
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to update channel')
+    }
+  }
+
+  const removeChannel = async (channel: SiteCommunicationChannel) => {
+    if (!window.confirm(`Remove the ${channel.channelType} channel for this site?`))
+      return
+    try {
+      await siteCommunicationsApi.remove(site.id, channel.id)
+      load()
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Failed to remove channel')
+    }
+  }
+
+  const testChannel = async (channel: SiteCommunicationChannel) => {
+    setTestingId(channel.id)
+    try {
+      const result = await siteCommunicationsApi.test(site.id, channel.id)
+      setTestResults((r) => ({ ...r, [channel.id]: result }))
+    } catch (err: any) {
+      setTestResults((r) => ({
+        ...r,
+        [channel.id]: {
+          status: 'FAILED',
+          errorMessage: err?.response?.data?.message || 'Test request failed',
+        },
+      }))
+    } finally {
+      setTestingId(null)
+    }
+  }
+
+  const CHANNEL_LABELS: Record<ChannelType, string> = {
+    WHATSAPP: 'WhatsApp',
+    TELEGRAM: 'Telegram',
+    EMAIL: 'Email',
+  }
+  const CHANNEL_HINTS: Record<ChannelType, string> = {
+    WHATSAPP: 'Phone number / approved recipient identifier',
+    TELEGRAM: 'Chat ID or channel ID',
+    EMAIL: 'Recipient email address (comma-separate for multiple)',
   }
 
   return (
@@ -180,6 +244,12 @@ export default function SiteDetail({
             onClick={() => setTab('routes')}
           >
             Routes ({routes.length})
+          </button>
+          <button
+            className={tab === 'communications' ? 'active' : ''}
+            onClick={() => setTab('communications')}
+          >
+            Communications ({channels.filter((c) => c.enabled).length})
           </button>
         </div>
 
@@ -339,6 +409,95 @@ export default function SiteDetail({
                   </p>
                 </>
               )}
+
+              {/* ---------- Communications ---------- */}
+              {tab === 'communications' && (
+                <>
+                  <p className="assigned-title">
+                    Site-specific WhatsApp, Telegram and Email destinations.
+                    Only this site's channels are used when it has an event.
+                  </p>
+
+                  {(['WHATSAPP', 'TELEGRAM', 'EMAIL'] as ChannelType[]).map((type) => {
+                    const channel = channels.find((c) => c.channelType === type)
+                    const result = channel ? testResults[channel.id] : undefined
+                    return (
+                      <div key={type} className="detail-item comm-item">
+                        <div>
+                          <strong>{CHANNEL_LABELS[type]}</strong>
+                          {channel ? (
+                            <span className="detail-item-meta">
+                              {channel.displayName
+                                ? `${channel.displayName} · `
+                                : ''}
+                              {channel.destination}
+                            </span>
+                          ) : (
+                            <span className="detail-item-meta">
+                              Not configured
+                            </span>
+                          )}
+                          {result && (
+                            <span
+                              className={`comm-test-result comm-${result.status.toLowerCase()}`}
+                            >
+                              {result.status === 'SENT' &&
+                                '✓ Test message sent successfully'}
+                              {result.status === 'CONFIGURATION_REQUIRED' &&
+                                'Configuration Required'}
+                              {result.status === 'FAILED' &&
+                                `✕ Test message failed${
+                                  result.errorMessage
+                                    ? ` — ${result.errorMessage}`
+                                    : ''
+                                }`}
+                            </span>
+                          )}
+                        </div>
+                        <div className="detail-item-actions">
+                          {channel ? (
+                            <>
+                              <button
+                                type="button"
+                                className={`toggle${channel.enabled ? ' on' : ''}`}
+                                onClick={() => toggleChannel(channel)}
+                                aria-pressed={channel.enabled}
+                                title={channel.enabled ? 'Enabled' : 'Disabled'}
+                              >
+                                <span className="toggle-knob" />
+                              </button>
+                              <button
+                                onClick={() => testChannel(channel)}
+                                disabled={testingId === channel.id}
+                              >
+                                {testingId === channel.id
+                                  ? 'Testing…'
+                                  : 'Test'}
+                              </button>
+                              <button onClick={() => setCommFormType(type)}>
+                                Edit
+                              </button>
+                              <button
+                                className="danger"
+                                onClick={() => removeChannel(channel)}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              className="detail-add-btn"
+                              onClick={() => setCommFormType(type)}
+                            >
+                              + Configure
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </>
           )}
         </div>
@@ -351,6 +510,21 @@ export default function SiteDetail({
           onClose={() => setShowCamForm(false)}
           onSaved={() => {
             setShowCamForm(false)
+            load()
+          }}
+        />
+      )}
+
+      {commFormType && (
+        <CommunicationForm
+          siteId={site.id}
+          channelType={commFormType}
+          existing={channels.find((c) => c.channelType === commFormType) ?? null}
+          hint={CHANNEL_HINTS[commFormType]}
+          label={CHANNEL_LABELS[commFormType]}
+          onClose={() => setCommFormType(null)}
+          onSaved={() => {
+            setCommFormType(null)
             load()
           }}
         />
@@ -453,6 +627,107 @@ function CameraForm({
           </button>
           <button className="btn-primary" onClick={submit} disabled={submitting}>
             {submitting ? 'Saving…' : camera ? 'Save' : 'Create'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CommunicationForm({
+  siteId,
+  channelType,
+  existing,
+  hint,
+  label,
+  onClose,
+  onSaved,
+}: {
+  siteId: string
+  channelType: ChannelType
+  existing: SiteCommunicationChannel | null
+  hint: string
+  label: string
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [destination, setDestination] = useState(existing?.destination ?? '')
+  const [displayName, setDisplayName] = useState(existing?.displayName ?? '')
+  const [enabled, setEnabled] = useState(existing?.enabled ?? true)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    setError('')
+    if (!destination.trim()) return setError(`${label} destination is required`)
+    setSubmitting(true)
+    try {
+      if (existing) {
+        await siteCommunicationsApi.update(siteId, existing.id, {
+          destination,
+          displayName: displayName || undefined,
+          enabled,
+        })
+      } else {
+        await siteCommunicationsApi.create(siteId, {
+          channelType,
+          destination,
+          displayName: displayName || undefined,
+          enabled,
+        })
+      }
+      onSaved()
+    } catch (err: any) {
+      setError(err?.response?.data?.message || `Failed to save ${label} channel`)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <h3>{existing ? `Edit ${label}` : `Configure ${label}`}</h3>
+
+        <label>Destination</label>
+        <input
+          value={destination}
+          onChange={(e) => setDestination(e.target.value)}
+          placeholder={hint}
+          autoFocus
+        />
+        <span className="field-hint">{hint}</span>
+
+        <label>Display Label (optional)</label>
+        <input
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="e.g. Site security desk"
+        />
+
+        <div className="toggle-row">
+          <div>
+            <strong>Enabled</strong>
+            <span>Whether this channel receives automatic notifications.</span>
+          </div>
+          <button
+            type="button"
+            className={`toggle${enabled ? ' on' : ''}`}
+            onClick={() => setEnabled((e) => !e)}
+            aria-pressed={enabled}
+          >
+            <span className="toggle-knob" />
+          </button>
+        </div>
+
+        {error && <div className="modal-error">{error}</div>}
+
+        <div className="modal-actions">
+          <button className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn-primary" onClick={submit} disabled={submitting}>
+            {submitting ? 'Saving…' : existing ? 'Save' : 'Create'}
           </button>
         </div>
       </div>
