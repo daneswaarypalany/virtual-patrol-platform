@@ -3,9 +3,18 @@ import { ConfigService } from '@nestjs/config';
 import { CommunicationChannelType } from '@prisma/client';
 import { NotificationProvider, ProviderSendResult } from '../types';
 
-// Sends via the official WhatsApp Business Platform (Cloud API).
-// Requires WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID to be configured
-// server-side. Never accepts or exposes these credentials via the frontend.
+// Sends via the official WhatsApp Business Platform (Cloud API) using an
+// approved TEMPLATE message. Free-form text only delivers inside the 24h window
+// after the recipient last messaged the business number, so it silently fails
+// for proactive alerts (API returns 200, delivery fails later with error 131047).
+//
+// Env:
+//   WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID  (required)
+//   WHATSAPP_TEMPLATE_NAME   default 'patrol_alert'
+//   WHATSAPP_TEMPLATE_LANG   default 'en_US' (must match the template's language exactly)
+//   WHATSAPP_TEMPLATE_PARAMS default '1' — number of body variables ({{1}}..). Use '0'
+//                            for parameterless templates such as Meta's 'hello_world'.
+// Never accepts or exposes these credentials via the frontend.
 @Injectable()
 export class WhatsAppProvider implements NotificationProvider {
   readonly channelType = CommunicationChannelType.WHATSAPP;
@@ -24,6 +33,14 @@ export class WhatsAppProvider implements NotificationProvider {
       return { status: 'FAILED', errorMessage: 'Missing WhatsApp destination' };
     }
 
+    const templateName =
+      this.config.get<string>('WHATSAPP_TEMPLATE_NAME') || 'patrol_alert';
+    const languageCode =
+      this.config.get<string>('WHATSAPP_TEMPLATE_LANG') || 'en_US';
+    const paramCount = Number(
+      this.config.get<string>('WHATSAPP_TEMPLATE_PARAMS') ?? '1',
+    );
+
     try {
       const res = await fetch(
         `https://graph.facebook.com/v20.0/${phoneNumberId}/messages`,
@@ -36,8 +53,21 @@ export class WhatsAppProvider implements NotificationProvider {
           body: JSON.stringify({
             messaging_product: 'whatsapp',
             to: destination,
-            type: 'text',
-            text: { body: message },
+            type: 'template',
+            template: {
+              name: templateName,
+              language: { code: languageCode },
+              ...(paramCount > 0 && {
+                components: [
+                  {
+                    type: 'body',
+                    parameters: [
+                      { type: 'text', text: this.toTemplateParam(message) },
+                    ],
+                  },
+                ],
+              }),
+            },
           }),
         },
       );
@@ -62,5 +92,15 @@ export class WhatsAppProvider implements NotificationProvider {
         errorMessage: err?.message || 'WhatsApp request failed',
       };
     }
+  }
+
+  // Template variables may not contain newlines, tabs or 4+ consecutive spaces,
+  // and are capped in length. Flatten the message accordingly.
+  private toTemplateParam(message: string): string {
+    return message
+      .replace(/[\r\n\t]+/g, ' | ')
+      .replace(/ {2,}/g, ' ')
+      .trim()
+      .slice(0, 1000);
   }
 }
