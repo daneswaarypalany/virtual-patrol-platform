@@ -19,7 +19,7 @@ import { siteCommunicationsApi } from '../lib/site-communications'
 import './SiteDetail.css'
 import SearchableSelect from '../components/SearchableSelect'
 
-type Tab = 'operators' | 'template' | 'cameras' | 'routes' | 'communications'
+type Section = 'operators' | 'template' | 'cameras' | 'routes' | 'communications'
 
 export default function SiteDetail({
   site,
@@ -28,7 +28,15 @@ export default function SiteDetail({
   site: Site
   onClose: () => void
 }) {
-  const [tab, setTab] = useState<Tab>('operators')
+  const [openSections, setOpenSections] = useState<Set<Section>>(
+    new Set(['operators']),
+  )
+  const toggleSection = (s: Section) =>
+    setOpenSections((prev) => {
+      const next = new Set(prev)
+      next.has(s) ? next.delete(s) : next.add(s)
+      return next
+    })
   const [assigned, setAssigned] = useState<AssignedUser[]>([])
   const [allUsers, setAllUsers] = useState<AppUser[]>([])
   const [cameras, setCameras] = useState<Camera[]>([])
@@ -171,10 +179,13 @@ export default function SiteDetail({
     EMAIL: 'Email',
   }
   const CHANNEL_HINTS: Record<ChannelType, string> = {
-    WHATSAPP: 'Phone number / approved recipient identifier',
+    WHATSAPP:
+      'Phone number / approved recipient identifier, or a WhatsApp group invite link (chat.whatsapp.com/...)',
     TELEGRAM: 'Chat ID or channel ID',
     EMAIL: 'Recipient email address (comma-separate for multiple)',
   }
+
+  const isLink = (value: string) => /^https?:\/\//i.test(value.trim())
 
   return (
     <div className="detail-backdrop" onClick={onClose}>
@@ -220,39 +231,6 @@ export default function SiteDetail({
           </div>
         </div>
 
-        <div className="detail-tabs">
-          <button
-            className={tab === 'operators' ? 'active' : ''}
-            onClick={() => setTab('operators')}
-          >
-            Assigned Operators
-          </button>
-          <button
-            className={tab === 'template' ? 'active' : ''}
-            onClick={() => setTab('template')}
-          >
-            Report Template
-          </button>
-          <button
-            className={tab === 'cameras' ? 'active' : ''}
-            onClick={() => setTab('cameras')}
-          >
-            Cameras ({cameras.length})
-          </button>
-          <button
-            className={tab === 'routes' ? 'active' : ''}
-            onClick={() => setTab('routes')}
-          >
-            Routes ({routes.length})
-          </button>
-          <button
-            className={tab === 'communications' ? 'active' : ''}
-            onClick={() => setTab('communications')}
-          >
-            Communications ({channels.filter((c) => c.enabled).length})
-          </button>
-        </div>
-
         <div className="detail-body">
           {error && <div className="detail-error">{error}</div>}
 
@@ -261,8 +239,40 @@ export default function SiteDetail({
           ) : (
             <>
               {/* ---------- Operators ---------- */}
-              {tab === 'operators' && (
-                <>
+              <div className="section-label">Operators</div>
+              <div className={`acc-card${openSections.has('operators') ? ' open' : ''}`}>
+                <div
+                  className="acc-card-head"
+                  onClick={() => toggleSection('operators')}
+                >
+                  <div className="acc-card-head-left">
+                    <div className="acc-card-title">Assigned operators</div>
+                    <div className="acc-card-meta">
+                      {assigned.length} assigned
+                    </div>
+                  </div>
+                  <div className="acc-card-right">
+                    <span className="count-pill">{assigned.length}</span>
+                    <svg
+                      className="chev"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      width="18"
+                      height="18"
+                    >
+                      <path
+                        d="M5 7.5L10 12.5L15 7.5"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="acc-card-body">
+                  <div className="acc-card-body-inner">
+                    <div className="acc-card-body-content">
                   <div className="assign-add">
                     <label>Assign a user to this site</label>
                     <SearchableSelect
@@ -302,12 +312,46 @@ export default function SiteDetail({
                       ))
                     )}
                   </div>
-                </>
-              )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* ---------- Report Template ---------- */}
-              {tab === 'template' && (
-                <>
+              <div className="section-label">Report template</div>
+              <div className={`acc-card${openSections.has('template') ? ' open' : ''}`}>
+                <div
+                  className="acc-card-head"
+                  onClick={() => toggleSection('template')}
+                >
+                  <div className="acc-card-head-left">
+                    <div className="acc-card-title">Report template</div>
+                    <div className="acc-card-meta">
+                      {templates.find((t) => t.id === templateId)?.name ??
+                        'Default template'}
+                    </div>
+                  </div>
+                  <div className="acc-card-right">
+                    <svg
+                      className="chev"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      width="18"
+                      height="18"
+                    >
+                      <path
+                        d="M5 7.5L10 12.5L15 7.5"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="acc-card-body">
+                  <div className="acc-card-body-inner">
+                    <div className="acc-card-body-content">
                   <div className="assign-add">
                     <label>Report template for this site</label>
                     <SearchableSelect
@@ -326,12 +370,44 @@ export default function SiteDetail({
                         : 'Used when generating reports for patrols at this site. Manage the templates themselves from the Reports → Templates screen.'}
                     </p>
                   </div>
-                </>
-              )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* ---------- Cameras ---------- */}
-              {tab === 'cameras' && (
-                <>
+              <div className="section-label">Cameras &amp; routes</div>
+              <div className={`acc-card${openSections.has('cameras') ? ' open' : ''}`}>
+                <div
+                  className="acc-card-head"
+                  onClick={() => toggleSection('cameras')}
+                >
+                  <div className="acc-card-head-left">
+                    <div className="acc-card-title">Cameras</div>
+                    <div className="acc-card-meta">{cameras.length} at this site</div>
+                  </div>
+                  <div className="acc-card-right">
+                    <span className="count-pill">{cameras.length}</span>
+                    <svg
+                      className="chev"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      width="18"
+                      height="18"
+                    >
+                      <path
+                        d="M5 7.5L10 12.5L15 7.5"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="acc-card-body">
+                  <div className="acc-card-body-inner">
+                    <div className="acc-card-body-content">
                   <div className="detail-tab-head">
                     <p className="assigned-title">{cameras.length} cameras</p>
                     <button
@@ -377,12 +453,43 @@ export default function SiteDetail({
                       </div>
                     ))
                   )}
-                </>
-              )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* ---------- Routes ---------- */}
-              {tab === 'routes' && (
-                <>
+              <div className={`acc-card${openSections.has('routes') ? ' open' : ''}`}>
+                <div
+                  className="acc-card-head"
+                  onClick={() => toggleSection('routes')}
+                >
+                  <div className="acc-card-head-left">
+                    <div className="acc-card-title">Patrol routes</div>
+                    <div className="acc-card-meta">{routes.length} configured</div>
+                  </div>
+                  <div className="acc-card-right">
+                    <span className="count-pill">{routes.length}</span>
+                    <svg
+                      className="chev"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      width="18"
+                      height="18"
+                    >
+                      <path
+                        d="M5 7.5L10 12.5L15 7.5"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="acc-card-body">
+                  <div className="acc-card-body-inner">
+                    <div className="acc-card-body-content">
                   <p className="assigned-title">{routes.length} routes</p>
                   {routes.length === 0 ? (
                     <p className="detail-muted">
@@ -407,12 +514,45 @@ export default function SiteDetail({
                   <p className="detail-hint">
                     To build or edit routes, use the Route Builder screen.
                   </p>
-                </>
-              )}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* ---------- Communications ---------- */}
-              {tab === 'communications' && (
-                <>
+              <div className="section-label">Communications</div>
+              <div className={`acc-card${openSections.has('communications') ? ' open' : ''}`}>
+                <div
+                  className="acc-card-head"
+                  onClick={() => toggleSection('communications')}
+                >
+                  <div className="acc-card-head-left">
+                    <div className="acc-card-title">Notification channels</div>
+                    <div className="acc-card-meta">
+                      {channels.filter((c) => c.enabled).length} of 3 enabled
+                    </div>
+                  </div>
+                  <div className="acc-card-right">
+                    <svg
+                      className="chev"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      width="18"
+                      height="18"
+                    >
+                      <path
+                        d="M5 7.5L10 12.5L15 7.5"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="acc-card-body">
+                  <div className="acc-card-body-inner">
+                    <div className="acc-card-body-content">
                   <p className="assigned-title">
                     Site-specific WhatsApp, Telegram and Email destinations.
                     Only this site's channels are used when it has an event.
@@ -430,7 +570,18 @@ export default function SiteDetail({
                               {channel.displayName
                                 ? `${channel.displayName} · `
                                 : ''}
-                              {channel.destination}
+                              {isLink(channel.destination) ? (
+                                <a
+                                  href={channel.destination}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="comm-link"
+                                >
+                                  {channel.destination}
+                                </a>
+                              ) : (
+                                channel.destination
+                              )}
                             </span>
                           ) : (
                             <span className="detail-item-meta">
@@ -457,6 +608,16 @@ export default function SiteDetail({
                         <div className="detail-item-actions">
                           {channel ? (
                             <>
+                              {isLink(channel.destination) && (
+                                <a
+                                  href={channel.destination}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn-link-open"
+                                >
+                                  Open
+                                </a>
+                              )}
                               <button
                                 type="button"
                                 className={`toggle${channel.enabled ? ' on' : ''}`}
@@ -496,10 +657,22 @@ export default function SiteDetail({
                       </div>
                     )
                   })}
-                </>
-              )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </>
           )}
+        </div>
+
+        <div className="detail-foot">
+          <div className="detail-foot-status">
+            <span className="foot-dot" />
+            All changes saved
+          </div>
+          <button className="btn-primary" onClick={onClose}>
+            Done
+          </button>
         </div>
       </div>
 

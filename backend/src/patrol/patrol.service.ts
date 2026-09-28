@@ -16,6 +16,7 @@ import { ReportTemplateService } from '../report-template/report-template.servic
 import type { ReportTemplateField } from '../report-template/report-fields'
 import { SummaryReportTemplateService } from '../report-template/summary-report-template.service'
 import type { SummaryReportTemplateField } from '../report-template/summary-report-fields'
+import { NotificationsService } from '../notifications/notifications.service'
 
 @Injectable()
 export class PatrolService {
@@ -23,6 +24,7 @@ export class PatrolService {
     private prisma: PrismaService,
     private reportTemplateService: ReportTemplateService,
     private summaryReportTemplateService: SummaryReportTemplateService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async mySites(operatorId: string) {
@@ -102,6 +104,15 @@ export class PatrolService {
           isolationLevel: 'Serializable',
         },
       )
+
+      // Best-effort: let the site's configured channels know a patrol has begun.
+      this.notify(route.siteId, {
+        eventType: 'PATROL_STARTED',
+        siteId: route.siteId,
+        title: `Patrol started — ${route.name}`,
+        message: `A patrol has started on route "${route.name}" at ${route.site.name}.`,
+        metadata: { jobId: job.id },
+      })
 
       return { job, route }
     } catch (error) {
@@ -204,6 +215,10 @@ export class PatrolService {
         id: data.checkpointId,
         routeId: job.routeId,
       },
+      include: {
+        camera: true,
+        route: { include: { site: true } },
+      },
     })
 
     if (!checkpoint) {
@@ -266,6 +281,20 @@ export class PatrolService {
       })
 
       return result
+    }).then((result) => {
+      // Real-time alert the moment an issue is flagged — don't wait for
+      // the patrol to finish. Re-flagging the same checkpoint re-alerts too,
+      // since the situation may have changed (new comment/screenshot).
+      if (!data.allClear) {
+        this.notify(checkpoint.route.siteId, {
+          eventType: 'PATROL_ISSUES_FLAGGED',
+          siteId: checkpoint.route.siteId,
+          title: `Issue flagged — ${checkpoint.camera.name}`,
+          message: `${checkpoint.camera.name} (${checkpoint.route.name}, ${checkpoint.route.site.name})\n${data.comment?.trim()}`,
+          metadata: { jobId, checkpointId: data.checkpointId },
+        })
+      }
+      return result
     })
   }
 
@@ -307,7 +336,7 @@ export class PatrolService {
     const job = await this.prisma.patrolJob.findUnique({
       where: { id: jobId },
       include: {
-        route: { include: { checkpoints: true } },
+        route: { include: { site: true, checkpoints: { include: { camera: true } } } },
         results: true,
       },
     })
@@ -330,8 +359,8 @@ export class PatrolService {
       )
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const completedJob = await tx.patrolJob.update({
+    const completedJob = await this.prisma.$transaction(async (tx) => {
+      const updatedJob = await tx.patrolJob.update({
         where: { id: jobId },
         data: {
           status: 'COMPLETED',
@@ -344,7 +373,75 @@ export class PatrolService {
         where: { jobId },
       })
 
-      return completedJob
+      return updatedJob
+    })
+
+    // Let the site's configured channels know the patrol has finished,
+    // with a recap of anything flagged. A failure here must never fail
+    // the completion itself.
+    this.notifyPatrolCompleted(job)
+
+    return completedJob
+  }
+
+  private notifyPatrolCompleted(job: {
+    id: string
+    route: {
+      name: string
+      siteId: string
+      site: { name: string }
+      checkpoints: { id: string; camera: { name: string } }[]
+    }
+    results: { checkpointId: string; allClear: boolean; comment: string | null }[]
+  }) {
+    const checkpointById = new Map(job.route.checkpoints.map((cp) => [cp.id, cp]))
+    const flagged = job.results.filter((r) => !r.allClear)
+
+    const title =
+      flagged.length === 0
+        ? `Patrol completed — ${job.route.name}`
+        : `Patrol completed — ${flagged.length} issue${flagged.length === 1 ? '' : 's'} flagged — ${job.route.name}`
+
+    const message =
+      flagged.length === 0
+        ? `Patrol on route "${job.route.name}" at ${job.route.site.name} is complete. No issues flagged.`
+        : flagged
+            .map((r, i) => {
+              const checkpointName = checkpointById.get(r.checkpointId)?.camera.name ?? 'Unknown checkpoint'
+              const comment = r.comment?.trim() ? ` — ${r.comment.trim()}` : ''
+              return `${i + 1}. ${checkpointName}${comment}`
+            })
+            .join('\n')
+
+    this.notify(job.route.siteId, {
+      eventType: 'PATROL_COMPLETED',
+      siteId: job.route.siteId,
+      title,
+      message,
+      metadata: { jobId: job.id, issueCount: flagged.length },
+    })
+  }
+
+  // Fire-and-forget dispatch to a site's configured WhatsApp/Telegram/Email
+  // channels. Never throws — a notification failure must never break the
+  // patrol action (start/flag/complete) that triggered it.
+  private notify(
+    siteId: string,
+    event: {
+      eventType:
+        | 'PATROL_STARTED'
+        | 'PATROL_ISSUES_FLAGGED'
+        | 'PATROL_COMPLETED'
+        | 'PATROL_CANCELLED'
+      siteId: string
+      title: string
+      message: string
+      metadata?: Record<string, unknown>
+    },
+  ) {
+    this.notificationsService.sendToSite(siteId, event).catch(() => {
+      // Already logged inside NotificationsService per-channel; swallow here
+      // so a notification outage never surfaces as a patrol-action failure.
     })
   }
 

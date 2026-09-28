@@ -5,6 +5,7 @@ import { WhatsAppProvider } from './providers/whatsapp.provider';
 import { TelegramProvider } from './providers/telegram.provider';
 import { EmailProvider } from './providers/email.provider';
 import {
+  AggregateSendStatus,
   DeliverySummary,
   NotificationEvent,
   NotificationProvider,
@@ -88,6 +89,47 @@ export class NotificationsService {
     channelType: CommunicationChannelType,
     destination: string,
     message: string,
+  ): Promise<{ status: AggregateSendStatus }> {
+    const provider = this.providers[channelType];
+
+    // A destination can hold several comma-separated recipients (e.g. every
+    // phone number on a site's team for WhatsApp, since WhatsApp Groups
+    // aren't reachable through the official Business API). Each recipient
+    // gets its own log row and its own send attempt; one failing never
+    // blocks the others.
+    const recipients = destination
+      .split(',')
+      .map((d) => d.trim())
+      .filter(Boolean)
+
+    if (recipients.length <= 1) {
+      return this.dispatchOne(siteId, eventType, channelType, destination, message, provider)
+    }
+
+    const results = await Promise.all(
+      recipients.map((r) =>
+        this.dispatchOne(siteId, eventType, channelType, r, message, provider),
+      ),
+    )
+
+    const statuses = new Set(results.map((r) => r.status))
+    const aggregateStatus =
+      statuses.size === 1
+        ? results[0].status
+        : statuses.has('SENT')
+          ? 'PARTIAL'
+          : 'FAILED'
+
+    return { status: aggregateStatus } as { status: AggregateSendStatus }
+  }
+
+  private async dispatchOne(
+    siteId: string,
+    eventType: string,
+    channelType: CommunicationChannelType,
+    destination: string,
+    message: string,
+    provider: NotificationProvider,
   ) {
     const log = await this.prisma.notificationLog.create({
       data: {
@@ -100,7 +142,6 @@ export class NotificationsService {
       },
     });
 
-    const provider = this.providers[channelType];
     const result = await provider.send(destination, message);
 
     await this.prisma.notificationLog.update({
