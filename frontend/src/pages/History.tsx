@@ -293,7 +293,7 @@ export default function History() {
                       </label>
                       <DatePicker
                         selected={toDate}
-                        onChange={(d) => setToDate(d)}
+                        onChange={(d: Date | null) => setToDate(d)}
                         selectsEnd
                         startDate={fromDate}
                         endDate={toDate}

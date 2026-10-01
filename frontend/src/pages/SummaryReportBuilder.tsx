@@ -109,7 +109,6 @@ export default function SummaryReportBuilder({
       .finally(() => setLoading(false))
   }, [templateId])
 
-  const flatCanvas = rows.flat()
   const flatCanvasWithRow = rows.flatMap((r, ri) =>
     r.map((f) => ({ ...f, row: ri })),
   )

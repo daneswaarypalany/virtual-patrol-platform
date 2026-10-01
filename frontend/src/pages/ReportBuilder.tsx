@@ -96,7 +96,6 @@ export default function ReportBuilder({
       .finally(() => setLoading(false))
   }, [editTemplateId])
 
-  const flatCanvas = rows.flat()
   // row-tagged copy used for saving/comparison, so position moves count
   // as a change and get persisted
   const flatCanvasWithRow = rows.flatMap((r, ri) =>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   Camera,
-  MapPin,
   MonitorDot,
   FileText,
   AlertTriangle,

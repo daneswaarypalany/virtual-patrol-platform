@@ -257,12 +257,13 @@ function PatrolViewer({
   const [screenshotUrl, setScreenshotUrl] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [completing, setCompleting] = useState(false)
+
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [streamError, setStreamError] = useState('')
   const [connecting, setConnecting] = useState(false)
+  const [, setCompleting] = useState(false)
 
   useEffect(() => {
     setIssues(current.checklistTemplate.items.map(() => false))

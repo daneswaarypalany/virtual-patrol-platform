@@ -81,7 +81,7 @@ export default function ReportsFilterBar({
                       </label>
                       <DatePicker
                         selected={f.toDate}
-                        onChange={(d) => f.setToDate(d)}
+                        onChange={(d: Date | null) => f.setToDate(d)}
                         selectsEnd
                         startDate={f.fromDate}
                         endDate={f.toDate}

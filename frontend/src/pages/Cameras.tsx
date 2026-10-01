@@ -325,8 +325,8 @@ function CameraForm({
           Paste the camera's RTSP link straight from its manual/app — no need
           to set up your own streaming server first.
         </span>
-
-        {camera && form.streamUrl.trim() ? (
+        
+        {camera && (form.streamUrl ?? '').trim() ? (
           <button
             type="button"
             className="btn-secondary cam-view-live-btn"
@@ -334,7 +334,7 @@ function CameraForm({
           >
             <Video size={15} /> View Live
           </button>
-        ) : form.streamUrl.trim() ? (
+          ) : (form.streamUrl ?? '').trim() ? (
           <span className="field-hint">
             Save the camera first to preview its live feed.
           </span>
