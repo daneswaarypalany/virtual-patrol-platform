@@ -41,6 +41,7 @@ export class ReportTemplateService {
         enabled: f.enabled,
         height: (f as any).height,
         width: (f as any).width,
+        row: (f as any).row,
       }));
   }
 
@@ -159,6 +160,7 @@ export class ReportTemplateService {
       enabled: f.enabled,
       ...(f.height !== undefined ? { height: f.height } : {}),
       ...(f.width !== undefined ? { width: f.width } : {}),
+      ...(f.row !== undefined ? { row: f.row } : {}),
     }));
     const jsonFields = fields as unknown as Prisma.InputJsonValue;
 

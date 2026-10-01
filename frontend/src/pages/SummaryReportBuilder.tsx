@@ -46,14 +46,38 @@ export default function SummaryReportBuilder({
   const [hover, setHover] = useState<HoverTarget>(null)
   const [newName, setNewName] = useState('')
   const [showNameInput, setShowNameInput] = useState(false)
+  const [resizing, setResizing] = useState<{ row: number; col: number } | null>(
+    null,
+  )
   const isEdit = !!templateId
+
+  // Saved fields come back as a flat, row-major list (row index attached
+  // to each field by saveEdit/saveAsNew). Group consecutive same-row
+  // fields back into the rows[][] shape the canvas uses. A field saved
+  // before `row` existed has row === undefined, so it falls back to its
+  // own row — matching the old one-field-per-row behavior.
+  const groupIntoRows = (
+    fields: SummaryReportField[],
+  ): SummaryReportField[][] => {
+    const grouped: SummaryReportField[][] = []
+    let lastRow: number | undefined
+    for (const f of fields) {
+      if (f.row !== undefined && f.row === lastRow && grouped.length) {
+        grouped[grouped.length - 1].push(f)
+      } else {
+        grouped.push([f])
+      }
+      lastRow = f.row
+    }
+    return grouped
+  }
 
   useEffect(() => {
     setLoading(true)
     summaryReportTemplateApi
       .get(templateId)
       .then((t) => {
-        setRows(t.fields.filter((f) => f.enabled).map((f) => [f]))
+        setRows(groupIntoRows(t.fields.filter((f) => f.enabled)))
         setPalette(t.fields.filter((f) => !f.enabled))
         setSavedSnapshot(t.fields)
         setTemplateName(t.name)
@@ -63,8 +87,11 @@ export default function SummaryReportBuilder({
   }, [templateId])
 
   const flatCanvas = rows.flat()
+  const flatCanvasWithRow = rows.flatMap((r, ri) =>
+    r.map((f) => ({ ...f, row: ri })),
+  )
   const currentCombined = [
-    ...flatCanvas.map((f) => ({ ...f, enabled: true })),
+    ...flatCanvasWithRow.map((f) => ({ ...f, enabled: true })),
     ...palette.map((f) => ({ ...f, enabled: false })),
   ]
   const dirty = JSON.stringify(currentCombined) !== JSON.stringify(savedSnapshot)
@@ -207,8 +234,56 @@ export default function SummaryReportBuilder({
     setPalette((arr) => [...arr, item])
   }
 
+  // Resize a block's width (% of its row) and/or height (px). `mode`
+  // decides which axis the drag controls. Width is stored as a share of
+  // the row so other blocks in the row keep filling the remaining space.
+  const startResize =
+    (row: number, col: number, mode: 'e' | 's' | 'se') =>
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      const blockEl = (e.currentTarget as HTMLElement).closest(
+        '.rb-block',
+      ) as HTMLElement | null
+      const rowEl = blockEl?.closest('.rb-row-wrap') as HTMLElement | null
+      if (!blockEl || !rowEl) return
+      const startX = e.clientX
+      const startY = e.clientY
+      const startWidthPx = blockEl.getBoundingClientRect().width
+      const startHeightPx = blockEl.getBoundingClientRect().height
+      const rowWidthPx = rowEl.getBoundingClientRect().width
+      setResizing({ row, col })
+
+      const onMove = (ev: MouseEvent) => {
+        setRows((prev) => {
+          const field = prev[row]?.[col]
+          if (!field) return prev
+          const next = { ...field }
+          if (mode === 'e' || mode === 'se') {
+            const widthPx = startWidthPx + (ev.clientX - startX)
+            const pct = Math.round((widthPx / rowWidthPx) * 100)
+            next.width = Math.min(100, Math.max(10, pct))
+          }
+          if (mode === 's' || mode === 'se') {
+            const heightPx = startHeightPx + (ev.clientY - startY)
+            next.height = Math.min(1000, Math.max(20, Math.round(heightPx)))
+          }
+          return prev.map((r, ri) =>
+            ri === row ? r.map((f, ci) => (ci === col ? next : f)) : r,
+          )
+        })
+      }
+      const onUp = () => {
+        setResizing(null)
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    }
+
   const revert = () => {
-    setRows(savedSnapshot.filter((f) => f.enabled).map((f) => [f]))
+    setRows(groupIntoRows(savedSnapshot.filter((f) => f.enabled)))
     setPalette(savedSnapshot.filter((f) => !f.enabled))
   }
 
@@ -218,11 +293,17 @@ export default function SummaryReportBuilder({
     setError('')
     try {
       const fields = [
-        ...flatCanvas.map((f) => ({ key: f.key, enabled: true })),
+        ...flatCanvasWithRow.map((f) => ({
+          key: f.key,
+          enabled: true,
+          height: f.height,
+          width: f.width,
+          row: f.row,
+        })),
         ...palette.map((f) => ({ key: f.key, enabled: false })),
       ]
       const result = await summaryReportTemplateApi.updateById(templateId!, fields)
-      setRows(result.fields.filter((f) => f.enabled).map((f) => [f]))
+      setRows(groupIntoRows(result.fields.filter((f) => f.enabled)))
       setPalette(result.fields.filter((f) => !f.enabled))
       setSavedSnapshot(result.fields)
       setTemplateName(result.name)
@@ -243,7 +324,13 @@ export default function SummaryReportBuilder({
     setError('')
     try {
       const fields = [
-        ...flatCanvas.map((f) => ({ key: f.key, enabled: true })),
+        ...flatCanvasWithRow.map((f) => ({
+          key: f.key,
+          enabled: true,
+          height: f.height,
+          width: f.width,
+          row: f.row,
+        })),
         ...palette.map((f) => ({ key: f.key, enabled: false })),
       ]
       const created = await summaryReportTemplateApi.create(newName.trim())
@@ -367,7 +454,15 @@ export default function SummaryReportBuilder({
                           hover.col === colIndex
                             ? ` hover-${hover.side}`
                             : ''
+                        }${
+                          resizing?.row === rowIndex && resizing.col === colIndex
+                            ? ' resizing'
+                            : ''
                         }`}
+                        style={{
+                          flex: f.width ? `0 0 ${f.width}%` : undefined,
+                          height: f.height ? `${f.height}px` : undefined,
+                        }}
                         draggable
                         onDragStart={handleDragStart({
                           from: 'canvas',
@@ -395,6 +490,24 @@ export default function SummaryReportBuilder({
                         >
                           <X size={14} />
                         </button>
+                        <div
+                          className="rb-resize-e"
+                          draggable={false}
+                          onMouseDown={startResize(rowIndex, colIndex, 'e')}
+                          title="Drag to resize width"
+                        />
+                        <div
+                          className="rb-resize-s"
+                          draggable={false}
+                          onMouseDown={startResize(rowIndex, colIndex, 's')}
+                          title="Drag to resize height"
+                        />
+                        <div
+                          className="rb-resize-corner"
+                          draggable={false}
+                          onMouseDown={startResize(rowIndex, colIndex, 'se')}
+                          title="Drag to resize"
+                        />
                       </div>
                     ))}
                   </div>

@@ -41,7 +41,16 @@ export class SummaryTemplateController {
   @Put(':id')
   updateById(
     @Param('id') id: string,
-    @Body() body: { fields: { key: string; enabled: boolean }[] },
+    @Body()
+    body: {
+      fields: {
+        key: string
+        enabled: boolean
+        height?: number
+        width?: number
+        row?: number
+      }[]
+    },
   ) { return this.svc.updateTemplateById(id, body.fields) }
 
   @Delete(':id')

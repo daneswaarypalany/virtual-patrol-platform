@@ -37,7 +37,34 @@ export class SummaryTemplateService {
     const byKey = new Map(SUMMARY_REPORT_FIELD_DEFS.map((f) => [f.key, f]))
     return saved
       .filter((f) => byKey.has(f.key))
-      .map((f) => ({ ...byKey.get(f.key)!, enabled: f.enabled }))
+      .map((f) => ({
+        ...byKey.get(f.key)!,
+        enabled: f.enabled,
+        height: f.height,
+        width: f.width,
+        row: f.row,
+      }))
+  }
+
+  // Same 20–1000px / 10–100% bounds used by the single-patrol report
+  // template, kept here since this controller doesn't run its fields
+  // through a class-validator DTO.
+  private clampSize(f: SummaryReportTemplateField): SummaryReportTemplateField {
+    const clamp = (v: number, min: number, max: number) =>
+      Math.min(max, Math.max(min, Math.round(v)))
+    return {
+      key: f.key,
+      enabled: f.enabled,
+      ...(typeof f.height === 'number'
+        ? { height: clamp(f.height, 20, 1000) }
+        : {}),
+      ...(typeof f.width === 'number'
+        ? { width: clamp(f.width, 10, 100) }
+        : {}),
+      ...(typeof f.row === 'number'
+        ? { row: Math.max(0, Math.round(f.row)) }
+        : {}),
+    }
   }
 
   async listTemplates() {
@@ -113,7 +140,8 @@ export class SummaryTemplateService {
         `Missing required fields: ${missing.join(', ')}`,
       )
     }
-    const jsonFields = fields as unknown as Prisma.InputJsonValue
+    const clamped = fields.map((f) => this.clampSize(f))
+    const jsonFields = clamped as unknown as Prisma.InputJsonValue
     await this.prisma.summaryTemplate.update({
       where: { id },
       data: { fields: jsonFields },

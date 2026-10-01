@@ -31,6 +31,11 @@ class ReportTemplateFieldDto {
   @Min(10)
   @Max(100)
   width?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  row?: number;
 }
 
 export class UpdateReportTemplateDto {

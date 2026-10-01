@@ -36,6 +36,9 @@ export const REPORT_FIELD_KEYS = REPORT_FIELD_DEFS.map((f) => f.key) as [
 export interface ReportTemplateField {
   key: string;
   enabled: boolean;
+  height?: number;
+  width?: number;
+  row?: number;
 }
 
 export const DEFAULT_REPORT_FIELDS: ReportTemplateField[] = REPORT_FIELD_DEFS.map(

@@ -33,6 +33,9 @@ export const SUMMARY_REPORT_FIELD_KEYS = SUMMARY_REPORT_FIELD_DEFS.map(
 export interface SummaryReportTemplateField {
   key: string;
   enabled: boolean;
+  height?: number;
+  width?: number;
+  row?: number;
 }
 
 export const DEFAULT_SUMMARY_REPORT_FIELDS: SummaryReportTemplateField[] =

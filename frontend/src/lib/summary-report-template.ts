@@ -6,6 +6,9 @@ export interface SummaryReportField {
   description: string
   group: 'overview' | 'chart' | 'table'
   enabled: boolean
+  height?: number
+  width?: number
+  row?: number
 }
 
 export interface SummaryReportTemplateSummary {
@@ -43,7 +46,16 @@ export const summaryReportTemplateApi = {
   rename: (id: string, name: string) =>
     api.patch<SummaryReportTemplate>(`/summary-template/${id}/name`, { name }).then((r) => r.data),
 
-  updateById: (id: string, fields: { key: string; enabled: boolean }[]) =>
+  updateById: (
+    id: string,
+    fields: {
+      key: string
+      enabled: boolean
+      height?: number
+      width?: number
+      row?: number
+    }[],
+  ) =>
     api.put<SummaryReportTemplate>(`/summary-template/${id}`, { fields }).then((r) => r.data),
 
   remove: (id: string) =>

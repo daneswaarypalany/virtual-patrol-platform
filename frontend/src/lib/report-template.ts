@@ -8,6 +8,7 @@ export interface ReportField {
   enabled: boolean
   height?: number
   width?: number
+  row?: number
 }
 
 export interface ReportTemplateSummary {
@@ -32,6 +33,7 @@ type SaveField = {
   enabled: boolean
   height?: number
   width?: number
+  row?: number
 }
 
 export const reportTemplateApi = {
