@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { ReportField } from '../lib/report-template'
 import { reportTemplateApi } from '../lib/report-template'
+import BuilderResizeFrame from '../components/BuilderResizeFrame'
 import './ReportBuilder.css'
 
 type Drag =
@@ -380,7 +381,7 @@ export default function ReportBuilder({
   if (loading) return <p className="rb-loading">Loading…</p>
 
   return (
-    <div className="report-builder">
+    <BuilderResizeFrame>
       <div className="rb-intro">
         <FileCog size={18} />
         <div>
@@ -613,6 +614,6 @@ export default function ReportBuilder({
           </span>
         )}
       </div>
-    </div>
+    </BuilderResizeFrame>
   )
 }

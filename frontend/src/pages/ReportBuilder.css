@@ -205,7 +205,14 @@
   background: var(--bg);
   cursor: grab;
   overflow: auto;
+  /* keep scrolling, but never show scrollbars inside the builder */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   transition: opacity 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rb-block::-webkit-scrollbar {
+  display: none;
 }
 
 .rb-block:hover {

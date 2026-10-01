@@ -1,0 +1,116 @@
+/* =========================================================================
+   BuilderResizeFrame — shared by ReportBuilder and SummaryReportBuilder.
+   Builds on the existing `.report-builder` look (see ReportBuilder.css).
+   ========================================================================= */
+
+/* The frame owns the border/background/size; padding moves to the inner
+   wrapper so content scrolls inside the border. */
+.report-builder.rb-frame {
+  position: relative;
+  padding: 0;
+}
+
+.rb-frame-scroll {
+  padding: 22px 24px;
+  border-radius: inherit;
+}
+
+/* Only once the user has resized: fill the frame and scroll the content with
+   NO visible scrollbars (wheel / touch / keyboard scrolling still works). */
+.rb-frame-scroll.is-sized {
+  height: 100%;
+  overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.rb-frame-scroll.is-sized::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---- resize pill ---- */
+
+.rb-resize-pill {
+  --pill-scale: 1;
+  --pill-opacity: 0.5;
+  --pill-shadow: 0 0 0 rgba(1, 31, 75, 0);
+
+  position: absolute;
+  /* sits entirely inside the frame's existing padding (24px right / 22px
+     bottom), nestled in the rounded corner, so it never covers content */
+  right: 1px;
+  bottom: 1px;
+  z-index: 5;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+}
+
+.rb-resize-pill::before {
+  content: '';
+  display: block;
+  width: 18px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--slate-blue);
+  opacity: var(--pill-opacity);
+  box-shadow: var(--pill-shadow);
+  transform: rotate(-45deg) scale(var(--pill-scale));
+  /* gentle spring: slight overshoot, quick settle */
+  transition:
+    transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1),
+    opacity 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+  will-change: transform;
+}
+
+.rb-resize-pill:hover {
+  --pill-scale: 1.08;
+  --pill-opacity: 0.9;
+  --pill-shadow: 0 2px 8px rgba(1, 31, 75, 0.22);
+}
+
+.rb-resize-pill:focus-visible::before {
+  background: var(--blue);
+  --pill-opacity: 0.9;
+  box-shadow: 0 0 0 3px rgba(0, 91, 150, 0.25);
+}
+
+/* dragging: spring-scale up a touch and go slightly more transparent */
+.rb-resize-pill.is-dragging {
+  --pill-scale: 1.12;
+  --pill-opacity: 0.7;
+  --pill-shadow: 0 3px 12px rgba(1, 31, 75, 0.28);
+  cursor: grabbing;
+}
+
+.rb-resize-pill.is-dragging::before {
+  background: var(--blue);
+}
+
+[data-theme='dark'] .rb-resize-pill {
+  --pill-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+[data-theme='dark'] .rb-resize-pill:hover {
+  --pill-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme='dark'] .rb-resize-pill.is-dragging {
+  --pill-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-resize-pill::before {
+    transition:
+      opacity 0.15s linear,
+      box-shadow 0.15s linear;
+  }
+}
