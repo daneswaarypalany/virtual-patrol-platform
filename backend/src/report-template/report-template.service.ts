@@ -7,6 +7,7 @@ import {
   REPORT_FIELD_DEFS,
   REPORT_FIELD_KEYS,
   ReportTemplateField,
+  normalizeSavedFields,
 } from './report-fields';
 
 const DEFAULT_KEY = 'default';
@@ -31,18 +32,23 @@ export class ReportTemplateService {
     }
   }
 
-  // merge saved field state with the defs (labels/descriptions/groups)
+  // merge saved field state with the defs (labels/descriptions/groups).
+  // Components a saved template doesn't know about yet (or legacy keys that
+  // were folded into a new component) show up disabled in the palette.
   private mergeFields(saved: ReportTemplateField[]) {
     const byKey = new Map(REPORT_FIELD_DEFS.map((f) => [f.key, f]));
-    return saved
-      .filter((f) => byKey.has(f.key))
-      .map((f) => ({
-        ...byKey.get(f.key)!,
-        enabled: f.enabled,
-        height: (f as any).height,
-        width: (f as any).width,
-        row: (f as any).row,
-      }));
+    const normalized = normalizeSavedFields(saved);
+    const known = new Set(normalized.map((f) => f.key));
+    const missing = REPORT_FIELD_DEFS.filter((f) => !known.has(f.key)).map(
+      (f) => ({ key: f.key, enabled: false }) as ReportTemplateField,
+    );
+    return [...normalized, ...missing].map((f) => ({
+      ...byKey.get(f.key)!,
+      enabled: f.enabled,
+      height: f.height,
+      width: f.width,
+      row: f.row,
+    }));
   }
 
   // ---- List all templates (for the library page + pickers) ----
@@ -102,14 +108,12 @@ export class ReportTemplateService {
     const saved = row?.fields as unknown as ReportTemplateField[] | undefined;
     if (!saved) return DEFAULT_REPORT_FIELDS;
 
-    const knownKeys = new Set(saved.map((f) => f.key));
+    const normalized = normalizeSavedFields(saved);
+    const knownKeys = new Set(normalized.map((f) => f.key));
     const missing = REPORT_FIELD_DEFS.filter((f) => !knownKeys.has(f.key)).map(
       (f) => ({ key: f.key, enabled: true }),
     );
-    return [
-      ...saved.filter((f) => REPORT_FIELD_KEYS.includes(f.key)),
-      ...missing,
-    ];
+    return [...normalized, ...missing];
   }
 
   // ---- Create a new named template (starts from defaults) ----

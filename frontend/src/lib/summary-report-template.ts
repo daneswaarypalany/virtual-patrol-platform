@@ -9,6 +9,9 @@ export interface SummaryReportField {
   height?: number
   width?: number
   row?: number
+  // Text / Divider / Spacer copies only
+  variant?: 'text' | 'divider' | 'spacer'
+  text?: string
 }
 
 export interface SummaryReportTemplateSummary {
@@ -54,6 +57,8 @@ export const summaryReportTemplateApi = {
       height?: number
       width?: number
       row?: number
+      variant?: 'text' | 'divider' | 'spacer'
+      text?: string
     }[],
   ) =>
     api.put<SummaryReportTemplate>(`/summary-template/${id}`, { fields }).then((r) => r.data),

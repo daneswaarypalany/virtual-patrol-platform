@@ -491,3 +491,46 @@
 .rb-name-input::placeholder {
   color: var(--text-muted);
 }
+
+/* ---- Text / Divider / Spacer block editor (summary builder) ---- */
+
+.rb-block-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rb-block-editor select,
+.rb-block-editor textarea {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 7px;
+}
+
+.rb-block-editor select {
+  align-self: flex-start;
+}
+
+.rb-block-editor textarea {
+  width: 100%;
+  resize: vertical;
+  cursor: text;
+}
+
+.rb-block-divider {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 4px 0;
+}
+
+.rb-block-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}

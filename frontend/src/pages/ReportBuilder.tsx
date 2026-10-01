@@ -23,9 +23,13 @@ type HoverTarget =
   | null
 
 const GROUP_LABEL: Record<ReportField['group'], string> = {
-  summary: 'Summary',
-  checkpoint: 'Checkpoint',
+  summary: 'Report',
+  checkpoint: 'Per checkpoint',
 }
+
+// Checkpoint-scoped components repeat once per real checkpoint in the
+// generated report, so they only share a row with each other.
+const scopeOf = (f: ReportField) => f.group
 
 export default function ReportBuilder({
   editTemplateId,
@@ -149,6 +153,20 @@ export default function ReportBuilder({
     targetCol: number,
     side: 'left' | 'right',
   ) => {
+    // a per-checkpoint component can't share a row with a once-per-report
+    // one (the report repeats the former per checkpoint) -- drop it below
+    // the target row instead
+    const dragged =
+      drag?.from === 'palette'
+        ? palette[drag.index]
+        : drag?.from === 'canvas'
+          ? rows[drag.row]?.[drag.col]
+          : undefined
+    const target = rows[targetRow]?.[targetCol]
+    if (dragged && target && scopeOf(dragged) !== scopeOf(target)) {
+      dropInGap(targetRow + 1)
+      return
+    }
     const extracted = extractDragged()
     if (!extracted) return
     let { rows: workingRows, palette: workingPalette, removedRowIndex } =
@@ -393,7 +411,8 @@ export default function ReportBuilder({
           <p>
             {isEdit
               ? 'Edit this template. Changes are saved back to this template only — the default is never touched.'
-              : 'Drag components onto the report page, then save as a new named template. The default template is never changed.'}
+              : 'Drag components onto the report page, then save as a new named template. The default template is never changed.'}{' '}
+            Components marked ↻ repeat for every checkpoint on the patrol.
           </p>
         </div>
       </div>
@@ -511,7 +530,15 @@ export default function ReportBuilder({
                           <strong>{f.label}</strong>
                           <span>{f.description}</span>
                         </div>
-                        <span className={`rb-group rb-group-${f.group}`}>
+                        <span
+                          className={`rb-group rb-group-${f.group}`}
+                          title={
+                            f.group === 'checkpoint'
+                              ? 'Repeats once for every checkpoint on the patrol'
+                              : undefined
+                          }
+                        >
+                          {f.group === 'checkpoint' ? '↻ ' : ''}
                           {GROUP_LABEL[f.group]}
                         </span>
                         <button

@@ -15,12 +15,33 @@ import './ReportBuilder.css'
 
 type Drag =
   | { from: 'palette'; index: number }
+  | { from: 'newBlock' }
   | { from: 'canvas'; row: number; col: number }
 
 type HoverTarget =
   | { kind: 'block'; row: number; col: number; side: 'left' | 'right' }
   | { kind: 'gap'; row: number }
   | null
+
+const isBlock = (f: SummaryReportField) => f.key.startsWith('block-')
+
+// Text / Divider / Spacer can be added any number of times, so it is a
+// permanent palette entry that creates a new copy (own key) on every drop.
+const newBlock = (): SummaryReportField => ({
+  key: `block-${(Math.random().toString(36) + '00000000').slice(2, 10)}`,
+  label: 'Text / Divider / Spacer',
+  description: 'Free text, a divider line or blank space',
+  group: 'overview',
+  enabled: true,
+  variant: 'text',
+  text: '',
+})
+
+const VARIANT_LABEL = {
+  text: 'Text',
+  divider: 'Divider',
+  spacer: 'Spacer',
+} as const
 
 const GROUP_LABEL: Record<SummaryReportField['group'], string> = {
   overview: 'Overview',
@@ -44,6 +65,7 @@ export default function SummaryReportBuilder({
   const [saving, setSaving] = useState(false)
   const [savedFlash, setSavedFlash] = useState(false)
   const [drag, setDrag] = useState<Drag | null>(null)
+  const [editingBlock, setEditingBlock] = useState<string | null>(null)
   const [hover, setHover] = useState<HoverTarget>(null)
   const [newName, setNewName] = useState('')
   const [showNameInput, setShowNameInput] = useState(false)
@@ -114,6 +136,9 @@ export default function SummaryReportBuilder({
     removedRowIndex: number
   } | null => {
     if (!drag) return null
+    if (drag.from === 'newBlock') {
+      return { item: newBlock(), rows, palette, removedRowIndex: -1 }
+    }
     if (drag.from === 'palette') {
       const item = palette[drag.index]
       if (!item) return null
@@ -191,7 +216,11 @@ export default function SummaryReportBuilder({
     const extracted = extractDragged()
     if (!extracted) return
     setRows(extracted.rows)
-    setPalette([...extracted.palette, extracted.item])
+    setPalette(
+      isBlock(extracted.item)
+        ? extracted.palette
+        : [...extracted.palette, extracted.item],
+    )
     setDrag(null)
     setHover(null)
   }
@@ -232,8 +261,22 @@ export default function SummaryReportBuilder({
       .map((r, i) => (i === row ? nextRow : r))
       .filter((r) => r.length > 0)
     setRows(nextRows)
-    setPalette((arr) => [...arr, item])
+    if (!isBlock(item)) setPalette((arr) => [...arr, item])
   }
+
+  // edit a Text / Divider / Spacer copy in place
+  const updateBlock = (
+    row: number,
+    col: number,
+    patch: Partial<SummaryReportField>,
+  ) =>
+    setRows((prev) =>
+      prev.map((r, ri) =>
+        ri === row
+          ? r.map((f, ci) => (ci === col ? { ...f, ...patch } : f))
+          : r,
+      ),
+    )
 
   // Resize a block's width (% of its row) and/or height (px). `mode`
   // decides which axis the drag controls. Width is stored as a share of
@@ -300,6 +343,8 @@ export default function SummaryReportBuilder({
           height: f.height,
           width: f.width,
           row: f.row,
+          variant: f.variant,
+          text: f.text,
         })),
         ...palette.map((f) => ({ key: f.key, enabled: false })),
       ]
@@ -331,6 +376,8 @@ export default function SummaryReportBuilder({
           height: f.height,
           width: f.width,
           row: f.row,
+          variant: f.variant,
+          text: f.text,
         })),
         ...palette.map((f) => ({ key: f.key, enabled: false })),
       ]
@@ -407,6 +454,19 @@ export default function SummaryReportBuilder({
               </div>
             ))
           )}
+          <div
+            className={`rb-chip${drag?.from === 'newBlock' ? ' dragging' : ''}`}
+            draggable
+            onDragStart={handleDragStart({ from: 'newBlock' })}
+            onDragEnd={handleDragEnd}
+          >
+            <GripVertical size={14} />
+            <div className="rb-chip-text">
+              <strong>Text / Divider / Spacer</strong>
+              <span>Free text, a divider or blank space — add as many as you need</span>
+            </div>
+            <span className="rb-group rb-group-overview">Layout</span>
+          </div>
         </div>
 
         <div className="rb-canvas-wrap">
@@ -464,7 +524,7 @@ export default function SummaryReportBuilder({
                           flex: f.width ? `0 0 ${f.width}%` : undefined,
                           height: f.height ? `${f.height}px` : undefined,
                         }}
-                        draggable
+                        draggable={editingBlock !== f.key}
                         onDragStart={handleDragStart({
                           from: 'canvas',
                           row: rowIndex,
@@ -477,12 +537,68 @@ export default function SummaryReportBuilder({
                         <span className="rb-block-handle">
                           <GripVertical size={15} />
                         </span>
-                        <div className="rb-block-text">
-                          <strong>{f.label}</strong>
-                          <span>{f.description}</span>
-                        </div>
+                        {isBlock(f) ? (
+                          <div
+                            className="rb-block-editor"
+                            // while the user is typing/selecting inside the
+                            // block it must not act as a drag source
+                            onMouseDown={() => setEditingBlock(f.key)}
+                            onBlur={() => setEditingBlock(null)}
+                          >
+                            <select
+                              value={f.variant ?? 'text'}
+                              onChange={(e) => {
+                                const variant = e.target
+                                  .value as keyof typeof VARIANT_LABEL
+                                updateBlock(rowIndex, colIndex, {
+                                  variant,
+                                  height:
+                                    variant === 'spacer'
+                                      ? (f.height ?? 40)
+                                      : f.height,
+                                })
+                              }}
+                            >
+                              {(
+                                Object.keys(VARIANT_LABEL) as Array<
+                                  keyof typeof VARIANT_LABEL
+                                >
+                              ).map((v) => (
+                                <option key={v} value={v}>
+                                  {VARIANT_LABEL[v]}
+                                </option>
+                              ))}
+                            </select>
+                            {(f.variant ?? 'text') === 'text' && (
+                              <textarea
+                                value={f.text ?? ''}
+                                maxLength={2000}
+                                rows={2}
+                                placeholder="Type the text to show in the report…"
+                                onChange={(e) =>
+                                  updateBlock(rowIndex, colIndex, {
+                                    text: e.target.value,
+                                  })
+                                }
+                              />
+                            )}
+                            {f.variant === 'divider' && (
+                              <hr className="rb-block-divider" />
+                            )}
+                            {f.variant === 'spacer' && (
+                              <span className="rb-block-hint">
+                                Blank space — drag the bottom edge to set its height
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="rb-block-text">
+                            <strong>{f.label}</strong>
+                            <span>{f.description}</span>
+                          </div>
+                        )}
                         <span className={`rb-group rb-group-${f.group}`}>
-                          {GROUP_LABEL[f.group]}
+                          {isBlock(f) ? 'Layout' : GROUP_LABEL[f.group]}
                         </span>
                         <button
                           className="rb-block-remove"

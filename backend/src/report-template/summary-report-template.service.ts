@@ -5,6 +5,9 @@ import {
   DEFAULT_SUMMARY_REPORT_FIELDS,
   SUMMARY_REPORT_FIELD_DEFS,
   SUMMARY_REPORT_FIELD_KEYS,
+  BLOCK_DEF,
+  isBlockKey,
+  normalizeSavedFields,
   SummaryReportTemplateField,
 } from './summary-report-fields';
 
@@ -29,11 +32,29 @@ export class SummaryReportTemplateService {
     }
   }
 
+  // merge saved field state with the defs (labels/descriptions/groups).
+  // Fixed components a saved template doesn't know about show up disabled in
+  // the palette; Text / Divider / Spacer copies carry their own variant/text.
   private mergeFields(saved: SummaryReportTemplateField[]) {
     const byKey = new Map(SUMMARY_REPORT_FIELD_DEFS.map((f) => [f.key, f]));
-    return saved
-      .filter((f) => byKey.has(f.key))
-      .map((f) => ({ ...byKey.get(f.key)!, enabled: f.enabled }));
+    const normalized = normalizeSavedFields(saved);
+    const known = new Set(normalized.map((f) => f.key));
+    const missing = SUMMARY_REPORT_FIELD_DEFS.filter(
+      (f) => !known.has(f.key),
+    ).map((f) => ({ key: f.key, enabled: false }) as SummaryReportTemplateField);
+    return [...normalized, ...missing].map((f) => {
+      const def = isBlockKey(f.key) ? { key: f.key, ...BLOCK_DEF } : byKey.get(f.key)!;
+      return {
+        ...def,
+        enabled: f.enabled,
+        height: f.height,
+        width: f.width,
+        row: f.row,
+        ...(isBlockKey(f.key)
+          ? { variant: f.variant ?? 'text', text: f.text ?? '' }
+          : {}),
+      };
+    });
   }
 
   async listTemplates() {
@@ -89,14 +110,12 @@ export class SummaryReportTemplateService {
     const saved = row?.fields as unknown as SummaryReportTemplateField[] | undefined;
     if (!saved) return DEFAULT_SUMMARY_REPORT_FIELDS;
 
-    const knownKeys = new Set(saved.map((f) => f.key));
+    const normalized = normalizeSavedFields(saved);
+    const knownKeys = new Set(normalized.map((f) => f.key));
     const missing = SUMMARY_REPORT_FIELD_DEFS.filter(
       (f) => !knownKeys.has(f.key),
     ).map((f) => ({ key: f.key, enabled: true }));
-    return [
-      ...saved.filter((f) => SUMMARY_REPORT_FIELD_KEYS.includes(f.key)),
-      ...missing,
-    ];
+    return [...normalized, ...missing];
   }
 
   async createTemplate(name: string) {
@@ -132,6 +151,14 @@ export class SummaryReportTemplateService {
     if (uniqueGivenKeys.size !== givenKeys.length) {
       throw new BadRequestException('Duplicate field keys in summary report template');
     }
+    const unknown = givenKeys.filter(
+      (k) => !SUMMARY_REPORT_FIELD_KEYS.includes(k) && !isBlockKey(k),
+    );
+    if (unknown.length > 0) {
+      throw new BadRequestException(
+        `Unknown summary report components: ${unknown.join(', ')}`,
+      );
+    }
     const missing = SUMMARY_REPORT_FIELD_KEYS.filter((k) => !uniqueGivenKeys.has(k));
     if (missing.length > 0) {
       throw new BadRequestException(
@@ -142,6 +169,12 @@ export class SummaryReportTemplateService {
     const jsonFields = fields.map((f) => ({
       key: f.key,
       enabled: f.enabled,
+      ...(f.height !== undefined ? { height: f.height } : {}),
+      ...(f.width !== undefined ? { width: f.width } : {}),
+      ...(f.row !== undefined ? { row: f.row } : {}),
+      ...(isBlockKey(f.key)
+        ? { variant: f.variant ?? 'text', text: f.text ?? '' }
+        : {}),
     })) as unknown as Prisma.InputJsonValue;
 
     await this.prisma.summaryTemplate.update({
