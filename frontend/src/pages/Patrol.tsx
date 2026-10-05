@@ -669,7 +669,7 @@ function PatrolSummary({
               {result?.screenshotPath && (
                 <img
                   className="summary-thumb"
-                  src={`http://localhost:3000/uploads/${result.screenshotPath}`}
+                  src={`https://virtual-patrol-platform-8ib6.vercel.app/uploads/${result.screenshotPath}`}
                   alt="capture"
                 />
               )}

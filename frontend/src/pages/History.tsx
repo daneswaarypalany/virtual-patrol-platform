@@ -495,7 +495,7 @@ export default function History() {
                                       }`}
                                     >
                                       <img
-                                        src={`http://localhost:3000/uploads/${r.screenshotPath}`}
+                                      src={`https://virtual-patrol-platform-8ib6.vercel.app/uploads/${r.screenshotPath}`}
                                         alt={cp?.camera.name || 'capture'}
                                       />
                                       <span>{cp?.camera.name}</span>
