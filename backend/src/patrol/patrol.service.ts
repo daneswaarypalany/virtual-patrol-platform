@@ -1330,7 +1330,12 @@ const browser = await puppeteer.launch({
         case 'evidence': {
           let imgTag = '<div class="noimg">No screenshot</div>'
           if (result?.screenshotPath) {
-            const filePath = join(process.cwd(), 'uploads', result.screenshotPath)
+            
+            const UPLOADS_DIR = process.env.VERCEL
+            ? join("/tmp", "uploads")
+            : join(process.cwd(), "uploads");
+            
+            const filePath = join(UPLOADS_DIR, result.screenshotPath);
             try {
               const b64 = fs.readFileSync(filePath).toString('base64')
               imgTag = `<img src="data:image/png;base64,${b64}" />`

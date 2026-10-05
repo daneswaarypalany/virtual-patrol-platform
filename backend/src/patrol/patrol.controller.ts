@@ -26,7 +26,12 @@ import { SummaryReportDto } from "./dto/summary-report.dto";
 // Resolved relative to process.cwd() -- matches main.ts's static file root
 // and the report generator's file reads (patrol.service.ts), so uploads,
 // serving, and report embedding all agree on the same "uploads" folder.
-const SCREENSHOTS_DIR = join(process.cwd(), "uploads", "screenshots");
+const UPLOADS_DIR = process.env.VERCEL
+  ? join("/tmp", "uploads")
+  : join(process.cwd(), "uploads");
+
+const SCREENSHOTS_DIR = join(UPLOADS_DIR, "screenshots");
+
 mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 
 @Controller("patrol")
