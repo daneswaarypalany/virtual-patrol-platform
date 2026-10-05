@@ -13,7 +13,9 @@ interface RunningStream {
 
 // Where the generated HLS segments/playlists live. Served statically from
 // main.ts under the `/streams` prefix.
-const STREAMS_DIR = join(process.cwd(), 'streams');
+const STREAMS_DIR = process.env.VERCEL
+  ? join('/tmp', 'streams')
+  : join(process.cwd(), 'streams');
 
 // Kill the ffmpeg process for a camera if nobody has requested its playlist
 // for this long. Keeps us from running a transcode per camera forever.
