@@ -14,10 +14,13 @@ async function bootstrap() {
   // runs first -- <img> tags tolerate that, but hls.js's video fetches (used
   // for the live camera feeds) are strict XHR/fetch requests and get
   // silently blocked cross-origin without this being set up first.
-  app.enableCors({
-    origin: 'http://localhost:5173',
-    credentials: true,
-  });
+app.enableCors({
+  origin: [
+    'http://localhost:5173',
+    'https://virtual-patrol-platform-6bfc.vercel.app',
+  ],
+  credentials: true,
+});
 
   // Resolved relative to process.cwd() (the directory you run the backend
   // from, e.g. "backend/") rather than __dirname -- this matches the same
