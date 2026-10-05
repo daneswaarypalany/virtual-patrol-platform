@@ -9,7 +9,7 @@ import { Prisma } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
 import * as fs from 'fs'
 import { join } from 'path'
-import puppeteer, { Browser } from 'puppeteer'
+import type { Browser } from 'puppeteer'
 import { PDFDocument } from 'pdf-lib'
 import { ZipArchive } from 'archiver'
 import { ReportTemplateService } from '../report-template/report-template.service'
@@ -577,7 +577,8 @@ export class PatrolService {
     )
     const html = this.buildReportHtml(job, layout)
 
-    const browser = await puppeteer.launch({
+ const { default: puppeteer } = await import('puppeteer')
+ const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
@@ -600,7 +601,8 @@ export class PatrolService {
     // each patrol is laid out with its own site's report template
     const layoutCache = new Map<string, ReportTemplateField[]>()
 
-    const browser = await puppeteer.launch({
+const { default: puppeteer } = await import('puppeteer')
+const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     })
@@ -697,7 +699,8 @@ export class PatrolService {
 
     const layout = await this.summaryReportTemplateService.getFieldOrder(templateId)
     const html = this.buildSummaryHtml(jobs, layout)
-
+    
+    const { default: puppeteer } = await import('puppeteer')
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
