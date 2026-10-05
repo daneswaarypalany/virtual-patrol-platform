@@ -11,7 +11,6 @@ import * as fs from 'fs'
 import { join } from 'path'
 import type { Browser } from 'puppeteer'
 import { PDFDocument } from 'pdf-lib'
-import { ZipArchive } from 'archiver'
 import { ReportTemplateService } from '../report-template/report-template.service'
 import type { ReportTemplateField } from '../report-template/report-fields'
 import { SummaryReportTemplateService } from '../report-template/summary-report-template.service'
@@ -648,6 +647,7 @@ const browser = await puppeteer.launch({
       }
 
       // zip
+      const { ZipArchive } = await import('archiver')
       const archive = new ZipArchive({ zlib: { level: 9 } })
       const chunks: Buffer[] = []
       const done = new Promise<Buffer>((resolve, reject) => {
