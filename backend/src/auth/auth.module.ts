@@ -21,5 +21,9 @@ import { JwtStrategy } from './jwt.strategy';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
+  // Exported so other modules (e.g. PresenceModule's WebSocket gateway)
+  // can verify the same access_token cookie without re-registering
+  // JwtModule with a duplicate config.
+  exports: [JwtModule],
 })
 export class AuthModule {}

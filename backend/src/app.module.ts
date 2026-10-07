@@ -14,6 +14,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { StreamsModule } from './streams/streams.module';
 import { ReportTemplateModule } from './report-template/report-template.module';
 import { SummaryTemplateModule } from './summary-template/summary-template.module';
+import { LogsModule } from './logs/logs.module';
+import { PresenceModule } from './presence/presence.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { SummaryTemplateModule } from './summary-template/summary-template.modul
     StreamsModule,
     ReportTemplateModule,
     SummaryTemplateModule,
+    LogsModule,
+    PresenceModule,
   ],
   controllers: [AppController],
   providers: [AppService],

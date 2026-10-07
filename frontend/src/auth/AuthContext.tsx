@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../lib/api';
+import { connectSocket, disconnectSocket } from '../lib/socket';
 
 export type Role = 'ADMIN' | 'OPERATOR' | 'VIEWER';
 
@@ -32,6 +33,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
+
+  // Open/close the realtime presence socket as the session comes and
+  // goes -- covers login, logout, and the initial /auth/me check above
+  // restoring an existing session on page load/refresh.
+  useEffect(() => {
+    if (user) {
+      connectSocket();
+    } else {
+      disconnectSocket();
+    }
+  }, [user?.id]);
 
   const login = async (username: string, password: string) => {
     const res = await api.post('/auth/login', { username, password });
