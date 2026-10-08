@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { RefreshCw, Search } from 'lucide-react'
 import type { ActiveUser, ActivityLogEntry } from '../lib/logs'
-import { logsApi } from '../lib/logs'
+import { logsApi, formatAction, formatDetails } from '../lib/logs'
 import { getSocket } from '../lib/socket'
 import { API_BASE_URL } from '../lib/api'
 import './Logs.css'
@@ -42,8 +42,16 @@ function formatTimestamp(iso: string): string {
 
 function actionTone(action: string): 'ok' | 'warn' | 'neutral' {
   const a = action.toUpperCase()
-  if (a.includes('LOGIN') || a.includes('CREATE')) return 'ok'
-  if (a.includes('LOGOUT') || a.includes('DELETE') || a.includes('FAIL')) return 'warn'
+  if (a.includes('LOGIN') || a.includes('CREATE') || a.includes('START') || a.includes('COMPLETE'))
+    return 'ok'
+  if (
+    a.includes('LOGOUT') ||
+    a.includes('DELETE') ||
+    a.includes('DISCARD') ||
+    a.includes('RELEASE') ||
+    a.includes('FAIL')
+  )
+    return 'warn'
   return 'neutral'
 }
 
@@ -214,7 +222,7 @@ export default function Logs() {
             <Search size={14} />
             <input
               type="text"
-              placeholder="Search by user, action, details…"
+              placeholder="Search by user, action, site, camera…"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
             />
@@ -230,7 +238,7 @@ export default function Logs() {
             <option value="">All actions</option>
             {actions.map((a) => (
               <option key={a} value={a}>
-                {a}
+                {formatAction(a)}
               </option>
             ))}
           </select>
@@ -251,7 +259,6 @@ export default function Logs() {
                     <th>Timestamp</th>
                     <th>User</th>
                     <th>Action</th>
-                    <th>Entity</th>
                     <th>Details</th>
                   </tr>
                 </thead>
@@ -273,18 +280,10 @@ export default function Logs() {
                       </td>
                       <td>
                         <span className={`logs-action logs-action-${actionTone(entry.action)}`}>
-                          {entry.action}
+                          {formatAction(entry.action)}
                         </span>
                       </td>
-                      <td>
-                        <span className="logs-entity">
-                          {entry.entity}
-                          {entry.entityId ? (
-                            <span className="logs-entity-id"> #{entry.entityId.slice(0, 8)}</span>
-                          ) : null}
-                        </span>
-                      </td>
-                      <td className="logs-details">{entry.details || '—'}</td>
+                      <td className="logs-details">{formatDetails(entry) || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

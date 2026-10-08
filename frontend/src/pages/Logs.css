@@ -264,10 +264,11 @@
 .logs-details {
   color: var(--text-muted);
   font-size: 12px;
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 260px;
+  max-width: 520px;
+  line-height: 1.45;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ---- pagination ---- */

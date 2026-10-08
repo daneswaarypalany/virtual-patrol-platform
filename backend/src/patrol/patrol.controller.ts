@@ -18,6 +18,7 @@ import { mkdirSync } from "fs";
 import type { Request, Response } from "express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { PatrolService } from "./patrol.service";
+import { AuditService } from "../audit/audit.service";
 import { StartPatrolDto } from "./dto/start-patrol.dto";
 import { SaveCheckpointDto } from "./dto/checkpoint-result.dto";
 import { BulkReportDto } from "./dto/bulk-report.dto";
@@ -37,7 +38,10 @@ mkdirSync(SCREENSHOTS_DIR, { recursive: true });
 @Controller("patrol")
 @UseGuards(JwtAuthGuard)
 export class PatrolController {
-  constructor(private patrolService: PatrolService) {}
+  constructor(
+    private patrolService: PatrolService,
+    private audit: AuditService,
+  ) {}
 
   // ---- Static routes FIRST (before any :jobId route) ----
 
@@ -62,13 +66,19 @@ export class PatrolController {
   }
 
   @Post("start")
-  start(@Req() req: Request, @Body() dto: StartPatrolDto) {
-    return this.patrolService.start((req.user as any).id, dto.routeId);
+  async start(@Req() req: Request, @Body() dto: StartPatrolDto) {
+    const userId = (req.user as any).id;
+    const result = await this.patrolService.start(userId, dto.routeId);
+    await this.audit.patrolStarted(userId, dto.routeId, (result as any)?.id);
+    return result;
   }
 
   @Post("discard")
-  discard(@Req() req: Request, @Body() body: { siteId: string }) {
-    return this.patrolService.discardMyPatrol((req.user as any).id, body.siteId);
+  async discard(@Req() req: Request, @Body() body: { siteId: string }) {
+    const userId = (req.user as any).id;
+    const result = await this.patrolService.discardMyPatrol(userId, body.siteId);
+    if (result.discarded) await this.audit.patrolDiscarded(userId, body.siteId);
+    return result;
   }
 
   // ---- :jobId routes (specific paths before the bare catch-all) ----
@@ -92,6 +102,11 @@ export class PatrolController {
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="patrol-reports-${Date.now()}.${ext}"`,
     });
+    await this.audit.reportsDownloaded(
+      (req.user as any).id,
+      dto.jobIds,
+      dto.format,
+    );
     res.send(buffer);
   }
 
@@ -113,6 +128,7 @@ export class PatrolController {
       "Content-Type": contentType,
       "Content-Disposition": `attachment; filename="patrol-summary-${Date.now()}.pdf"`,
     });
+    await this.audit.summaryGenerated((req.user as any).id, dto.jobIds);
     res.send(buffer);
   }
 
@@ -130,6 +146,7 @@ export class PatrolController {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="patrol-report-${jobId}.pdf"`,
     });
+    await this.audit.reportViewed((req.user as any).id, jobId);
     res.send(pdf);
   }
 
@@ -150,13 +167,14 @@ export class PatrolController {
       }),
     }),
   )
-  saveCheckpoint(
+  async saveCheckpoint(
     @Req() req: Request,
     @Param("jobId") jobId: string,
     @Body() dto: SaveCheckpointDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.patrolService.saveCheckpoint((req.user as any).id, jobId, {
+    const userId = (req.user as any).id;
+    const result = await this.patrolService.saveCheckpoint(userId, jobId, {
       checkpointId: dto.checkpointId,
       allClear: dto.allClear === "true",
       checklistState: dto.checklistState
@@ -165,25 +183,56 @@ export class PatrolController {
       comment: dto.comment,
       screenshotPath: file ? "screenshots/" + file.filename : undefined,
     });
+    await this.audit.checkpointReviewed(
+      userId,
+      jobId,
+      dto.checkpointId,
+      dto.allClear === "true",
+      !!file,
+      dto.comment,
+    );
+    return result;
   }
 
   @Post(":jobId/draft")
-  saveDraft(@Req() req: Request, @Param("jobId") jobId: string) {
-    return this.patrolService.saveDraft((req.user as any).id, jobId);
+  async saveDraft(@Req() req: Request, @Param("jobId") jobId: string) {
+    const userId = (req.user as any).id;
+    const result = await this.patrolService.saveDraft(userId, jobId);
+    await this.audit.patrolDraftSaved(userId, jobId);
+    return result;
   }
 
   @Post(":jobId/complete")
-  complete(@Req() req: Request, @Param("jobId") jobId: string) {
-    return this.patrolService.complete((req.user as any).id, jobId);
+  async complete(@Req() req: Request, @Param("jobId") jobId: string) {
+    const userId = (req.user as any).id;
+    const result = await this.patrolService.complete(userId, jobId);
+    await this.audit.patrolCompleted(userId, jobId);
+    return result;
   }
 
   @Post(":jobId/release")
-  release(@Param("jobId") jobId: string) {
-    return this.patrolService.adminReleaseLock(jobId);
+  async release(@Req() req: Request, @Param("jobId") jobId: string) {
+    const ctx = await this.audit.snapshotJob(jobId);
+    const result = await this.patrolService.adminReleaseLock(jobId);
+    await this.audit.patrolAdminAction(
+      (req.user as any).id,
+      "PATROL_RELEASE",
+      jobId,
+      ctx,
+    );
+    return result;
   }
 
   @Post(":jobId/admin-delete")
-  adminDelete(@Param("jobId") jobId: string) {
-    return this.patrolService.adminDeletePatrol(jobId);
+  async adminDelete(@Req() req: Request, @Param("jobId") jobId: string) {
+    const ctx = await this.audit.snapshotJob(jobId);
+    const result = await this.patrolService.adminDeletePatrol(jobId);
+    await this.audit.patrolAdminAction(
+      (req.user as any).id,
+      "PATROL_DELETE",
+      jobId,
+      ctx,
+    );
+    return result;
   }
 }

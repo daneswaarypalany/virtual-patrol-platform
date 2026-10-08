@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PresenceService } from '../presence/presence.service';
+import { ACTION_LABELS } from '../audit/audit.service';
 
 export interface LogsQuery {
   page?: string;
@@ -82,8 +83,14 @@ export class LogsService {
     }
     if (query.search?.trim()) {
       const q = query.search.trim();
+      // Let people search by the friendly label ("patrol", "report") as well
+      // as the stored action code.
+      const labelMatches = Object.entries(ACTION_LABELS)
+        .filter(([, label]) => label.toLowerCase().includes(q.toLowerCase()))
+        .map(([code]) => code);
       where.OR = [
         { action: { contains: q, mode: 'insensitive' } },
+        ...(labelMatches.length ? [{ action: { in: labelMatches } }] : []),
         { entity: { contains: q, mode: 'insensitive' } },
         { entityId: { contains: q, mode: 'insensitive' } },
         { details: { contains: q, mode: 'insensitive' } },
