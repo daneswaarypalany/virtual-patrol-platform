@@ -272,19 +272,12 @@ html:root .picker-hero {
 
 /* ---------- controls ---------- */
 
-html:root button:focus-visible,
-html:root input:focus-visible,
-html:root select:focus-visible,
-html:root textarea:focus-visible {
+/* Keyboard focus ring for buttons only. Inputs/selects are left alone:
+   the pages already draw their own focus state (often on a wrapper such as
+   .login-field or .search-box), and a second ring made a "box in a box". */
+html:root button:focus-visible {
   outline: 2px solid var(--p-6);
   outline-offset: 2px;
-}
-
-html:root input:focus,
-html:root select:focus,
-html:root textarea:focus {
-  border-color: var(--p-6);
-  box-shadow: 0 0 0 4px rgba(138, 159, 179, 0.25);
 }
 
 /* text that sat on var(--white) now sits on a translucent surface */
