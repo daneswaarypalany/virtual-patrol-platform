@@ -3,6 +3,7 @@ import { RefreshCw, Search } from 'lucide-react'
 import type { ActiveUser, ActivityLogEntry } from '../lib/logs'
 import { logsApi } from '../lib/logs'
 import { getSocket } from '../lib/socket'
+import { API_BASE_URL } from '../lib/api'
 import './Logs.css'
 
 const PAGE_SIZE = 25
@@ -17,6 +18,19 @@ function timeAgo(iso: string | null): string {
   if (hrs < 24) return `${hrs}h ago`
   const days = Math.floor(hrs / 24)
   return `${days}d ago`
+}
+
+function describeError(err: unknown): string {
+  const e = err as {
+    response?: { status?: number; data?: { message?: string | string[] } }
+    message?: string
+  }
+  const status = e.response?.status
+  const msg = e.response?.data?.message
+  const detail = Array.isArray(msg) ? msg.join(', ') : msg
+  return [status ? `HTTP ${status}` : 'No response', detail ?? e.message]
+    .filter(Boolean)
+    .join(' - ')
 }
 
 function formatTimestamp(iso: string): string {
@@ -36,6 +50,7 @@ function actionTone(action: string): 'ok' | 'warn' | 'neutral' {
 export default function Logs() {
   const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([])
   const [usersLoading, setUsersLoading] = useState(true)
+  const [usersError, setUsersError] = useState('')
 
   const [entries, setEntries] = useState<ActivityLogEntry[]>([])
   const [total, setTotal] = useState(0)
@@ -51,8 +66,9 @@ export default function Logs() {
   const loadActiveUsers = useCallback(async () => {
     try {
       setActiveUsers(await logsApi.activeUsers())
-    } catch {
-      // non-critical panel — fail silently, activity log below still loads
+      setUsersError('')
+    } catch (err) {
+      setUsersError(describeError(err))
     } finally {
       setUsersLoading(false)
     }
@@ -70,8 +86,8 @@ export default function Logs() {
       })
       setEntries(result.items)
       setTotal(result.total)
-    } catch {
-      setError('Failed to load activity log')
+    } catch (err) {
+      setError(`Failed to load activity log (${describeError(err)})`)
     } finally {
       setLogsLoading(false)
     }
@@ -118,6 +134,10 @@ export default function Logs() {
 
   return (
     <div className="logs-page">
+      <div className="logs-muted" style={{ fontSize: 11 }}>
+        Server: {API_BASE_URL}
+      </div>
+
       <section className="logs-panel">
         <div className="logs-panel-head">
           <h3>Active Users</h3>
@@ -132,6 +152,8 @@ export default function Logs() {
 
         {usersLoading ? (
           <div className="logs-empty">Loading…</div>
+        ) : usersError ? (
+          <div className="logs-error">Failed to load users ({usersError})</div>
         ) : activeUsers.length === 0 ? (
           <div className="logs-empty">No active users found.</div>
         ) : (
