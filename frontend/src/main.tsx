@@ -5,6 +5,7 @@ import { AuthProvider } from './auth/AuthContext'
 import { ThemeProvider } from './theme/ThemeContext'
 import './index.css'
 import App from './App.tsx'
+import './glass.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
