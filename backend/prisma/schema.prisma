@@ -14,6 +14,8 @@ model User {
   fullName        String
   role            UserRole                 @default(OPERATOR)
   status          UserStatus               @default(ACTIVE)
+  lastLoginAt     DateTime?
+  lastActiveAt    DateTime?
   createdAt       DateTime                 @default(now())
   updatedAt       DateTime                 @updatedAt
   alerts          Alert[]

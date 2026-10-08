@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  ScrollText,
 } from 'lucide-react'
 import { useAuth } from './auth/AuthContext'
 import type { Role } from './auth/AuthContext'
@@ -31,6 +32,7 @@ import ActivePatrols from './pages/ActivePatrols'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import Settings from './pages/Settings'
+import Logs from './pages/Logs'
 import './App.css'
 
 type Page =
@@ -44,6 +46,7 @@ type Page =
   | 'active-patrols'
   | 'reports'
   | 'history'
+  | 'logs'
   | 'settings'
 
 const navigation: {
@@ -62,6 +65,7 @@ const navigation: {
   { id: 'active-patrols', label: 'Active Patrols', icon: MonitorDot, roles: ['ADMIN'] },
   { id: 'reports', label: 'Reports', icon: MessageSquareWarning, roles: ['ADMIN', 'OPERATOR', 'VIEWER'] },
   { id: 'history', label: 'History', icon: Calendar, roles: ['ADMIN'] },
+  { id: 'logs', label: 'Logs', icon: ScrollText, roles: ['ADMIN'] },
 ]
 
 const pageTitles: Record<Page, string> = {
@@ -75,6 +79,7 @@ const pageTitles: Record<Page, string> = {
   'active-patrols': 'Active Patrols',
   reports: 'Reports',
   history: 'Patrol History',
+  logs: 'Logs',
   settings: 'Settings',
 }
 
@@ -89,6 +94,7 @@ const builtPages: Page[] = [
   'cameras',
   'reports',
   'history',
+  'logs',
   'settings',
 ]
 
@@ -203,6 +209,7 @@ function Shell() {
           {activePage === 'active-patrols' && <ActivePatrols />}
           {activePage === 'reports' && <Reports />}
           {activePage === 'history' && <History />}
+          {activePage === 'logs' && <Logs />}
           {activePage === 'settings' && <Settings />}
 
           {!builtPages.includes(activePage) && (

@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client'
+import { API_BASE_URL } from './api'
 
 // Single shared socket for the whole app. Connected once the user is
 // authenticated (see AuthContext) and disconnected on logout, rather than
@@ -8,7 +9,7 @@ let socket: Socket | null = null
 
 export function connectSocket(): Socket {
   if (socket?.connected) return socket
-  socket = io('http://localhost:3000', {
+  socket = io(API_BASE_URL, {
     withCredentials: true, // sends the access_token cookie for auth
     autoConnect: true,
   })

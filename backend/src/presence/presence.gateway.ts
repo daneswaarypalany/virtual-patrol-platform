@@ -22,7 +22,13 @@ function readCookie(cookieHeader: string | undefined, name: string): string | nu
 }
 
 @WebSocketGateway({
-  cors: { origin: 'http://localhost:5173', credentials: true },
+  cors: {
+    origin: [
+      'http://localhost:5173',
+      'https://virtual-patrol-platform-6bfc.vercel.app',
+    ],
+    credentials: true,
+  },
 })
 export class PresenceGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

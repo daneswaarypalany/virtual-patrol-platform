@@ -9,6 +9,11 @@ const cookieExtractor = (req: Request): string | null => {
   return req?.cookies?.access_token ?? null;
 };
 
+// Throttles the lastActiveAt DB write to at most once per user per this
+// window, since validate() runs on every authenticated request.
+const ACTIVITY_TOUCH_INTERVAL_MS = 60_000;
+const lastTouchByUserId = new Map<string, number>();
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
@@ -29,6 +34,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     if (!user || user.status !== 'ACTIVE') {
       throw new UnauthorizedException();
+    }
+
+    const now = Date.now();
+    const last = lastTouchByUserId.get(user.id) ?? 0;
+    if (now - last > ACTIVITY_TOUCH_INTERVAL_MS) {
+      lastTouchByUserId.set(user.id, now);
+      // Fire-and-forget: don't make every request wait on this write.
+      this.prisma.user
+        .update({
+          where: { id: user.id },
+          data: { lastActiveAt: new Date() },
+        })
+        .catch(() => {
+          // non-critical — if this fails, the next request retries it
+        });
     }
 
     return {

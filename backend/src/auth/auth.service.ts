@@ -27,6 +27,21 @@ export class AuthService {
 
     const token = await this.jwt.signAsync({ sub: user.id, role: user.role });
 
+    const now = new Date();
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: now, lastActiveAt: now },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        action: 'LOGIN',
+        entity: 'User',
+        entityId: user.id,
+        userId: user.id,
+        details: JSON.stringify({ username: user.username }),
+      },
+    });
+
     return {
       token,
       user: {
