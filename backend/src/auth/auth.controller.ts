@@ -15,6 +15,17 @@ import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
 
+// The frontend and backend are deployed on different *.vercel.app domains,
+// which browsers treat as different sites. A SameSite=Lax cookie is dropped
+// on cross-site requests, so in production it must be SameSite=None (which
+// requires Secure). Locally both run on localhost, where Lax is fine.
+const IS_PROD = process.env.NODE_ENV === 'production';
+const COOKIE_BASE = {
+  httpOnly: true,
+  secure: IS_PROD,
+  sameSite: (IS_PROD ? 'none' : 'lax') as 'none' | 'lax',
+};
+
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -32,9 +43,7 @@ export class AuthController {
     const { token, user } = await this.authService.login(dto);
 
     res.cookie('access_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      ...COOKIE_BASE,
       maxAge: 15 * 60 * 1000,
     });
 
@@ -74,7 +83,7 @@ export class AuthController {
         // expired/invalid token — nothing to log, just clear the cookie below
       }
     }
-    res.clearCookie('access_token');
+    res.clearCookie('access_token', COOKIE_BASE);
     return { message: 'Logged out' };
   }
 
