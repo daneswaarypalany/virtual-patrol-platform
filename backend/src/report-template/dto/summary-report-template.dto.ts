@@ -5,6 +5,7 @@ import {
   IsIn,
   IsInt,
   IsOptional,
+  IsObject,
   IsString,
   Matches,
   MaxLength,
@@ -48,6 +49,10 @@ class SummaryReportTemplateFieldDto {
   @IsString()
   @MaxLength(2000)
   text?: string;
+
+  @IsOptional()
+  @IsObject()
+  options?: Record<string, boolean>;
 }
 
 export class UpdateSummaryReportTemplateDto {

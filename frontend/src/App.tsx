@@ -101,11 +101,19 @@ const builtPages: Page[] = [
 function Shell() {
   const { user, logout } = useAuth()
   const [activePage, setActivePage] = useState<Page>('dashboard')
-  const [collapsed, setCollapsed] = useState(false)
+  // Start in the slim icon-rail mode shown in the navigation reference.
+  const [collapsed, setCollapsed] = useState(true)
+  const [navTooltip, setNavTooltip] = useState<{ label: string; top: number; left: number } | null>(null)
 
   if (!user) return null
 
   const visibleNav = navigation.filter((item) => item.roles.includes(user.role))
+
+  const showNavTooltip = (target: HTMLButtonElement, label: string) => {
+    if (!collapsed) return
+    const bounds = target.getBoundingClientRect()
+    setNavTooltip({ label, top: bounds.top + bounds.height / 2, left: bounds.right + 10 })
+  }
 
   const roleLabel =
     user.role === 'ADMIN'
@@ -119,16 +127,17 @@ function Shell() {
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
         <button
           className="sidebar-toggle"
-          onClick={() => setCollapsed((c) => !c)}
+          onClick={() => {
+            setNavTooltip(null)
+            setCollapsed((c) => !c)
+          }}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
 
         <div className="brand">
-          <div className="brand-icon">
-            <img src="/logo.png" alt="A-Force" className="brand-logo" />
-          </div>
+          <img src="/logo.png" alt="A-Force Protection" className="brand-logo" />
           <div className="brand-text">
             <h1>Virtual Patrol</h1>
             <span>Security Management</span>
@@ -142,11 +151,15 @@ function Shell() {
               key={item.id}
               className={`nav-item ${activePage === item.id ? 'active' : ''}`}
               onClick={() => setActivePage(item.id)}
-              title={collapsed ? item.label : undefined}
+              aria-label={item.label}
+              onMouseEnter={(event) => showNavTooltip(event.currentTarget, item.label)}
+              onMouseLeave={() => setNavTooltip(null)}
+              onFocus={(event) => showNavTooltip(event.currentTarget, item.label)}
+              onBlur={() => setNavTooltip(null)}
             >
               <span className="nav-icon">
-                <item.icon strokeWidth={1.5} />
-                </span>
+                <item.icon strokeWidth={1.7} />
+              </span>
               <span className="nav-label">{item.label}</span>
             </button>
           ))}
@@ -157,7 +170,11 @@ function Shell() {
             <button
               className={`nav-item ${activePage === 'settings' ? 'active' : ''}`}
               onClick={() => setActivePage('settings')}
-              title={collapsed ? 'Settings' : undefined}
+              aria-label="Settings"
+              onMouseEnter={(event) => showNavTooltip(event.currentTarget, 'Settings')}
+              onMouseLeave={() => setNavTooltip(null)}
+              onFocus={(event) => showNavTooltip(event.currentTarget, 'Settings')}
+              onBlur={() => setNavTooltip(null)}
             >
               <span className="nav-icon">
                 <SettingsIcon />
@@ -169,7 +186,11 @@ function Shell() {
           <button
             className="nav-item logout"
             onClick={logout}
-            title={collapsed ? 'Logout' : undefined}
+            aria-label="Logout"
+            onMouseEnter={(event) => showNavTooltip(event.currentTarget, 'Logout')}
+            onMouseLeave={() => setNavTooltip(null)}
+            onFocus={(event) => showNavTooltip(event.currentTarget, 'Logout')}
+            onBlur={() => setNavTooltip(null)}
           >
             <span className="nav-icon">
               <LogOut />
@@ -179,11 +200,26 @@ function Shell() {
         </div>
       </aside>
 
+      {collapsed && navTooltip && (
+        <div
+          className="nav-hover-tooltip"
+          role="tooltip"
+          style={{ top: navTooltip.top, left: navTooltip.left }}
+        >
+          {navTooltip.label}
+        </div>
+      )}
+
       <main className="main-content">
         <header className="topbar">
-          <div>
-            <p className="breadcrumb">Virtual Patrol /</p>
-            <h2>{pageTitles[activePage]}</h2>
+          <div className="topbar-heading">
+            <nav className="breadcrumb" aria-label="Breadcrumb">
+              <span className="breadcrumb-parent">Virtual Patrol</span>
+              <span className="breadcrumb-separator" aria-hidden="true">/</span>
+              <span className="breadcrumb-current" aria-current="page">
+                {pageTitles[activePage]}
+              </span>
+            </nav>
           </div>
 
           <div className="user-section">
@@ -199,7 +235,7 @@ function Shell() {
         </header>
 
         <section className="page-content">
-          {activePage === 'dashboard' && <Dashboard />}
+          {activePage === 'dashboard' && <Dashboard onNavigate={setActivePage} />}
           {activePage === 'users' && <Users />}
           {activePage === 'sites' && <Sites />}
           {activePage === 'cameras' && <Cameras />}

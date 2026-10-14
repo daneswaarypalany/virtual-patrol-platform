@@ -6,6 +6,10 @@ export interface SummaryReportField {
   description: string
   group: 'overview' | 'chart' | 'table'
   enabled: boolean
+  /** Configurable content items provided by the backend field definition. */
+  items?: { key: string; label: string }[]
+  /** Item-level visibility choices; missing values remain visible by default. */
+  options?: Record<string, boolean>
   height?: number
   width?: number
   row?: number
@@ -33,21 +37,21 @@ export interface SummaryReportTemplate {
 
 export const summaryReportTemplateApi = {
   list: () =>
-    api.get<SummaryReportTemplateSummary[]>('/summary-template/list').then((r) => r.data),
+    api.get<SummaryReportTemplateSummary[]>('/summary-report-template/list').then((r) => r.data),
 
   get: (id?: string) =>
-    api.get<SummaryReportTemplate>('/summary-template', {
+    api.get<SummaryReportTemplate>('/summary-report-template', {
       params: id ? { id } : {},
     }).then((r) => r.data),
 
   getById: (id: string) =>
-    api.get<SummaryReportTemplate>(`/summary-template/${id}`).then((r) => r.data),
+    api.get<SummaryReportTemplate>(`/summary-report-template/${id}`).then((r) => r.data),
 
   create: (name: string) =>
-    api.post<SummaryReportTemplate>('/summary-template', { name }).then((r) => r.data),
+    api.post<SummaryReportTemplate>('/summary-report-template', { name }).then((r) => r.data),
 
   rename: (id: string, name: string) =>
-    api.patch<SummaryReportTemplate>(`/summary-template/${id}/name`, { name }).then((r) => r.data),
+    api.patch<SummaryReportTemplate>(`/summary-report-template/${id}/name`, { name }).then((r) => r.data),
 
   updateById: (
     id: string,
@@ -57,12 +61,13 @@ export const summaryReportTemplateApi = {
       height?: number
       width?: number
       row?: number
+      options?: Record<string, boolean>
       variant?: 'text' | 'divider' | 'spacer'
       text?: string
     }[],
   ) =>
-    api.put<SummaryReportTemplate>(`/summary-template/${id}`, { fields }).then((r) => r.data),
+    api.put<SummaryReportTemplate>(`/summary-report-template/${id}`, { fields }).then((r) => r.data),
 
   remove: (id: string) =>
-    api.delete(`/summary-template/${id}`).then((r) => r.data),
+    api.delete(`/summary-report-template/${id}`).then((r) => r.data),
 }

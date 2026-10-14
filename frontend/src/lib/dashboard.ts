@@ -25,9 +25,12 @@ export interface IssueItem {
   id: string
   comment: string | null
   completedAt: string
+  allClear: boolean
+  screenshotPath: string | null
+  checklistState: unknown
   checkpoint: { camera: { name: string } }
   job: {
-    route: { site: { name: string } }
+    route: { name: string; site: { name: string } }
     operator: { fullName: string }
   }
 }

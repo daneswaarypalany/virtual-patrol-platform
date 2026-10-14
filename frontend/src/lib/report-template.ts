@@ -1,5 +1,10 @@
 import { api } from './api'
 
+export interface ReportFieldItem {
+  key: string
+  label: string
+}
+
 export interface ReportField {
   key: string
   label: string
@@ -9,6 +14,10 @@ export interface ReportField {
   height?: number
   width?: number
   row?: number
+  /** Item-level visibility preferences saved with the template. */
+  options?: Record<string, boolean>
+  /** Configurable items supplied by the backend component definition. */
+  items: ReportFieldItem[]
 }
 
 export interface ReportTemplateSummary {
@@ -34,6 +43,7 @@ type SaveField = {
   height?: number
   width?: number
   row?: number
+  options?: Record<string, boolean>
 }
 
 export const reportTemplateApi = {
@@ -61,7 +71,7 @@ export const reportTemplateApi = {
       .patch<ReportTemplate>(`/report-template/${id}/name`, { name })
       .then((r) => r.data),
 
-  // save a template's fields by id
+  // save a template's fields by id, including per-component item visibility
   updateById: (id: string, fields: SaveField[]) =>
     api
       .put<ReportTemplate>(`/report-template/${id}`, { fields })

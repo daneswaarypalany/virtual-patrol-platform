@@ -67,11 +67,16 @@ export class DashboardService {
       },
     });
 
-    // --- Recent activity: latest jobs (started/completed) ---
+    // --- Recent activity: rolling 24-hour window ---
+    // Use a rolling cutoff (rather than start-of-day) so evening/overnight
+    // patrol work remains visible for a full 24 hours.
+    const last24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const recentJobs = await this.prisma.patrolJob.findMany({
-      where: jobWhere,
+      where: {
+        ...jobWhere,
+        lastActivityAt: { gte: last24Hours },
+      },
       orderBy: { lastActivityAt: "desc" },
-      take: 8,
       include: {
         route: { include: { site: { select: { name: true } } } },
         operator: { select: { fullName: true } },
@@ -83,10 +88,10 @@ export class DashboardService {
     const recentIssues = await this.prisma.checkpointResult.findMany({
       where: {
         allClear: false,
+        completedAt: { gte: last24Hours },
         job: jobWhere,
       },
       orderBy: { completedAt: "desc" },
-      take: 8,
       include: {
         checkpoint: { include: { camera: { select: { name: true } } } },
         job: {
@@ -119,9 +124,7 @@ export class DashboardService {
           r.comment ? ` — ${r.comment}` : ""
         }`,
       })),
-    ]
-      .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-      .slice(0, 12);
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
     return {
       stats: {

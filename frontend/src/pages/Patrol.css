@@ -702,3 +702,176 @@
   display: block;
   background: #000;
 }
+/* ---------- Live camera annotation tools ---------- */
+
+.feed-frame {
+  isolation: isolate;
+}
+
+.feed-frame .feed-video {
+  position: relative;
+  z-index: 0;
+}
+
+.feed-frame > .feed-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.feed-frame .feed-video + .feed-placeholder {
+  z-index: 3;
+}
+
+.feed-annotation-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.feed-annotation-canvas.is-active {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.annotation-tools {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(244, 248, 251, 0.84);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 20px rgba(8, 27, 44, 0.07);
+}
+
+.annotation-tools-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+  color: var(--text);
+}
+
+.annotation-tools-head strong {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.annotation-tools-head > span {
+  flex-shrink: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(91, 121, 148, 0.12);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.annotation-tools-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.annotation-tool-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.annotation-tool-button:hover:not(:disabled) {
+  border-color: var(--slate-blue);
+  background: rgba(226, 235, 242, 0.96);
+}
+
+.annotation-tool-button:focus-visible {
+  outline: 3px solid rgba(91, 133, 164, 0.38);
+  outline-offset: 2px;
+}
+
+.annotation-tool-button.active {
+  border-color: #344b5b;
+  background: #344b5b;
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(8, 27, 44, 0.16);
+}
+
+.annotation-tool-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.annotation-tool-button.annotation-tool-clear {
+  color: var(--status-red);
+}
+
+.annotation-tool-button.annotation-tool-clear:hover:not(:disabled) {
+  border-color: rgba(207, 91, 91, 0.42);
+  background: rgba(207, 91, 91, 0.08);
+}
+
+.annotation-tool-button.annotation-tool-done {
+  margin-left: auto;
+}
+
+.annotation-tools-hint {
+  margin: 9px 0 0;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+@media (max-width: 560px) {
+  .annotation-tools {
+    padding: 10px;
+  }
+
+  .annotation-tools-actions {
+    gap: 6px;
+  }
+
+  .annotation-tool-button {
+    min-height: 36px;
+    padding: 8px;
+  }
+
+  .annotation-tool-button span {
+    font-size: 11.5px;
+  }
+
+  .annotation-tool-button.annotation-tool-done {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .annotation-tool-button {
+    transition: none;
+  }
+}
+
+.feed-live {
+  z-index: 4;
+  pointer-events: none;
+}

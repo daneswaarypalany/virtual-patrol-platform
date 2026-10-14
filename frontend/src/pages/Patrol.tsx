@@ -1,5 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import Hls from 'hls.js'
+import {
+  ArrowUpRight,
+  Circle as CircleIcon,
+  MousePointer2,
+  Pencil,
+  Trash2,
+  Undo2,
+} from 'lucide-react'
 import type {
   PatrolSite,
   PatrolRouteSummary,
@@ -13,6 +27,90 @@ import SearchableSelect from '../components/SearchableSelect'
 import './Patrol.css'
 
 type Stage = 'picker' | 'viewer' | 'summary'
+type AnnotationTool = 'pen' | 'circle' | 'arrow'
+type AnnotationPoint = { x: number; y: number }
+type PatrolAnnotation = {
+  id: number
+  tool: AnnotationTool
+  points: AnnotationPoint[]
+  color: string
+  width: number
+}
+
+const ANNOTATION_COLOR = '#ff3b30'
+const ANNOTATION_WIDTH = 3
+
+function drawPatrolAnnotation(
+  ctx: CanvasRenderingContext2D,
+  annotation: PatrolAnnotation,
+  mapPoint: (point: AnnotationPoint) => { x: number; y: number },
+  lineWidth: number,
+) {
+  if (!annotation.points.length) return
+  const points = annotation.points.map(mapPoint)
+  const first = points[0]
+  const last = points[points.length - 1]
+
+  ctx.save()
+  ctx.strokeStyle = annotation.color
+  ctx.fillStyle = annotation.color
+  ctx.lineWidth = lineWidth
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)'
+  ctx.shadowBlur = Math.max(1, lineWidth * 0.65)
+
+  if (annotation.tool === 'pen') {
+    if (points.length === 1) {
+      ctx.beginPath()
+      ctx.arc(first.x, first.y, Math.max(1.4, lineWidth / 2), 0, Math.PI * 2)
+      ctx.fill()
+    } else {
+      ctx.beginPath()
+      ctx.moveTo(first.x, first.y)
+      for (let i = 1; i < points.length; i += 1) {
+        ctx.lineTo(points[i].x, points[i].y)
+      }
+      ctx.stroke()
+    }
+  } else if (annotation.tool === 'circle') {
+    const rx = Math.abs(last.x - first.x) / 2
+    const ry = Math.abs(last.y - first.y) / 2
+    ctx.beginPath()
+    ctx.ellipse(
+      (first.x + last.x) / 2,
+      (first.y + last.y) / 2,
+      Math.max(rx, 1),
+      Math.max(ry, 1),
+      0,
+      0,
+      Math.PI * 2,
+    )
+    ctx.stroke()
+  } else {
+    const dx = last.x - first.x
+    const dy = last.y - first.y
+    const length = Math.hypot(dx, dy)
+    if (length > 0.5) {
+      const angle = Math.atan2(dy, dx)
+      const head = Math.max(lineWidth * 4, 8)
+      ctx.beginPath()
+      ctx.moveTo(first.x, first.y)
+      ctx.lineTo(last.x, last.y)
+      ctx.moveTo(
+        last.x - head * Math.cos(angle - Math.PI / 6),
+        last.y - head * Math.sin(angle - Math.PI / 6),
+      )
+      ctx.lineTo(last.x, last.y)
+      ctx.lineTo(
+        last.x - head * Math.cos(angle + Math.PI / 6),
+        last.y - head * Math.sin(angle + Math.PI / 6),
+      )
+      ctx.stroke()
+    }
+  }
+  ctx.restore()
+}
 
 export default function Patrol() {
   const [stage, setStage] = useState<Stage>('picker')
@@ -260,18 +358,163 @@ function PatrolViewer({
 
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const annotationCanvasRef = useRef<HTMLCanvasElement>(null)
+  const feedFrameRef = useRef<HTMLDivElement>(null)
+  const annotationsRef = useRef<PatrolAnnotation[]>([])
+  const activeAnnotationRef = useRef<PatrolAnnotation | null>(null)
+  const [annotationTool, setAnnotationTool] = useState<AnnotationTool | null>(
+    null,
+  )
+  const [annotationCount, setAnnotationCount] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
   const [streamError, setStreamError] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [, setCompleting] = useState(false)
+
+  const redrawAnnotations = useCallback(() => {
+    const canvas = annotationCanvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+
+    const dpr = window.devicePixelRatio || 1
+    const pixelWidth = Math.max(1, Math.round(rect.width * dpr))
+    const pixelHeight = Math.max(1, Math.round(rect.height * dpr))
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, rect.width, rect.height)
+
+    const annotations = activeAnnotationRef.current
+      ? [...annotationsRef.current, activeAnnotationRef.current]
+      : annotationsRef.current
+    annotations.forEach((annotation) =>
+      drawPatrolAnnotation(
+        ctx,
+        annotation,
+        (point) => ({ x: point.x * rect.width, y: point.y * rect.height }),
+        annotation.width,
+      ),
+    )
+  }, [])
+
+  useEffect(() => {
+    const canvas = annotationCanvasRef.current
+    if (!canvas) return
+    const observer = new ResizeObserver(redrawAnnotations)
+    observer.observe(canvas)
+    redrawAnnotations()
+    return () => observer.disconnect()
+  }, [redrawAnnotations, index])
 
   useEffect(() => {
     setIssues(current.checklistTemplate.items.map(() => false))
     setComment('')
     setScreenshot(null)
     setScreenshotUrl('')
+    annotationsRef.current = []
+    activeAnnotationRef.current = null
+    setAnnotationCount(0)
+    setAnnotationTool(null)
     setError('')
-  }, [index])
+    redrawAnnotations()
+  }, [index, redrawAnnotations])
+
+  useEffect(() => {
+    return () => {
+      if (screenshotUrl) URL.revokeObjectURL(screenshotUrl)
+    }
+  }, [screenshotUrl])
+
+  const getAnnotationPoint = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    return {
+      x: Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width)),
+      y: Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height)),
+    }
+  }
+
+  const beginAnnotation = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (!annotationTool) return
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    event.preventDefault()
+    const point = getAnnotationPoint(event)
+    activeAnnotationRef.current = {
+      id: Date.now(),
+      tool: annotationTool,
+      points: [point],
+      color: ANNOTATION_COLOR,
+      width: ANNOTATION_WIDTH,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    redrawAnnotations()
+  }
+
+  const moveAnnotation = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const active = activeAnnotationRef.current
+    if (!active) return
+    event.preventDefault()
+    const point = getAnnotationPoint(event)
+    if (active.tool === 'pen') {
+      const previous = active.points[active.points.length - 1]
+      if (Math.hypot(point.x - previous.x, point.y - previous.y) < 0.0015) return
+      activeAnnotationRef.current = { ...active, points: [...active.points, point] }
+    } else {
+      activeAnnotationRef.current = { ...active, points: [active.points[0], point] }
+    }
+    redrawAnnotations()
+  }
+
+  const finishAnnotation = (event?: ReactPointerEvent<HTMLCanvasElement>) => {
+    const active = activeAnnotationRef.current
+    if (!active) return
+    activeAnnotationRef.current = null
+    if (active.tool !== 'pen') {
+      const start = active.points[0]
+      const end = active.points[active.points.length - 1] ?? start
+      if (Math.hypot(end.x - start.x, end.y - start.y) < 0.004) {
+        if (
+          event &&
+          event.currentTarget.hasPointerCapture(event.pointerId)
+        ) {
+          event.currentTarget.releasePointerCapture(event.pointerId)
+        }
+        redrawAnnotations()
+        return
+      }
+    }
+    annotationsRef.current = [...annotationsRef.current, active]
+    setAnnotationCount(annotationsRef.current.length)
+    // A changed markup invalidates any previous capture to prevent stale evidence.
+    setScreenshot(null)
+    setScreenshotUrl('')
+    if (event && event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    redrawAnnotations()
+  }
+
+  const undoAnnotation = () => {
+    if (!annotationsRef.current.length) return
+    annotationsRef.current = annotationsRef.current.slice(0, -1)
+    setAnnotationCount(annotationsRef.current.length)
+    setScreenshot(null)
+    setScreenshotUrl('')
+    redrawAnnotations()
+  }
+
+  const clearAnnotations = () => {
+    if (!annotationsRef.current.length && !activeAnnotationRef.current) return
+    annotationsRef.current = []
+    activeAnnotationRef.current = null
+    setAnnotationCount(0)
+    setScreenshot(null)
+    setScreenshotUrl('')
+    redrawAnnotations()
+  }
 
   // Load the camera's stream, if it has one. The admin just enters the
   // camera's rtsp:// link (or an existing http(s) HLS url) -- the backend
@@ -357,6 +600,32 @@ function PatrolViewer({
         ctx.fillText(current.camera.name, canvas.width / 2, canvas.height / 2)
         ctx.textAlign = 'left'
       }
+
+      // Composite the visible annotations into the captured evidence only.
+      // The live <video> element is never modified. Account for object-fit: cover
+      // so marks line up with what the operator saw even if the stream aspect
+      // ratio differs from the displayed 16:9 frame.
+      const frameRect = feedFrameRef.current?.getBoundingClientRect()
+      const displayWidth = frameRect?.width || 640
+      const displayHeight = frameRect?.height || 360
+      const scale = Math.max(
+        displayWidth / canvas.width,
+        displayHeight / canvas.height,
+      )
+      const cropX = (canvas.width * scale - displayWidth) / 2
+      const cropY = (canvas.height * scale - displayHeight) / 2
+      const mapToCapture = (point: AnnotationPoint) => ({
+        x: (point.x * displayWidth + cropX) / scale,
+        y: (point.y * displayHeight + cropY) / scale,
+      })
+      annotationsRef.current.forEach((annotation) =>
+        drawPatrolAnnotation(
+          ctx,
+          annotation,
+          mapToCapture,
+          annotation.width / scale,
+        ),
+      )
 
       ctx.fillStyle = 'rgba(1,31,75,0.7)'
       ctx.fillRect(0, canvas.height - 30, canvas.width, 30)
@@ -462,7 +731,7 @@ function PatrolViewer({
             <strong>{current.camera.name}</strong>
             <span>{current.camera.location || 'No location'}</span>
           </div>
-          <div className="feed-frame">
+          <div className="feed-frame" ref={feedFrameRef}>
             {current.camera.streamUrl ? (
               <>
                 <video
@@ -482,17 +751,107 @@ function PatrolViewer({
             ) : (
               <div className="feed-placeholder">{current.camera.name}</div>
             )}
+            <canvas
+              ref={annotationCanvasRef}
+              className={`feed-annotation-canvas${annotationTool ? ' is-active' : ''}`}
+              aria-label="Draw annotations on the live camera frame"
+              role="img"
+              onPointerDown={beginAnnotation}
+              onPointerMove={moveAnnotation}
+              onPointerUp={finishAnnotation}
+              onPointerCancel={finishAnnotation}
+            />
             <span className="feed-live">● LIVE</span>
           </div>
+
+          <div
+            className="annotation-tools"
+            role="toolbar"
+            aria-label="Camera annotation tools"
+          >
+            <div className="annotation-tools-head">
+              <strong>Mark up live frame</strong>
+              <span>
+                {annotationCount} {annotationCount === 1 ? 'mark' : 'marks'}
+              </span>
+            </div>
+            <div className="annotation-tools-actions">
+              <button
+                type="button"
+                className={`annotation-tool-button${annotationTool === 'pen' ? ' active' : ''}`}
+                aria-pressed={annotationTool === 'pen'}
+                onClick={() =>
+                  setAnnotationTool((tool) => (tool === 'pen' ? null : 'pen'))
+                }
+                title="Freehand draw"
+              >
+                <Pencil size={16} aria-hidden="true" /> <span>Draw</span>
+              </button>
+              <button
+                type="button"
+                className={`annotation-tool-button${annotationTool === 'circle' ? ' active' : ''}`}
+                aria-pressed={annotationTool === 'circle'}
+                onClick={() =>
+                  setAnnotationTool((tool) => (tool === 'circle' ? null : 'circle'))
+                }
+                title="Circle an object"
+              >
+                <CircleIcon size={16} aria-hidden="true" /> <span>Circle</span>
+              </button>
+              <button
+                type="button"
+                className={`annotation-tool-button${annotationTool === 'arrow' ? ' active' : ''}`}
+                aria-pressed={annotationTool === 'arrow'}
+                onClick={() =>
+                  setAnnotationTool((tool) => (tool === 'arrow' ? null : 'arrow'))
+                }
+                title="Point with an arrow"
+              >
+                <ArrowUpRight size={16} aria-hidden="true" /> <span>Arrow</span>
+              </button>
+              <button
+                type="button"
+                className="annotation-tool-button"
+                onClick={undoAnnotation}
+                disabled={annotationCount === 0}
+                title="Undo last annotation"
+              >
+                <Undo2 size={16} aria-hidden="true" /> <span>Undo</span>
+              </button>
+              <button
+                type="button"
+                className="annotation-tool-button annotation-tool-clear"
+                onClick={clearAnnotations}
+                disabled={annotationCount === 0}
+                title="Clear all annotations"
+              >
+                <Trash2 size={16} aria-hidden="true" /> <span>Clear</span>
+              </button>
+              {annotationTool && (
+                <button
+                  type="button"
+                  className="annotation-tool-button annotation-tool-done"
+                  onClick={() => setAnnotationTool(null)}
+                  title="Exit drawing mode"
+                >
+                  <MousePointer2 size={16} aria-hidden="true" /> <span>Done</span>
+                </button>
+              )}
+            </div>
+            <p className="annotation-tools-hint">
+              Choose Draw, Circle, or Arrow, then drag on the camera image. Marks are added to the screenshot when you capture it.
+            </p>
+          </div>
+
           <canvas ref={canvasRef} style={{ display: 'none' }} />
 
           <button className="btn-secondary capture-btn" onClick={capture}>
-            📷 Capture Frame
+            📷 Capture Frame{annotationCount ? ' with Annotations' : ''}
           </button>
           {screenshotUrl ? (
             <div className="capture-preview">
               <img src={screenshotUrl} alt="Captured" />
-              <span>Screenshot captured</span>
+              <span>{annotationCount ? 'Screenshot captured with annotations' : 'Screenshot captured'}</span>
             </div>
           ) : (
             <p className="capture-hint">

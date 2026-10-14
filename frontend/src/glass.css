@@ -167,14 +167,17 @@ html:root .main-content {
   overflow: visible;
 }
 
-html:root .topbar {
-  background: var(--white);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--glass-radius);
-  box-shadow: var(--glass-shadow);
-  margin-bottom: 14px;
+/* Header is intentionally unboxed: breadcrumb and account controls sit
+   directly on the page background rather than inside a glass card. */
+html:root .topbar,
+html:root[data-theme='dark'] .topbar {
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin-bottom: 12px;
 }
 
 /* ---------- cards & panels ---------- */
@@ -429,4 +432,472 @@ html:root .login-button {
 @media (prefers-reduced-transparency: reduce) {
   html:root { --glass-alpha: 0.94; --glass-strong: rgba(247, 249, 251, 0.98); }
   html:root[data-theme='dark'] { --white: rgba(60, 74, 85, 0.96); --glass-strong: rgba(51, 63, 72, 0.99); }
+}
+
+/* =====================================================================
+   Refined sidebar icon rail — soft, medium-opacity liquid glass
+   ===================================================================== */
+html:root .sidebar {
+  width: clamp(220px, 16vw, 260px);
+  padding: 20px 12px 16px;
+  gap: 0;
+  color: #384248;
+  background: linear-gradient(165deg, rgba(247, 247, 241, 0.88) 0%, rgba(226, 231, 230, 0.82) 100%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 28px;
+  box-shadow:
+    0 12px 32px rgba(62, 73, 78, 0.12),
+    0 2px 5px rgba(62, 73, 78, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.24);
+  overflow: visible;
+}
+
+html:root[data-theme='dark'] .sidebar {
+  color: #e8edf0;
+  background: linear-gradient(165deg, rgba(47, 58, 65, 0.92) 0%, rgba(35, 45, 52, 0.90) 100%);
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+/* The reference uses a compact icon rail; the toggle still opens the full panel. */
+html:root .sidebar.collapsed {
+  width: 76px;
+  padding: 18px 9px 14px;
+}
+
+html:root .sidebar .brand {
+  justify-content: center;
+  gap: 0;
+  padding: 4px 0 22px;
+}
+
+/* Expanded mode keeps a conventional logo-and-label arrangement. */
+html:root .sidebar:not(.collapsed) .brand {
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 4px 8px 22px;
+}
+
+html:root .sidebar:not(.collapsed) .nav-title {
+  text-align: left;
+  padding: 0 12px;
+}
+
+html:root .sidebar .brand-logo {
+  width: 48px;
+  height: 48px;
+  flex-basis: 48px;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html:root .sidebar .brand h1 {
+  color: #384248;
+}
+
+html:root .sidebar .brand span,
+html:root .sidebar .nav-title {
+  color: #728087;
+}
+
+html:root[data-theme='dark'] .sidebar .brand h1 {
+  color: #eef2f4;
+}
+
+html:root .sidebar .navigation {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 2px 0 10px;
+  scrollbar-width: none;
+}
+
+html:root .sidebar .navigation::-webkit-scrollbar {
+  display: none;
+}
+
+html:root .sidebar .nav-title {
+  text-align: center;
+  font-size: 9px;
+  letter-spacing: 0.9px;
+  padding: 0 2px;
+  margin: 0 0 10px;
+}
+
+html:root .sidebar .nav-item {
+  position: relative;
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  gap: 12px;
+  color: #556168;
+  background: rgba(255, 255, 255, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.64),
+    0 2px 7px rgba(58, 68, 73, 0.035);
+  transition:
+    background-color 170ms ease,
+    border-color 170ms ease,
+    color 170ms ease,
+    box-shadow 170ms ease,
+    transform 170ms ease;
+}
+
+html:root .sidebar .nav-item:hover,
+html:root .sidebar .nav-item:focus-visible {
+  color: #303a40;
+  background: rgba(255, 255, 255, 0.76);
+  border-color: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 5px 13px rgba(58, 68, 73, 0.09);
+  transform: translateY(-1px);
+}
+
+html:root .sidebar .nav-item.active {
+  color: #27343b;
+  background: rgba(190, 201, 204, 0.64);
+  border-color: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.76),
+    0 4px 11px rgba(58, 68, 73, 0.08);
+  font-weight: 650;
+}
+
+html:root .sidebar .nav-icon {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  color: currentColor;
+}
+
+html:root .sidebar .nav-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+html:root .sidebar .nav-label {
+  color: inherit;
+  font-size: 12.5px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+html:root .sidebar.collapsed .brand {
+  justify-content: center;
+  padding: 4px 0 22px;
+}
+
+html:root .sidebar.collapsed .brand-text,
+html:root .sidebar.collapsed .nav-title {
+  display: none;
+}
+
+html:root .sidebar.collapsed .nav-item {
+  width: 54px;
+  height: 54px;
+  min-height: 54px;
+  padding: 0;
+  margin: 0 auto 8px;
+  justify-content: center;
+  gap: 0;
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.46);
+  border-color: rgba(255, 255, 255, 0.64);
+}
+
+html:root .sidebar.collapsed .nav-item:hover,
+html:root .sidebar.collapsed .nav-item:focus-visible {
+  background: rgba(255, 255, 255, 0.86);
+  border-color: rgba(255, 255, 255, 0.98);
+  transform: translateY(-1px) scale(1.015);
+}
+
+html:root .sidebar.collapsed .nav-item.active {
+  background: rgba(183, 197, 201, 0.75);
+  border-color: rgba(255, 255, 255, 0.88);
+}
+
+html:root .sidebar.collapsed .nav-icon {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+}
+
+html:root .sidebar.collapsed .nav-label {
+  display: none;
+}
+
+html:root .sidebar .sidebar-bottom {
+  border-top: 1px solid rgba(93, 108, 115, 0.14);
+  padding-top: 12px;
+}
+
+html:root[data-theme='dark'] .sidebar .sidebar-bottom {
+  border-top-color: rgba(232, 237, 240, 0.14);
+}
+
+html:root .sidebar .logout {
+  color: #9b5552;
+}
+
+html:root[data-theme='dark'] .sidebar .logout {
+  color: #ed9a95;
+}
+
+html:root .sidebar .sidebar-toggle {
+  top: 26px;
+  right: -11px;
+  width: 25px;
+  height: 25px;
+  background: rgba(248, 249, 245, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  color: #4e5b61;
+  box-shadow: 0 3px 9px rgba(58, 68, 73, 0.12);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+html:root .sidebar .sidebar-toggle:hover {
+  background: #ffffff;
+}
+
+html:root[data-theme='dark'] .sidebar .sidebar-toggle {
+  background: rgba(55, 67, 75, 0.94);
+  color: #eef2f4;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+/* Fixed-position tooltips avoid being clipped by the scrollable nav list. */
+.nav-hover-tooltip {
+  position: fixed;
+  z-index: 10000;
+  transform: translateY(-50%);
+  padding: 9px 13px;
+  color: #384248;
+  background: rgba(247, 247, 241, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 22px rgba(51, 63, 72, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: nav-tooltip-enter 150ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+html:root[data-theme='dark'] .nav-hover-tooltip {
+  color: #eef2f4;
+  background: rgba(43, 54, 61, 0.96);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+@keyframes nav-tooltip-enter {
+  from { opacity: 0; transform: translate(-5px, -50%); }
+  to { opacity: 1; transform: translate(0, -50%); }
+}
+
+@media (max-width: 720px) {
+  html:root .app {
+    gap: 9px;
+    padding: 9px;
+  }
+
+  html:root .sidebar {
+    width: 76px;
+    padding: 16px 9px 12px;
+  }
+
+  html:root .sidebar:not(.collapsed) {
+    width: min(218px, 42vw);
+    padding: 16px 10px 12px;
+  }
+
+  html:root .sidebar:not(.collapsed) .brand {
+    justify-content: flex-start;
+    gap: 8px;
+    padding-bottom: 18px;
+  }
+
+  html:root .sidebar:not(.collapsed) .brand-logo {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  html:root .sidebar:not(.collapsed) .nav-item {
+    min-height: 44px;
+    padding: 8px;
+  }
+
+  html:root .nav-hover-tooltip {
+    padding: 8px 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-hover-tooltip {
+    animation: none;
+  }
+
+  html:root .sidebar .nav-item,
+  html:root .sidebar .sidebar-toggle {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html:root .sidebar {
+    background: #e7e9e5;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  html:root[data-theme='dark'] .sidebar {
+    background: #2b363d;
+  }
+
+  html:root .nav-hover-tooltip {
+    background: #f7f7f1;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* ---------- compact single-line breadcrumb header ---------- */
+/* The active page title sits beside its parent section, like a conventional
+   breadcrumb, instead of taking a second line and increasing header height. */
+html:root .topbar,
+html:root[data-theme='dark'] .topbar {
+  height: 54px;
+  min-height: 54px;
+  flex: 0 0 54px;
+  padding: 0 clamp(6px, 0.8vw, 12px);
+  gap: 14px;
+  margin-bottom: 12px;
+  align-items: center;
+  background: transparent !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html:root .topbar-heading {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+html:root .topbar .breadcrumb {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+html:root .topbar .breadcrumb-parent {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+html:root .topbar .breadcrumb-separator {
+  flex: 0 0 auto;
+  color: rgba(95, 116, 136, 0.72);
+  font-size: 18px;
+  font-weight: 400;
+}
+
+html:root .topbar .breadcrumb-current {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: clamp(18px, 1.3vw, 22px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  html:root .topbar,
+  html:root[data-theme='dark'] .topbar {
+    height: 48px;
+    min-height: 48px;
+    flex-basis: 48px;
+    padding: 0 4px;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  html:root .topbar .breadcrumb {
+    gap: 6px;
+  }
+
+  html:root .topbar .breadcrumb-parent {
+    font-size: 12px;
+  }
+
+  html:root .topbar .breadcrumb-separator {
+    font-size: 14px;
+  }
+
+  html:root .topbar .breadcrumb-current {
+    font-size: 15px;
+  }
+
+  html:root .topbar .user-section {
+    gap: 7px;
+  }
+
+  html:root .topbar .user-info {
+    display: none;
+  }
+
+  html:root .topbar .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+@media (max-width: 420px) {
+  html:root .topbar .breadcrumb-parent {
+    font-size: 11px;
+  }
+
+  html:root .topbar .breadcrumb-current {
+    font-size: 14px;
+  }
+
+  html:root .topbar .user-avatar {
+    display: none;
+  }
 }

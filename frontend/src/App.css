@@ -119,22 +119,17 @@ select {
   padding: 4px 8px 30px;
 }
 
-.brand-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
 .brand-logo {
-  width: 36px;
-  height: 36px;
+  display: block;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
   object-fit: contain;
+  /* The PNG already has transparent corners; never draw a tile behind it. */
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .brand h1 {

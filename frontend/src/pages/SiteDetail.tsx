@@ -358,7 +358,11 @@ export default function SiteDetail({
                       value={templateId ?? ''}
                       onChange={(v) => changeTemplate(v)}
                       placeholder="Default Template"
-                      searchable={false}
+                      searchable
+                      portal
+                      ariaLabel="Report template selector"
+                      searchPlaceholder="Search report templates…"
+                      emptyMessage="No report templates match your search."
                       options={templates.map((t) => ({
                         value: t.id,
                         label: t.isDefault ? `${t.name} (Default)` : t.name,

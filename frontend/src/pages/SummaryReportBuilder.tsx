@@ -67,6 +67,9 @@ export default function SummaryReportBuilder({
   const [drag, setDrag] = useState<Drag | null>(null)
   const [editingBlock, setEditingBlock] = useState<string | null>(null)
   const [hover, setHover] = useState<HoverTarget>(null)
+  const [openOptionPanels, setOpenOptionPanels] = useState<Record<string, boolean>>({
+    header: true,
+  })
   const [newName, setNewName] = useState('')
   const [showNameInput, setShowNameInput] = useState(false)
   const [resizing, setResizing] = useState<{ row: number; col: number } | null>(
@@ -118,9 +121,74 @@ export default function SummaryReportBuilder({
   ]
   const dirty = JSON.stringify(currentCombined) !== JSON.stringify(savedSnapshot)
 
+  const updateComponentOption = (
+    fieldKey: string,
+    optionKey: string,
+    checked: boolean,
+  ) => {
+    const updateField = (field: SummaryReportField): SummaryReportField =>
+      field.key === fieldKey
+        ? { ...field, options: { ...(field.options ?? {}), [optionKey]: checked } }
+        : field
+    setRows((current) => current.map((row) => row.map(updateField)))
+    setPalette((current) => current.map(updateField))
+  }
+
+  const renderComponentOptions = (field: SummaryReportField) => {
+    if (!field.items?.length) return null
+    const enabledCount = field.items.filter(
+      (item) => field.options?.[item.key] !== false,
+    ).length
+    return (
+      <details
+        className="rb-component-options"
+        open={openOptionPanels[field.key] ?? false}
+        onToggle={(e) => {
+          const isOpen = e.currentTarget.open
+          setOpenOptionPanels((current) =>
+            current[field.key] === isOpen
+              ? current
+              : { ...current, [field.key]: isOpen },
+          )
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <summary>
+          <span>Report content</span>
+          <span className="rb-options-count">{enabledCount}/{field.items.length}</span>
+        </summary>
+        <div className="rb-item-option-list">
+          {field.items.map((item) => (
+            <label className="rb-item-option" key={item.key}>
+              <input
+                type="checkbox"
+                checked={field.options?.[item.key] !== false}
+                onChange={(e) =>
+                  updateComponentOption(field.key, item.key, e.target.checked)
+                }
+                aria-label={`Include ${item.label} in ${field.label}`}
+              />
+              <span>{item.label}</span>
+            </label>
+          ))}
+        </div>
+      </details>
+    )
+  }
+
   const handleDragStart = (source: Drag) => (e: React.DragEvent) => {
     setDrag(source)
     e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleComponentDragStart = (source: Drag) => (e: React.DragEvent) => {
+    if (e.target instanceof Element && e.target.closest('.rb-component-options')) {
+      e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+    handleDragStart(source)(e)
   }
 
   const handleDragEnd = () => {
@@ -342,10 +410,11 @@ export default function SummaryReportBuilder({
           height: f.height,
           width: f.width,
           row: f.row,
+          options: f.options,
           variant: f.variant,
           text: f.text,
         })),
-        ...palette.map((f) => ({ key: f.key, enabled: false })),
+        ...palette.map((f) => ({ key: f.key, enabled: false, options: f.options })),
       ]
       const result = await summaryReportTemplateApi.updateById(templateId!, fields)
       setRows(groupIntoRows(result.fields.filter((f) => f.enabled)))
@@ -375,10 +444,11 @@ export default function SummaryReportBuilder({
           height: f.height,
           width: f.width,
           row: f.row,
+          options: f.options,
           variant: f.variant,
           text: f.text,
         })),
-        ...palette.map((f) => ({ key: f.key, enabled: false })),
+        ...palette.map((f) => ({ key: f.key, enabled: false, options: f.options })),
       ]
       const created = await summaryReportTemplateApi.create(newName.trim())
       await summaryReportTemplateApi.updateById(created.id, fields)
@@ -439,7 +509,7 @@ export default function SummaryReportBuilder({
                 key={f.key}
                 className={`rb-chip${drag?.from === 'palette' && drag.index === i ? ' dragging' : ''}`}
                 draggable
-                onDragStart={handleDragStart({ from: 'palette', index: i })}
+                onDragStart={handleComponentDragStart({ from: 'palette', index: i })}
                 onDragEnd={handleDragEnd}
               >
                 <GripVertical size={14} />
@@ -450,6 +520,7 @@ export default function SummaryReportBuilder({
                 <span className={`rb-group rb-group-${f.group}`}>
                   {GROUP_LABEL[f.group]}
                 </span>
+                {renderComponentOptions(f)}
               </div>
             ))
           )}
@@ -524,7 +595,7 @@ export default function SummaryReportBuilder({
                           height: f.height ? `${f.height}px` : undefined,
                         }}
                         draggable={editingBlock !== f.key}
-                        onDragStart={handleDragStart({
+                        onDragStart={handleComponentDragStart({
                           from: 'canvas',
                           row: rowIndex,
                           col: colIndex,
@@ -596,6 +667,7 @@ export default function SummaryReportBuilder({
                             <span>{f.description}</span>
                           </div>
                         )}
+                        {!isBlock(f) && renderComponentOptions(f)}
                         <span className={`rb-group rb-group-${f.group}`}>
                           {isBlock(f) ? 'Layout' : GROUP_LABEL[f.group]}
                         </span>

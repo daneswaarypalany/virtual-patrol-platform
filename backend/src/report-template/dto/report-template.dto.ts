@@ -5,6 +5,7 @@ import {
   IsIn,
   IsInt,
   IsOptional,
+  IsObject,
   IsString,
   Max,
   Min,
@@ -36,6 +37,10 @@ class ReportTemplateFieldDto {
   @IsInt()
   @Min(0)
   row?: number;
+
+  @IsOptional()
+  @IsObject()
+  options?: Record<string, boolean>;
 }
 
 export class UpdateReportTemplateDto {

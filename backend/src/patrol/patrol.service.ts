@@ -846,6 +846,15 @@ const browser = await puppeteer.launch({
   ) {
     const enabledKeys = layout.filter((f) => f.enabled).map((f) => f.key)
     const isOn = (key: string) => enabledKeys.includes(key)
+    // Item options default to visible for older templates that predate these
+    // controls. The template service normalizes options, but this fallback
+    // also keeps direct/legacy layouts backward compatible.
+    const isItemOn = (fieldKey: string, itemKey: string) =>
+      layout.find((field) => field.key === fieldKey)?.options?.[itemKey] !== false
+    const hasVisibleItems = (fieldKey: string) => {
+      const field = layout.find((item) => item.key === fieldKey)
+      return !field?.options || Object.values(field.options).some((value) => value !== false)
+    }
 
     const fmt = (d: Date | null) => (d ? new Date(d).toLocaleString() : '—')
 
@@ -967,12 +976,12 @@ const browser = await puppeteer.launch({
         const issues = j.results.filter((r) => !r.allClear).length
         return `
           <tr>
-            ${singleSite ? '' : `<td>${j.route.site.name}</td>`}
-            <td>${j.route.name}</td>
-            <td>${j.operator.fullName}</td>
-            <td>${fmt(j.completedAt)}</td>
-            <td>${j.route.checkpoints.length}</td>
-            <td class="${issues > 0 ? 'issue-cell' : ''}">${issues}</td>
+            ${!singleSite && isItemOn('jobsTable', 'siteColumn') ? `<td>${esc(j.route.site.name)}</td>` : ''}
+            ${isItemOn('jobsTable', 'routeColumn') ? `<td>${esc(j.route.name)}</td>` : ''}
+            ${isItemOn('jobsTable', 'operatorColumn') ? `<td>${esc(j.operator.fullName)}</td>` : ''}
+            ${isItemOn('jobsTable', 'completedColumn') ? `<td>${fmt(j.completedAt)}</td>` : ''}
+            ${isItemOn('jobsTable', 'checkpointsColumn') ? `<td>${j.route.checkpoints.length}</td>` : ''}
+            ${isItemOn('jobsTable', 'issuesColumn') ? `<td class="${issues > 0 ? 'issue-cell' : ''}">${issues}</td>` : ''}
           </tr>`
       })
       .join('')
@@ -981,10 +990,10 @@ const browser = await puppeteer.launch({
       .map(
         (s) => `
           <tr>
-            <td>${s.siteName}</td>
-            <td>${s.patrols}</td>
-            <td>${s.checkpoints}</td>
-            <td class="${s.issues > 0 ? 'issue-cell' : ''}">${s.issues}</td>
+            ${isItemOn('routeTable', 'nameColumn') ? `<td>${esc(s.siteName)}</td>` : ''}
+            ${isItemOn('routeTable', 'patrolsColumn') ? `<td>${s.patrols}</td>` : ''}
+            ${isItemOn('routeTable', 'checkpointsColumn') ? `<td>${s.checkpoints}</td>` : ''}
+            ${isItemOn('routeTable', 'issuesColumn') ? `<td class="${s.issues > 0 ? 'issue-cell' : ''}">${s.issues}</td>` : ''}
           </tr>`,
       )
       .join('')
@@ -993,10 +1002,10 @@ const browser = await puppeteer.launch({
       .map(
         (r) => `
           <tr>
-            <td>${r.routeName}</td>
-            <td>${r.patrols}</td>
-            <td>${r.checkpoints}</td>
-            <td class="${r.issues > 0 ? 'issue-cell' : ''}">${r.issues}</td>
+            ${isItemOn('routeTable', 'nameColumn') ? `<td>${esc(r.routeName)}</td>` : ''}
+            ${isItemOn('routeTable', 'patrolsColumn') ? `<td>${r.patrols}</td>` : ''}
+            ${isItemOn('routeTable', 'checkpointsColumn') ? `<td>${r.checkpoints}</td>` : ''}
+            ${isItemOn('routeTable', 'issuesColumn') ? `<td class="${r.issues > 0 ? 'issue-cell' : ''}">${r.issues}</td>` : ''}
           </tr>`,
       )
       .join('')
@@ -1005,15 +1014,15 @@ const browser = await puppeteer.launch({
       .map(
         (o) => `
           <tr>
-            <td>${o.name}</td>
-            <td>${o.patrols}</td>
-            <td class="${o.issues > 0 ? 'issue-cell' : ''}">${o.issues}</td>
+            ${isItemOn('operatorTable', 'operatorColumn') ? `<td>${esc(o.name)}</td>` : ''}
+            ${isItemOn('operatorTable', 'patrolsColumn') ? `<td>${o.patrols}</td>` : ''}
+            ${isItemOn('operatorTable', 'issuesColumn') ? `<td class="${o.issues > 0 ? 'issue-cell' : ''}">${o.issues}</td>` : ''}
           </tr>`,
       )
       .join('')
 
     let logoTag = ''
-    if (isOn('header')) {
+    if (isOn('header') && isItemOn('header', 'organizationLogo')) {
       try {
         const logoB64 = fs
           .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
@@ -1039,119 +1048,88 @@ const browser = await puppeteer.launch({
     // ---- Assemble the body from the summary report builder's layout: one
     // renderer per component, placed in the builder's rows with its saved
     // width/height. Real data only -- everything below comes from `jobs`.
-    const headerHtml = `<div class="header">
+    const headerHasTitle = isItemOn('header', 'reportTitle')
+    const headerHasGeneratedTime = isItemOn('header', 'generatedTime')
+    const showSitesMeta =
+      isItemOn('header', 'sitesCovered') && (!singleSite || !headerHasTitle)
+    const headerHasMetadata =
+      showSitesMeta ||
+      isItemOn('header', 'operatorsCovered') ||
+      (!!earliestDate && !!latestDate && isItemOn('header', 'reportPeriod'))
+    const headerLogoOnly = !!logoTag && !headerHasTitle && !headerHasGeneratedTime && !headerHasMetadata
+    const headerHtml = `<div class="header${headerLogoOnly ? ' logo-only' : ''}">
           ${logoTag}
-          <h1>${singleSite ? `${esc(siteNames[0])} — Patrol Summary` : 'Patrol Summary Report'}</h1>
-          <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
+          ${headerHasTitle ? `<h1>${singleSite && isItemOn('header', 'sitesCovered') ? `${esc(siteNames[0])} — Patrol Summary` : 'Patrol Summary Report'}</h1>` : ''}
+          ${isItemOn('header', 'generatedTime') ? `<div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>` : ''}
           <div class="hmeta">
-            ${singleSite ? '' : `<div class="meta-line">Sites: ${esc(siteNames.join(', '))}</div>`}
-            <div class="meta-line">Operators: ${esc(operatorNames.join(', '))}</div>
-            ${
-              earliestDate && latestDate
-                ? `<div class="meta-line">Period: ${earliestDate.toLocaleDateString()} – ${latestDate.toLocaleDateString()}</div>`
-                : ''
-            }
+            ${showSitesMeta ? `<div class="meta-line">Sites: ${esc(siteNames.join(', '))}</div>` : ''}
+            ${isItemOn('header', 'operatorsCovered') ? `<div class="meta-line">Operators: ${esc(operatorNames.join(', '))}</div>` : ''}
+            ${earliestDate && latestDate && isItemOn('header', 'reportPeriod') ? `<div class="meta-line">Period: ${earliestDate.toLocaleDateString()} – ${latestDate.toLocaleDateString()}</div>` : ''}
           </div>
         </div>`
 
-    const statGridHtml = `
-        <div class="stat-grid">
-          <div class="stat-card">
-            <div class="num">${totalPatrols}</div>
-            <div class="lbl">Patrols</div>
-          </div>
-          <div class="stat-card">
-            <div class="num">${completedCount}</div>
-            <div class="lbl">Completed</div>
-          </div>
-          <div class="stat-card">
-            <div class="num">${totalCheckpoints}</div>
-            <div class="lbl">Checkpoints</div>
-          </div>
-          <div class="stat-card issues">
-            <div class="num">${totalIssues}</div>
-            <div class="lbl">Issues Flagged</div>
-          </div>
-        </div>`
+    const statCardItems = [
+      isItemOn('statGrid', 'patrols') ? `<div class="stat-card"><div class="num">${totalPatrols}</div><div class="lbl">Patrols</div></div>` : '',
+      isItemOn('statGrid', 'completed') ? `<div class="stat-card"><div class="num">${completedCount}</div><div class="lbl">Completed</div></div>` : '',
+      isItemOn('statGrid', 'checkpoints') ? `<div class="stat-card"><div class="num">${totalCheckpoints}</div><div class="lbl">Checkpoints</div></div>` : '',
+      isItemOn('statGrid', 'issuesFlagged') ? `<div class="stat-card issues"><div class="num">${totalIssues}</div><div class="lbl">Issues Flagged</div></div>` : '',
+    ].filter(Boolean)
+    const statCards = statCardItems.join('')
+    const statGridHtml = statCards
+      ? `<div class="stat-grid" style="grid-template-columns:repeat(${statCardItems.length},minmax(0,1fr))">${statCards}</div>`
+      : ''
 
-    const outcomesHtml = `
-          <div class="chart-card donut">
-            <h3>Checkpoint Outcomes</h3>
-            ${donutSvg}
-            <div class="chart-legend">
-              <span><span class="dot" style="background:#2e9e6b"></span>Clear (${clearResults})</span>
-              <span><span class="dot" style="background:#cf5b5b"></span>Issues (${totalIssues})</span>
-            </div>
-          </div>`
-    const issuesHtml = `
-          <div class="chart-card">
-            <h3>Issues by ${singleSite ? 'Route' : 'Site'}</h3>
-            ${barSvg}
-          </div>`
-    const trendHtml = `
-          <div class="chart-card">
-            <h3>Issues Over Time</h3>
-            ${trendSvg}
-          </div>`
-    const shiftHtml = `
-          <div class="chart-card">
-            <h3>Issues by Shift</h3>
-            ${shiftSvg}
-            <div class="shift-stats">
-              <span><strong>Night (8PM–8AM):</strong> ${shiftTally.night.issues} of ${shiftTally.night.total} checkpoints (${shiftRate(shiftTally.night)}%)</span>
-              <span><strong>Morning (8AM–8PM):</strong> ${shiftTally.morning.issues} of ${shiftTally.morning.total} checkpoints (${shiftRate(shiftTally.morning)}%)</span>
-            </div>
-          </div>`
+    const outcomeLegendItems = [
+      isItemOn('outcomesChart', 'clearLegend') ? `<span><span class="dot" style="background:#2e9e6b"></span>Clear (${clearResults})</span>` : '',
+      isItemOn('outcomesChart', 'issuesLegend') ? `<span><span class="dot" style="background:#cf5b5b"></span>Issues (${totalIssues})</span>` : '',
+    ].filter(Boolean).join('')
+    const outcomesInner = `${isItemOn('outcomesChart', 'chartTitle') ? '<h3>Checkpoint Outcomes</h3>' : ''}${isItemOn('outcomesChart', 'chartVisual') ? donutSvg : ''}${outcomeLegendItems ? `<div class="chart-legend">${outcomeLegendItems}</div>` : ''}`
+    const outcomesHtml = outcomesInner ? `<div class="chart-card donut">${outcomesInner}</div>` : ''
+    const issuesInner = `${isItemOn('issuesChart', 'chartTitle') ? `<h3>Issues by ${singleSite ? 'Route' : 'Site'}</h3>` : ''}${isItemOn('issuesChart', 'chartVisual') ? barSvg : ''}`
+    const issuesHtml = issuesInner ? `<div class="chart-card">${issuesInner}</div>` : ''
+    const trendInner = `${isItemOn('trendChart', 'chartTitle') ? '<h3>Issues Over Time</h3>' : ''}${isItemOn('trendChart', 'chartVisual') ? trendSvg : ''}`
+    const trendHtml = trendInner ? `<div class="chart-card">${trendInner}</div>` : ''
+    const shiftStats = [
+      isItemOn('shiftChart', 'nightShiftStats') ? `<span><strong>Night (8PM–8AM):</strong> ${shiftTally.night.issues} of ${shiftTally.night.total} checkpoints (${shiftRate(shiftTally.night)}%)</span>` : '',
+      isItemOn('shiftChart', 'morningShiftStats') ? `<span><strong>Morning (8AM–8PM):</strong> ${shiftTally.morning.issues} of ${shiftTally.morning.total} checkpoints (${shiftRate(shiftTally.morning)}%)</span>` : '',
+    ].filter(Boolean).join('')
+    const shiftInner = `${isItemOn('shiftChart', 'chartTitle') ? '<h3>Issues by Shift</h3>' : ''}${isItemOn('shiftChart', 'chartVisual') ? shiftSvg : ''}${shiftStats ? `<div class="shift-stats">${shiftStats}</div>` : ''}`
+    const shiftHtml = shiftInner ? `<div class="chart-card">${shiftInner}</div>` : ''
 
-    const routeTableHtml = singleSite
-      ? `
-        <div>
-        <h2>By Route</h2>
-        <table>
-          <thead>
-            <tr><th>Route</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
-          </thead>
-          <tbody>${routeRows}</tbody>
-        </table>
-        </div>`
-      : `
-        <div>
-        <h2>By Site</h2>
-        <table>
-          <thead>
-            <tr><th>Site</th><th>Patrols</th><th>Checkpoints</th><th>Issues</th></tr>
-          </thead>
-          <tbody>${siteRows}</tbody>
-        </table>
-        </div>`
+    const routeTableHeaders = [
+      isItemOn('routeTable', 'nameColumn') ? `<th>${singleSite ? 'Route' : 'Site'}</th>` : '',
+      isItemOn('routeTable', 'patrolsColumn') ? '<th>Patrols</th>' : '',
+      isItemOn('routeTable', 'checkpointsColumn') ? '<th>Checkpoints</th>' : '',
+      isItemOn('routeTable', 'issuesColumn') ? '<th>Issues</th>' : '',
+    ].join('')
+    const routeTableTitle = singleSite ? 'By Route' : 'By Site'
+    const routeTableHtml = hasVisibleItems('routeTable')
+      ? `<div>${isItemOn('routeTable', 'tableTitle') ? `<h2>${routeTableTitle}</h2>` : ''}<table><thead><tr>${routeTableHeaders}</tr></thead><tbody>${singleSite ? routeRows : siteRows}</tbody></table></div>`
+      : ''
 
-    const operatorTableHtml = `
-        <div>
-        <h2>By Operator</h2>
-        <table>
-          <thead>
-            <tr><th>Operator</th><th>Patrols</th><th>Issues</th></tr>
-          </thead>
-          <tbody>${operatorRows}</tbody>
-        </table>
-        </div>`
+    const operatorTableHeaders = [
+      isItemOn('operatorTable', 'operatorColumn') ? '<th>Operator</th>' : '',
+      isItemOn('operatorTable', 'patrolsColumn') ? '<th>Patrols</th>' : '',
+      isItemOn('operatorTable', 'issuesColumn') ? '<th>Issues</th>' : '',
+    ].join('')
+    const operatorTableHtml = hasVisibleItems('operatorTable')
+      ? `<div>${isItemOn('operatorTable', 'tableTitle') ? '<h2>By Operator</h2>' : ''}<table><thead><tr>${operatorTableHeaders}</tr></thead><tbody>${operatorRows}</tbody></table></div>`
+      : ''
 
-    const jobsTableHtml = `
-        <div>
-        <h2>Included Patrols</h2>
-        <table>
-          <thead>
-            <tr>
-              ${singleSite ? '' : '<th>Site</th>'}
-              <th>Route</th><th>Operator</th><th>Completed</th><th>Checkpoints</th><th>Issues</th>
-            </tr>
-          </thead>
-          <tbody>${jobRows}</tbody>
-        </table>
-        </div>`
+    const jobsTableHeaders = [
+      !singleSite && isItemOn('jobsTable', 'siteColumn') ? '<th>Site</th>' : '',
+      isItemOn('jobsTable', 'routeColumn') ? '<th>Route</th>' : '',
+      isItemOn('jobsTable', 'operatorColumn') ? '<th>Operator</th>' : '',
+      isItemOn('jobsTable', 'completedColumn') ? '<th>Completed</th>' : '',
+      isItemOn('jobsTable', 'checkpointsColumn') ? '<th>Checkpoints</th>' : '',
+      isItemOn('jobsTable', 'issuesColumn') ? '<th>Issues</th>' : '',
+    ].join('')
+    const jobsTableHtml = hasVisibleItems('jobsTable')
+      ? `<div>${isItemOn('jobsTable', 'tableTitle') ? '<h2>Included Patrols</h2>' : ''}<table><thead><tr>${jobsTableHeaders}</tr></thead><tbody>${jobRows}</tbody></table></div>`
+      : ''
 
     const componentHtml: Record<string, string> = {
-      header: headerHtml,
+      header: hasVisibleItems('header') ? headerHtml : '',
       statGrid: statGridHtml,
       outcomesChart: outcomesHtml,
       issuesChart: issuesHtml,
@@ -1176,6 +1154,7 @@ const browser = await puppeteer.launch({
         body { margin: 0; padding: 32px; color: #011f4b; }
         ${LAYOUT_CSS}
         .header { position: relative; border-bottom: 3px solid #011f4b; padding-bottom: 16px; }
+        .header.logo-only { min-height: 70px; }
         .header h1 { margin: 0 0 4px; font-size: 24px; }
         .header .sub { color: #5f7488; font-size: 13px; }
         .header .logo { position: absolute; top: 0; right: 0; height: 54px; width: auto; }
@@ -1275,37 +1254,67 @@ const browser = await puppeteer.launch({
     const isCpRow = (row: ReportTemplateField[]) =>
       row.some((f) => CP_KEYS.includes(f.key))
 
-    let logoTag = ''
-    try {
-      const logoB64 = fs
-        .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
-        .toString('base64')
-      logoTag = `<img class="logo" src="data:image/png;base64,${logoB64}" />`
-    } catch {
-      logoTag = ''
+    const optionEnabled = (field: ReportTemplateField, key: string) =>
+      field.options?.[key] !== false
+
+    // ---- once-per-report component renderers ----
+    const headerHtml = (field: ReportTemplateField) => {
+      const content: string[] = []
+      let includedLogo = false
+      const includeTitle = optionEnabled(field, 'reportTitle')
+      const includeGeneratedTime = optionEnabled(field, 'generatedTime')
+      if (optionEnabled(field, 'organizationLogo')) {
+        try {
+          const logoB64 = fs
+            .readFileSync(join(process.cwd(), 'assets', 'logo.png'))
+            .toString('base64')
+          content.push(`<img class="logo" src="data:image/png;base64,${logoB64}" />`)
+          includedLogo = true
+        } catch {
+          // A missing logo should not prevent the rest of the report rendering.
+        }
+      }
+      if (includeTitle) {
+        content.push('<h1>Security Patrol Report</h1>')
+      }
+      if (includeGeneratedTime) {
+        content.push(`<div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>`)
+      }
+      if (content.length === 0) return ''
+      const logoOnly = includedLogo && !includeTitle && !includeGeneratedTime
+      return `<div class="header${logoOnly ? ' logo-only' : ''}">${content.join('')}</div>`
     }
 
-    // ---- once-per-report components ----
-    const headerHtml = `<div class="header">
-          ${logoTag}
-          <h1>Security Patrol Report</h1>
-          <div class="sub">Virtual Patrol · Generated ${new Date().toLocaleString()}</div>
-        </div>`
-
-    const patrolSummaryHtml = `<div>
-          <div class="meta">
-            <div><span class="label">Site</span><br>${esc(job.route.site.name)}</div>
-            <div><span class="label">Route</span><br>${esc(job.route.name)}</div>
-            <div><span class="label">Operator</span><br>${esc(job.operator.fullName)}</div>
-            <div><span class="label">Status</span><br>${esc(job.status)}</div>
-            <div><span class="label">Start Time</span><br>${fmt(job.startedAt)}</div>
-            <div><span class="label">End Time</span><br>${fmt(job.completedAt)}</div>
-            <div><span class="label">Checkpoints</span><br>${job.route.checkpoints.length}</div>
-          </div>
-          <div class="issues-banner">
-            ${issues.length ? `⚠ ${issues.length} issue(s) flagged during this patrol` : '✓ All checkpoints cleared — no issues flagged'}
-          </div>
-        </div>`
+    const patrolSummaryHtml = (field: ReportTemplateField) => {
+      const meta: string[] = []
+      if (optionEnabled(field, 'site')) {
+        meta.push(`<div><span class="label">Site</span><br>${esc(job.route.site.name)}</div>`)
+      }
+      if (optionEnabled(field, 'route')) {
+        meta.push(`<div><span class="label">Route</span><br>${esc(job.route.name)}</div>`)
+      }
+      if (optionEnabled(field, 'operator')) {
+        meta.push(`<div><span class="label">Operator</span><br>${esc(job.operator.fullName)}</div>`)
+      }
+      if (optionEnabled(field, 'status')) {
+        meta.push(`<div><span class="label">Status</span><br>${esc(job.status)}</div>`)
+      }
+      if (optionEnabled(field, 'startTime')) {
+        meta.push(`<div><span class="label">Start Time</span><br>${fmt(job.startedAt)}</div>`)
+      }
+      if (optionEnabled(field, 'endTime')) {
+        meta.push(`<div><span class="label">End Time</span><br>${fmt(job.completedAt)}</div>`)
+      }
+      if (optionEnabled(field, 'checkpointCount')) {
+        meta.push(`<div><span class="label">Checkpoints</span><br>${job.route.checkpoints.length}</div>`)
+      }
+      const metaHtml = meta.length ? `<div class="meta">${meta.join('')}</div>` : ''
+      const issuesHtml = optionEnabled(field, 'issuesBanner')
+        ? `<div class="issues-banner">${issues.length ? `⚠ ${issues.length} issue(s) flagged during this patrol` : '✓ All checkpoints cleared — no issues flagged'}</div>`
+        : ''
+      if (!metaHtml && !issuesHtml) return ''
+      return `<div>${metaHtml}${issuesHtml}</div>`
+    }
 
     // ---- per-checkpoint components ----
     const checkpointHtml = (
@@ -1316,18 +1325,24 @@ const browser = await puppeteer.launch({
       const result = resultByCp.get(cp.id)
       const flagged = !!result && !result.allClear
       switch (f.key) {
-        case 'checkpointCard':
-          return `<div class="cp-head">
-              <span class="cp-num">${i + 1}</span>
-              <div>
-                <strong>${esc(cp.camera.name)}</strong>
-                <span class="cp-loc">${esc(cp.camera.location || '')}</span>
-              </div>
-              <span class="cp-status ${flagged ? 's-fail' : 's-ok'}">
-                ${flagged ? 'ISSUE FLAGGED' : 'ALL CLEAR'}
-              </span>
-            </div>`
+        case 'checkpointCard': {
+          const pieces: string[] = []
+          if (optionEnabled(f, 'checkpointNumber')) {
+            pieces.push(`<span class="cp-num">${i + 1}</span>`)
+          }
+          if (optionEnabled(f, 'cameraName') || optionEnabled(f, 'location')) {
+            pieces.push(`<div>
+              ${optionEnabled(f, 'cameraName') ? `<strong>${esc(cp.camera.name)}</strong>` : ''}
+              ${optionEnabled(f, 'location') ? `<span class="cp-loc">${esc(cp.camera.location || '')}</span>` : ''}
+            </div>`)
+          }
+          if (optionEnabled(f, 'resultStatus')) {
+            pieces.push(`<span class="cp-status ${flagged ? 's-fail' : 's-ok'}">${flagged ? 'ISSUE FLAGGED' : 'ALL CLEAR'}</span>`)
+          }
+          return pieces.length ? `<div class="cp-head">${pieces.join('')}</div>` : ''
+        }
         case 'evidence': {
+          if (!optionEnabled(f, 'screenshot')) return ''
           let imgTag = '<div class="noimg">No screenshot</div>'
           if (result?.screenshotPath) {
             
@@ -1346,6 +1361,9 @@ const browser = await puppeteer.launch({
           return `<div class="cp-shot">${imgTag}</div>`
         }
         case 'checklist': {
+          const showName = optionEnabled(f, 'checklistName')
+          const showResults = optionEnabled(f, 'checklistResults')
+          if (!showName && !showResults) return ''
           const state = (result?.checklistState as any[]) || []
           const items =
             state.length > 0
@@ -1361,15 +1379,19 @@ const browser = await puppeteer.launch({
                   .map((it) => `<li>• ${esc(it.label)}</li>`)
                   .join('')
           return `<div class="cp-check">
-                <p class="cp-cl-name">${esc(cp.checklistTemplate.name)}</p>
-                <ul>${items}</ul>
+                ${showName ? `<p class="cp-cl-name">${esc(cp.checklistTemplate.name)}</p>` : ''}
+                ${showResults ? `<ul>${items}</ul>` : ''}
               </div>`
         }
-        case 'issueStatus':
+        case 'issueStatus': {
+          const showIssue = optionEnabled(f, 'issueFlag')
+          const showComment = optionEnabled(f, 'operatorComment') && !!result?.comment
+          if (!showIssue && !showComment) return ''
           return `<div class="cp-issue ${flagged ? 'bad' : 'ok'}">
-                <strong>${flagged ? '⚠ Issue flagged' : '✓ No issue flagged'}</strong>
-                ${result?.comment ? `<div class="cp-comment"><strong>Comment:</strong> ${esc(result.comment)}</div>` : ''}
+                ${showIssue ? `<strong>${flagged ? '⚠ Issue flagged' : '✓ No issue flagged'}</strong>` : ''}
+                ${showComment ? `<div class="cp-comment"><strong>Comment:</strong> ${esc(result?.comment)}</div>` : ''}
               </div>`
+        }
         default:
           return ''
       }
@@ -1377,39 +1399,94 @@ const browser = await puppeteer.launch({
 
     const onceHtml = (f: ReportTemplateField) =>
       f.key === 'header'
-        ? headerHtml
+        ? headerHtml(f)
         : f.key === 'patrolSummary'
-          ? patrolSummaryHtml
+          ? patrolSummaryHtml(f)
           : ''
 
     // ---- assemble in the builder's order: rows, bands repeated per checkpoint ----
+    // Checkpoint evidence and checklist are always paired side-by-side in the PDF,
+    // even if a saved builder layout put those two components on separate rows.
+    // The generated PDF groups no more than two checkpoint cards per page.
     const rows = groupIntoRows(layout)
     const parts: string[] = []
+    let checkpointPageCounter = 0
+    const mediaKeys = ['evidence', 'checklist']
+
     for (let r = 0; r < rows.length; ) {
       if (!isCpRow(rows[r])) {
         parts.push(renderRow(rows[r], onceHtml))
         r++
         continue
       }
+
       let end = r
       while (end < rows.length && isCpRow(rows[end])) end++
       const band = rows.slice(r, end)
+      const checkpointFields = band.flat().filter((f) => CP_KEYS.includes(f.key))
+      const evidenceField = checkpointFields.find((f) => f.key === 'evidence')
+      const checklistField = checkpointFields.find((f) => f.key === 'checklist')
+      const checkpointCards: string[] = []
+
       job.route.checkpoints.forEach((cp, i) => {
-        const flagged = (() => {
-          const res = resultByCp.get(cp.id)
-          return !!res && !res.allClear
-        })()
+        const res = resultByCp.get(cp.id)
+        const flagged = !!res && !res.allClear
+        let mediaRowRendered = false
+
         const inner = band
           .map((row) => {
             const cpItems = row.filter((f) => CP_KEYS.includes(f.key))
-            const html = renderRow(cpItems, (f) => checkpointHtml(f, cp, i))
-            if (!html) return ''
-            const headOnly = cpItems.every((f) => f.key === 'checkpointCard')
-            return `<div class="${headOnly ? 'cp-headrow' : 'cp-pad'}">${html}</div>`
+            if (!cpItems.length) return ''
+
+            const rowHasMedia = cpItems.some((f) => mediaKeys.includes(f.key))
+            if (!rowHasMedia) {
+              const html = renderRow(cpItems, (f) => checkpointHtml(f, cp, i))
+              if (!html) return ''
+              const headOnly = cpItems.every((f) => f.key === 'checkpointCard')
+              return `<div class="${headOnly ? 'cp-headrow' : 'cp-pad'}">${html}</div>`
+            }
+
+            // Render the evidence/checklist pair once, at the first position either
+            // component appears in the saved layout. Any other components that share
+            // that row keep their normal rendering.
+            const otherItems = cpItems.filter((f) => !mediaKeys.includes(f.key))
+            const otherHtml = otherItems.length
+              ? renderRow(otherItems, (f) => checkpointHtml(f, cp, i))
+              : ''
+            const otherWrapperClass =
+              otherItems.length > 0 && otherItems.every((f) => f.key === 'checkpointCard')
+                ? 'cp-headrow'
+                : 'cp-pad'
+            if (mediaRowRendered) {
+              return otherHtml
+                ? `<div class="${otherWrapperClass}">${otherHtml}</div>`
+                : ''
+            }
+            mediaRowRendered = true
+
+            const pairedFields = [
+              ...(evidenceField
+                ? [{ ...evidenceField, width: checklistField ? 40 : 100 }]
+                : []),
+              ...(checklistField
+                ? [{ ...checklistField, width: evidenceField ? 60 : 100 }]
+                : []),
+            ]
+            const mediaHtml = renderRow(pairedFields, (f) => checkpointHtml(f, cp, i))
+              .replace('class="lr"', 'class="lr cp-media-row"')
+            return `${otherHtml ? `<div class="${otherWrapperClass}">${otherHtml}</div>` : ''}${mediaHtml ? `<div class="cp-pad cp-media-pad">${mediaHtml}</div>` : ''}`
           })
           .join('')
-        if (inner) parts.push(`<div class="cp ${flagged ? 'flagged' : ''}">${inner}</div>`)
+
+        if (inner) checkpointCards.push(`<div class="cp ${flagged ? 'flagged' : ''}">${inner}</div>`)
       })
+
+      // Each wrapper contains at most two screenshot/checklist checkpoint cards.
+      // Explicitly start later wrappers on new PDF pages to enforce the limit.
+      for (let i = 0; i < checkpointCards.length; i += 2) {
+        const pageClass = checkpointPageCounter++ === 0 ? 'cp-page' : 'cp-page cp-page-next'
+        parts.push(`<div class="${pageClass}">${checkpointCards.slice(i, i + 2).join('\n')}</div>`)
+      }
       r = end
     }
 
@@ -1426,13 +1503,19 @@ const browser = await puppeteer.launch({
         .meta div { padding: 6px 0; border-bottom: 1px solid #e5e5e5; }
         .meta .label { color: #5f7488; font-size: 11px; text-transform: uppercase; }
         .issues-banner { background: ${issues.length ? '#fdeaea' : '#eafaf1'}; color: ${issues.length ? '#cf5b5b' : '#2e9e6b'}; padding: 12px 16px; border-radius: 8px; font-weight: bold; }
-        .cp { border: 1px solid #d8e2ec; border-radius: 10px; margin-bottom: 16px; overflow: hidden; page-break-inside: avoid; }
+        .cp-page { break-inside: avoid; page-break-inside: avoid; }
+        .cp-page-next { break-before: page; page-break-before: always; }
+        .cp { border: 1px solid #d8e2ec; border-radius: 10px; margin-bottom: 16px; overflow: hidden; page-break-inside: avoid; break-inside: avoid; }
         .cp.flagged { border-color: #cf5b5b; }
         .cp .lr { margin-bottom: 0; }
-        .cp-pad { padding: 16px; }
+        .cp-pad { padding: 16px; min-width: 0; }
         .cp-pad + .cp-pad { padding-top: 0; }
         .cp-headrow .lr { margin: 0; }
         .cp-headrow .li { padding: 0; }
+        .cp-media-row { align-items: stretch; }
+        .cp-media-row .li { min-width: 0; }
+        .cp-media-row .li-in { min-height: 100%; }
+        .cp-shot { min-width: 0; display: flex; align-items: flex-start; }
         .cp-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f4f7fa; border-bottom: 1px solid #d8e2ec; }
         .cp-num { width: 26px; height: 26px; background: #011f4b; color: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; }
         .cp-head strong { display: block; font-size: 14px; }
@@ -1440,7 +1523,7 @@ const browser = await puppeteer.launch({
         .cp-status { margin-left: auto; font-size: 11px; font-weight: bold; padding: 4px 10px; border-radius: 12px; }
         .s-ok { background: #eafaf1; color: #2e9e6b; }
         .s-fail { background: #fdeaea; color: #cf5b5b; }
-        .cp-shot img { width: 100%; border-radius: 8px; border: 1px solid #d8e2ec; }
+        .cp-shot img { display: block; width: 100%; max-height: 280px; object-fit: contain; object-position: top center; border-radius: 8px; border: 1px solid #d8e2ec; }
         .noimg { width: 100%; min-height: 146px; background: #f4f7fa; border-radius: 8px; display: flex; align-items: center; justify-content: center; color:#5f7488; font-size: 12px; }
         .cp-cl-name { font-weight: bold; margin: 0 0 8px; font-size: 13px; }
         .cp-check ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.7; }

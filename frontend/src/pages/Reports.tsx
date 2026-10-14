@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../auth/AuthContext'
 import { FileText, Download, X, FileArchive, FileStack, FileCog, BarChart3, LayoutTemplate } from 'lucide-react'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
@@ -21,7 +22,12 @@ type ReportsTab =
   | 'templates'
 
 export default function Reports() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
   const [tab, setTab] = useState<ReportsTab>('list')
+  // Non-admin users only have access to the generated reports view. The backend
+  // also enforces ADMIN-only access on the report-template APIs.
+  const visibleTab: ReportsTab = isAdmin ? tab : 'list'
   const [builderTemplateId, setBuilderTemplateId] = useState<
     string | undefined
   >(undefined)
@@ -35,6 +41,7 @@ export default function Reports() {
   const [downloading, setDownloading] = useState<'pdf' | 'zip' | null>(null)
   const [downloadError, setDownloadError] = useState('')
   const [view, setView] = useState<ViewMode>('list')
+
 
   useEffect(() => {
     patrolApi
@@ -105,63 +112,67 @@ export default function Reports() {
     <div className="reports-page">
       <div className="reports-tabs">
         <button
-          className={tab === 'list' ? 'active' : ''}
+          className={visibleTab === 'list' ? 'active' : ''}
           onClick={() => setTab('list')}
         >
           <FileText size={15} /> Generated Reports
         </button>
-        <button
-          className={tab === 'builder' ? 'active' : ''}
-          onClick={() => {
-            setBuilderTemplateId(undefined)
-            setTab('builder')
-          }}
-        >
-          <FileCog size={15} /> Report Builder
-        </button>
-        <button
-          className={tab === 'templates' ? 'active' : ''}
-          onClick={() => setTab('templates')}
-        >
-          <FileStack size={15} /> Templates
-        </button>
-        <button
-          className={tab === 'summary' ? 'active' : ''}
-          onClick={() => setTab('summary')}
-        >
-          <BarChart3 size={15} /> Report Summary
-        </button>
-        <button
-          className={tab === 'summary-builder' ? 'active' : ''}
-          onClick={() => {
-            setSummaryBuilderTemplateId(undefined)
-            setTab('summary-builder')
-          }}
-        >
-          <LayoutTemplate size={15} /> Summary Report Builder
-        </button>
-        <button
-          className={tab === 'summary-templates' ? 'active' : ''}
-          onClick={() => setTab('summary-templates')}
-        >
-          <FileStack size={15} /> Summary Templates
-        </button>
+        {isAdmin && (
+          <>
+            <button
+              className={tab === 'builder' ? 'active' : ''}
+              onClick={() => {
+                setBuilderTemplateId(undefined)
+                setTab('builder')
+              }}
+            >
+              <FileCog size={15} /> Report Builder
+            </button>
+            <button
+              className={tab === 'templates' ? 'active' : ''}
+              onClick={() => setTab('templates')}
+            >
+              <FileStack size={15} /> Templates
+            </button>
+            <button
+              className={tab === 'summary' ? 'active' : ''}
+              onClick={() => setTab('summary')}
+            >
+              <BarChart3 size={15} /> Report Summary
+            </button>
+            <button
+              className={tab === 'summary-builder' ? 'active' : ''}
+              onClick={() => {
+                setSummaryBuilderTemplateId(undefined)
+                setTab('summary-builder')
+              }}
+            >
+              <LayoutTemplate size={15} /> Summary Report Builder
+            </button>
+            <button
+              className={tab === 'summary-templates' ? 'active' : ''}
+              onClick={() => setTab('summary-templates')}
+            >
+              <FileStack size={15} /> Summary Templates
+            </button>
+          </>
+        )}
       </div>
 
-      {tab === 'builder' ? (
+      {visibleTab === 'builder' ? (
         <ReportBuilder editTemplateId={builderTemplateId} />
-      ) : tab === 'templates' ? (
+      ) : visibleTab === 'templates' ? (
         <Templates
           onEdit={(id) => {
             setBuilderTemplateId(id)
             setTab('builder')
           }}
         />
-      ) : tab === 'summary' ? (
+      ) : visibleTab === 'summary' ? (
         <ReportSummary jobs={jobs} loading={loading} error={error} />
-      ) : tab === 'summary-builder' ? (
+      ) : visibleTab === 'summary-builder' ? (
         <SummaryReportBuilder templateId={summaryBuilderTemplateId} />
-      ) : tab === 'summary-templates' ? (
+      ) : visibleTab === 'summary-templates' ? (
         <SummaryTemplates
           onEdit={(id) => {
             setSummaryBuilderTemplateId(id)

@@ -8,6 +8,7 @@ import {
   REPORT_FIELD_KEYS,
   ReportTemplateField,
   normalizeSavedFields,
+  normalizeReportFieldOptions,
 } from './report-fields';
 
 const DEFAULT_KEY = 'default';
@@ -48,6 +49,7 @@ export class ReportTemplateService {
       height: f.height,
       width: f.width,
       row: f.row,
+      options: normalizeReportFieldOptions(f.key, f.options),
     }));
   }
 
@@ -106,14 +108,22 @@ export class ReportTemplateService {
         });
 
     const saved = row?.fields as unknown as ReportTemplateField[] | undefined;
-    if (!saved) return DEFAULT_REPORT_FIELDS;
+    if (!saved) {
+      return DEFAULT_REPORT_FIELDS.map((f) => ({
+        ...f,
+        options: normalizeReportFieldOptions(f.key, f.options),
+      }));
+    }
 
     const normalized = normalizeSavedFields(saved);
     const knownKeys = new Set(normalized.map((f) => f.key));
     const missing = REPORT_FIELD_DEFS.filter((f) => !knownKeys.has(f.key)).map(
-      (f) => ({ key: f.key, enabled: true }),
+      (f) => ({ key: f.key, enabled: true, options: normalizeReportFieldOptions(f.key) }),
     );
-    return [...normalized, ...missing];
+    return [...normalized, ...missing].map((f) => ({
+      ...f,
+      options: normalizeReportFieldOptions(f.key, f.options),
+    }));
   }
 
   // ---- Create a new named template (starts from defaults) ----
@@ -165,6 +175,7 @@ export class ReportTemplateService {
       ...(f.height !== undefined ? { height: f.height } : {}),
       ...(f.width !== undefined ? { width: f.width } : {}),
       ...(f.row !== undefined ? { row: f.row } : {}),
+      options: normalizeReportFieldOptions(f.key, f.options),
     }));
     const jsonFields = fields as unknown as Prisma.InputJsonValue;
 

@@ -8,13 +8,54 @@
 }
 
 .detail-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 24px; /* Round the outer site drawer without changing its layout. */
   width: 480px;
   max-width: 90vw;
   height: 100vh;
-  background: var(--white);
+  background: rgba(232, 238, 242, 0.88);
+  -webkit-backdrop-filter: blur(28px) saturate(145%);
+  backdrop-filter: blur(28px) saturate(145%);
+  border-left: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow: -24px 0 64px rgba(42, 54, 66, 0.16);
   display: flex;
   flex-direction: column;
   animation: slide-in 0.22s ease;
+}
+
+/* Soft ambient shapes create the layered, blurred-glass backdrop from the reference. */
+.detail-panel::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: -8%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 7% 12%, rgba(255, 255, 255, 0.82) 0%, transparent 31%),
+    radial-gradient(ellipse at 88% 24%, rgba(173, 195, 207, 0.64) 0%, transparent 34%),
+    radial-gradient(ellipse at 72% 68%, rgba(202, 215, 219, 0.68) 0%, transparent 32%),
+    radial-gradient(ellipse at 14% 88%, rgba(220, 226, 224, 0.86) 0%, transparent 30%),
+    linear-gradient(145deg, rgba(248, 250, 251, 0.54), rgba(188, 202, 211, 0.28));
+  filter: blur(12px);
+  transform: scale(1.03);
+}
+
+.detail-panel::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.28), transparent 42%, rgba(117, 143, 158, 0.08));
+}
+
+.detail-head,
+.detail-body,
+.detail-foot {
+  position: relative;
+  z-index: 1;
 }
 
 @keyframes slide-in {
@@ -30,9 +71,13 @@
 
 .detail-head {
   position: relative;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.70);
   padding: 22px 24px 18px;
   flex: none;
+  background: rgba(248, 250, 252, 0.48);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  backdrop-filter: blur(20px) saturate(135%);
+  box-shadow: 0 8px 26px rgba(51, 63, 72, 0.05);
 }
 
 .detail-close {
@@ -135,9 +180,11 @@
 }
 
 .detail-stat {
-  background: var(--white);
+  background: rgba(255, 255, 255, 0.58);
   padding: 10px 8px;
   text-align: center;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .detail-stat strong {
@@ -157,7 +204,12 @@
 .detail-body {
   padding: 18px 24px 20px;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
   flex: 1;
+  min-height: 0;
+  background: rgba(246, 249, 250, 0.10);
+  scrollbar-gutter: stable;
 }
 
 .detail-error {
@@ -190,12 +242,15 @@
 }
 
 .acc-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
   margin-bottom: 10px;
   overflow: hidden;
-  background: var(--white);
-  transition: border-color 0.15s;
+  background: rgba(249, 251, 252, 0.70);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  backdrop-filter: blur(18px) saturate(135%);
+  box-shadow: 0 9px 28px rgba(51, 63, 72, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 
 .acc-card-head {
@@ -209,7 +264,7 @@
 }
 
 .acc-card-head:hover {
-  background: var(--bg);
+  background: rgba(255, 255, 255, 0.40);
 }
 
 .acc-card-head-left {
@@ -276,7 +331,8 @@
 
 .acc-card-body-content {
   padding: 14px 14px 16px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(82, 102, 122, 0.14);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 /* ---------- Sticky footer ---------- */
@@ -284,14 +340,17 @@
 .detail-foot {
   position: sticky;
   bottom: 0;
-  background: var(--white);
-  border-top: 1px solid var(--border);
+  background: rgba(248, 250, 252, 0.78);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  backdrop-filter: blur(22px) saturate(145%);
+  border-top: 1px solid rgba(255, 255, 255, 0.74);
   padding: 14px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex: none;
+  box-shadow: 0 -8px 24px rgba(51, 63, 72, 0.05);
 }
 
 .detail-foot-status {
@@ -562,4 +621,41 @@
 
 .toggle.on .toggle-knob {
   transform: translateX(16px);
+}
+
+/* ---------- Site panel responsive glass surfaces ---------- */
+@media (max-width: 640px) {
+  .detail-panel {
+    width: 100%;
+    max-width: 100vw;
+    border-left: 0;
+  }
+
+  .detail-head {
+    padding: 18px 18px 14px;
+  }
+
+  .detail-body {
+    padding: 14px 16px 18px;
+  }
+
+  .detail-foot {
+    padding: 12px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .detail-panel {
+    animation: none;
+  }
+
+  .detail-panel::before {
+    filter: blur(6px);
+  }
+
+  .acc-card,
+  .acc-card-body,
+  .chev {
+    transition: none;
+  }
 }

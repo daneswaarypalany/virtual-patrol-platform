@@ -7,6 +7,7 @@ import {
   SUMMARY_REPORT_FIELD_KEYS,
   BLOCK_DEF,
   isBlockKey,
+  normalizeSummaryReportFieldOptions,
   normalizeSavedFields,
   SummaryReportTemplateField,
 } from './summary-report-fields';
@@ -47,6 +48,9 @@ export class SummaryReportTemplateService {
       return {
         ...def,
         enabled: f.enabled,
+        ...(!isBlockKey(f.key)
+          ? { options: normalizeSummaryReportFieldOptions(f.key, f.options) }
+          : {}),
         height: f.height,
         width: f.width,
         row: f.row,
@@ -108,14 +112,24 @@ export class SummaryReportTemplateService {
         });
 
     const saved = row?.fields as unknown as SummaryReportTemplateField[] | undefined;
-    if (!saved) return DEFAULT_SUMMARY_REPORT_FIELDS;
+    if (!saved) {
+      return DEFAULT_SUMMARY_REPORT_FIELDS.map((field) => ({
+        ...field,
+        options: normalizeSummaryReportFieldOptions(field.key),
+      }));
+    }
 
     const normalized = normalizeSavedFields(saved);
     const knownKeys = new Set(normalized.map((f) => f.key));
     const missing = SUMMARY_REPORT_FIELD_DEFS.filter(
       (f) => !knownKeys.has(f.key),
-    ).map((f) => ({ key: f.key, enabled: true }));
-    return [...normalized, ...missing];
+    ).map((f) => ({ key: f.key, enabled: true }) as SummaryReportTemplateField);
+    return [...normalized, ...missing].map((field) => ({
+      ...field,
+      ...(!isBlockKey(field.key)
+        ? { options: normalizeSummaryReportFieldOptions(field.key, field.options) }
+        : {}),
+    }));
   }
 
   async createTemplate(name: string) {
@@ -172,6 +186,9 @@ export class SummaryReportTemplateService {
       ...(f.height !== undefined ? { height: f.height } : {}),
       ...(f.width !== undefined ? { width: f.width } : {}),
       ...(f.row !== undefined ? { row: f.row } : {}),
+      ...(!isBlockKey(f.key)
+        ? { options: normalizeSummaryReportFieldOptions(f.key, f.options) }
+        : {}),
       ...(isBlockKey(f.key)
         ? { variant: f.variant ?? 'text', text: f.text ?? '' }
         : {}),

@@ -534,3 +534,106 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+/* ---- per-component report content options ---- */
+.rb-chip {
+  flex-wrap: wrap;
+}
+
+.rb-component-options {
+  flex: 1 0 100%;
+  width: 100%;
+  min-width: 0;
+  margin-top: 5px;
+  padding-top: 7px;
+  border-top: 1px solid var(--border);
+  cursor: default;
+}
+
+.rb-component-options summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--slate-blue);
+  font-size: 10.5px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.rb-component-options summary::-webkit-details-marker {
+  display: none;
+}
+
+.rb-component-options summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.rb-component-options[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.rb-options-count {
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(100, 151, 177, 0.14);
+  color: var(--slate-blue);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rb-item-option-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px 0 1px;
+}
+
+.rb-item-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rb-item-option input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--blue);
+  cursor: pointer;
+}
+
+.rb-item-option input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.rb-item-option span {
+  overflow-wrap: anywhere;
+}
+
+.rb-block {
+  flex-wrap: wrap;
+}
+
+.rb-block .rb-component-options {
+  order: 5;
+  align-self: stretch;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-component-options summary::after {
+    transition: none;
+  }
+}

@@ -1,0 +1,339 @@
+/* Floating glass dock (collapsed icons <-> expanded menu).
+   Uses the tokens from glass.css so it follows light and dark themes. */
+
+.dock {
+  --tile: 56px;
+  width: calc(var(--tile) + 40px);
+  flex-shrink: 0;
+  position: sticky;
+  top: 16px;
+  height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dock.expanded {
+  width: clamp(220px, 16vw, 260px);
+  align-items: stretch;
+}
+
+/* ---------- header: logo, brand text, expand toggle ---------- */
+
+.dock-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.dock.expanded .dock-head {
+  flex-direction: row;
+  gap: 12px;
+}
+
+.dock-brand { display: none; }
+
+.dock.expanded .dock-brand {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.dock-brand strong,
+.dock-brand span {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;   /* never spill under neighbouring buttons */
+}
+.dock-brand strong {
+  font-size: 15px;
+  color: var(--text);
+}
+.dock-brand span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* `.dock .dock-toggle` outranks the base `.dock-btn` size */
+.dock .dock-toggle {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+}
+
+/* expanded: small round button straddling the dock's right edge, so it
+   never competes with the brand text for space */
+.dock.expanded .dock-toggle {
+  position: absolute;
+  top: 12px;
+  right: -14px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+/* ---------- tile lists ---------- */
+
+.dock-nav {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  /* centre the group vertically, falling back to top-aligned + scroll
+     when there are more tiles than screen height */
+  justify-content: safe center;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* breathing room between the tiles and the scrollbar, and room for the
+     tiles' shadow / hover scale so they are not clipped */
+  padding: 6px 8px;
+  scrollbar-gutter: stable both-edges;   /* equal gutter each side keeps tiles centred */
+}
+
+/* glass.css forces a thin scrollbar on everything with `html:root *`,
+   so this needs the same prefix to style the dock's own scrollbar */
+html:root .dock-nav {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(100, 122, 142, 0.45) transparent;
+}
+.dock-nav::-webkit-scrollbar { width: 6px; }
+.dock-nav::-webkit-scrollbar-track { background: transparent; }
+.dock-nav::-webkit-scrollbar-thumb {
+  background: rgba(100, 122, 142, 0.45);
+  border-radius: 999px;
+}
+
+.dock-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.dock.expanded .dock-nav,
+.dock.expanded .dock-bottom {
+  align-items: stretch;
+}
+
+/* expanded: one-sided gutter so pills line up with the header and bottom rows */
+.dock.expanded .dock-nav {
+  scrollbar-gutter: stable;
+  padding: 6px 14px 6px 8px;
+}
+.dock.expanded .dock-head,
+.dock.expanded .dock-bottom {
+  padding: 0 14px 0 8px;
+}
+
+/* ---------- tile ---------- */
+
+.dock-btn {
+  width: var(--tile);
+  height: var(--tile);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0;
+  border-radius: 18px;
+  border: 1px solid var(--glass-edge);
+  background: var(--white);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.dock-label { display: none; }
+
+.dock.expanded .dock-nav .dock-btn,
+.dock.expanded .dock-bottom .dock-btn {
+  width: 100%;
+  height: 52px;
+  border-radius: 999px;            /* full pill */
+  flex-direction: row-reverse;     /* icon on the right, label on the left */
+  justify-content: space-between;
+  padding: 0 22px 0 24px;
+}
+
+.dock.expanded .dock-label {
+  display: block;
+  flex: 1;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* small, quiet icon like the reference's chevrons */
+.dock.expanded .dock-nav .dock-btn svg,
+.dock.expanded .dock-bottom .dock-btn svg {
+  width: 18px;
+  height: 18px;
+  opacity: 0.55;
+  transition: opacity 0.18s ease;
+}
+.dock.expanded .dock-btn:hover svg,
+.dock.expanded .dock-btn.active svg {
+  opacity: 1;
+}
+
+.dock-btn:hover,
+.dock-btn:focus-visible {
+  background: var(--glass-strong);
+  transform: translateX(2px) scale(1.04);
+}
+
+.dock-btn:active { transform: scale(0.96); }
+
+.dock-btn.active {
+  background: linear-gradient(180deg, var(--p-7) 0%, var(--p-8) 100%);
+  border-color: rgba(255, 255, 255, 0.35);
+  color: #fff;
+  box-shadow:
+    0 8px 20px rgba(51, 63, 72, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.dock-btn.danger { color: var(--status-red); }
+.dock-btn.danger:hover,
+.dock-btn.danger:focus-visible { background: rgba(196, 96, 95, 0.16); }
+
+.dock-logo { background: rgba(255, 255, 255, 0.85); }
+.dock-logo img {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+/* ---------- hover label (collapsed mode only) ---------- */
+
+.dock-tip {
+  position: fixed;
+  z-index: 60;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: var(--glass-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-6px, -50%);
+  transition: opacity 0.14s ease, transform 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dock-tip.visible {
+  opacity: 1;
+  transform: translate(0, -50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dock,
+  .dock-btn,
+  .dock-tip { transition: none; }
+  .dock-btn:hover,
+  .dock-btn:focus-visible { transform: none; }
+}
+
+/* ---------- small screens: bottom bar (always icon-only) ---------- */
+
+@media (max-width: 760px) {
+  html:root .app { padding-bottom: 96px; }
+
+  .dock,
+  .dock.expanded {
+    --tile: 48px;
+    position: fixed;
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    z-index: 40;
+    border-radius: 24px;
+    background: var(--glass-strong);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--glass-shadow);
+  }
+
+  .dock-head { display: none; }
+
+  .dock-nav,
+  .dock.expanded .dock-nav {
+    flex-direction: row;
+    align-items: center;
+    justify-content: safe center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0;
+    scrollbar-gutter: auto;
+  }
+  html:root .dock-nav { scrollbar-width: none; }
+  .dock-nav::-webkit-scrollbar { display: none; }
+
+  .dock-bottom,
+  .dock.expanded .dock-bottom {
+    flex-direction: row;
+    align-items: center;
+    padding: 0;
+  }
+
+  .dock .dock-btn,
+  .dock.expanded .dock-nav .dock-btn,
+  .dock.expanded .dock-bottom .dock-btn {
+    width: var(--tile);
+    height: var(--tile);
+    border-radius: 18px;
+    flex-direction: row;
+    justify-content: center;
+    padding: 0;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .dock .dock-btn.active {
+    background: linear-gradient(180deg, var(--p-7) 0%, var(--p-8) 100%);
+  }
+
+  .dock.expanded .dock-label { display: none; }
+  .dock.expanded .dock-nav .dock-btn svg,
+  .dock.expanded .dock-bottom .dock-btn svg {
+    width: 24px;
+    height: 24px;
+    opacity: 1;
+  }
+  .dock-tip { display: none; }
+}

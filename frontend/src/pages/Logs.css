@@ -1,439 +1,431 @@
-/* =====================================================================
-   Liquid-glass theme  (blue-grey palette)
-   ---------------------------------------------------------------------
-   Imported LAST (see main.tsx). Everything is prefixed with `html:root`
-   so it wins over the page stylesheets regardless of load order.
-   Palette:  #EDEDEE #DFE3E8 #CFD9E2 / #BFCAD9 #A1B3C3 #8A9FB3 /
-             #647A8E #52667A #333F48
-   To make it more/less see-through, change --glass-alpha below.
-   ===================================================================== */
+/* Logs page styles. Shared glass surfaces and theme tokens live in ../glass.css. */
 
-html:root {
-  /* palette */
-  --p-1: #EDEDEE;
-  --p-2: #DFE3E8;
-  --p-3: #CFD9E2;
-  --p-4: #BFCAD9;
-  --p-5: #A1B3C3;
-  --p-6: #8A9FB3;
-  --p-7: #647A8E;
-  --p-8: #52667A;
-  --p-9: #333F48;
-
-  /* map onto the app's existing variable names */
-  --navy: var(--p-9);
-  --navy-hover: var(--p-8);
-  --blue: var(--p-8);
-  --slate-blue: var(--p-6);
-  --sky: var(--p-3);
-  --bg: rgba(191, 202, 217, 0.30);
-  --text: var(--p-9);
-  --text-muted: var(--p-8);
-  --border: rgba(82, 102, 122, 0.18);
-
-  --status-green: #3c9a76;
-  --status-amber: #c99a3f;
-  --status-red: #c4605f;
-
-  /* glass surfaces ("not too transparent": raise alpha for more solid) */
-  --glass-alpha: 0.62;
-  --white: rgba(255, 255, 255, var(--glass-alpha));
-  --glass-strong: rgba(247, 249, 251, 0.86);
-  --glass-edge: rgba(255, 255, 255, 0.70);
-  --glass-shadow:
-    0 8px 28px rgba(51, 63, 72, 0.10),
-    0 1px 2px rgba(51, 63, 72, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.25);
-  --glass-blur: blur(22px) saturate(160%);
-  --glass-radius: 20px;
-  --radius: 14px;
-
-  --on-text: #ffffff;
-  --scrim: rgba(51, 63, 72, 0.30);
-
-  --page-bg:
-    radial-gradient(900px 620px at 6% -4%, rgba(161, 179, 195, 0.60), transparent 62%),
-    radial-gradient(760px 560px at 102% 8%, rgba(191, 202, 217, 0.85), transparent 58%),
-    radial-gradient(900px 700px at 78% 108%, rgba(138, 159, 179, 0.50), transparent 62%),
-    radial-gradient(600px 460px at 18% 96%, rgba(207, 217, 226, 0.90), transparent 60%),
-    linear-gradient(160deg, #EDEDEE 0%, #DFE3E8 48%, #CFD9E2 100%);
-
-  color-scheme: light;
-}
-
-html:root[data-theme='dark'] {
-  --navy: #6F8499;
-  --navy-hover: var(--p-6);
-  --blue: #7F97AD;
-  --slate-blue: var(--p-5);
-  --sky: rgba(138, 159, 179, 0.24);
-  --bg: rgba(0, 0, 0, 0.20);
-  --text: var(--p-1);
-  --text-muted: var(--p-5);
-  --border: rgba(207, 217, 226, 0.14);
-
-  --status-green: #4fbb92;
-  --status-amber: #dcad55;
-  --status-red: #e07f7e;
-
-  --white: rgba(138, 159, 179, 0.16);
-  --glass-strong: rgba(51, 63, 72, 0.88);
-  --glass-edge: rgba(207, 217, 226, 0.22);
-  --glass-shadow:
-    0 10px 32px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.04);
-
-  --on-text: #1b2329;
-  --scrim: rgba(10, 14, 17, 0.50);
-
-  --page-bg:
-    radial-gradient(900px 620px at 6% -4%, rgba(100, 122, 142, 0.45), transparent 62%),
-    radial-gradient(760px 560px at 102% 8%, rgba(82, 102, 122, 0.50), transparent 58%),
-    radial-gradient(900px 700px at 78% 108%, rgba(100, 122, 142, 0.35), transparent 62%),
-    linear-gradient(160deg, #222b32 0%, #29343c 50%, #333F48 100%);
-
-  color-scheme: dark;
-}
-
-/* ---------- ambient background the glass sits on ---------- */
-
-html:root body {
-  background: var(--page-bg);
-  background-attachment: fixed;
+.logs-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   color: var(--text);
 }
 
-html:root .app {
-  background: transparent;
+.logs-page > .logs-muted {
+  align-self: flex-start;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
-html:root ::selection {
-  background: rgba(100, 122, 142, 0.35);
-}
-
-/* thin, quiet scrollbars */
-html:root * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(100, 122, 142, 0.45) transparent;
-}
-
-/* ---------- shell: sidebar + topbar ---------- */
-
-html:root .sidebar,
-html:root[data-theme='dark'] .sidebar {
-  background:
-    linear-gradient(180deg, rgba(100, 122, 142, 0.78) 0%, rgba(51, 63, 72, 0.86) 100%);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 26px;
-  box-shadow:
-    0 14px 40px rgba(51, 63, 72, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
-}
-
-html:root .brand span,
-html:root .nav-title {
-  color: var(--p-4);
-}
-
-html:root .nav-item {
-  color: rgba(237, 237, 238, 0.82);
-  border-radius: 14px;
-}
-
-html:root .nav-item:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
-html:root .nav-item.active {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-  box-shadow:
-    0 4px 14px rgba(0, 0, 0, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.40);
-}
-
-/* the big white "card" around the page becomes transparent so the
-   individual cards float directly on the background */
-html:root .main-content {
-  background: transparent;
-  box-shadow: none;
-  border-radius: 0;
-  overflow: visible;
-}
-
-html:root .topbar {
+.logs-panel {
+  min-width: 0;
+  padding: 20px;
   background: var(--white);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--glass-radius);
-  box-shadow: var(--glass-shadow);
-  margin-bottom: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(51, 63, 72, 0.04);
 }
 
-/* ---------- cards & panels ---------- */
-
-html:root .welcome,
-html:root .stat-card,
-html:root .panel,
-html:root .module-placeholder,
-html:root .active-empty,
-html:root .active-table-wrap,
-html:root .cameras-empty,
-html:root .site-cam-card,
-html:root .checklists-empty,
-html:root .checklist-card,
-html:root .dash-card,
-html:root .dash-panel,
-html:root .custom-range-panel,
-html:root .history-empty,
-html:root .history-card,
-html:root .logs-panel,
-html:root .picker-panel,
-html:root .feed-panel,
-html:root .check-panel,
-html:root .rb-palette,
-html:root .rb-canvas,
-html:root .reports-empty,
-html:root .reports-table-wrap,
-html:root .report-card,
-html:root .routes-empty,
-html:root .route-card,
-html:root .builder-panel,
-html:root .settings-section,
-html:root .acc-card,
-html:root .sites-empty,
-html:root .sites-table-wrap,
-html:root .site-card,
-html:root .template-card,
-html:root .users-table-wrap,
-html:root .users-empty {
-  border-color: var(--glass-edge);
-  border-radius: var(--glass-radius);
-  box-shadow: var(--glass-shadow);
+.logs-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-/* floating layers: stronger glass + blur so text stays readable over content */
-html:root .modal,
-html:root .resume-dialog,
-html:root .cam-popup,
-html:root .dash-popup,
-html:root .twp-popover {
-  background: var(--glass-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge);
-  border-radius: var(--glass-radius);
-  box-shadow:
-    0 24px 64px rgba(51, 63, 72, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+.logs-panel-head h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
-html:root .settings-actionbar,
-html:root .reports-selection-bar,
-html:root .rs-generate-bar {
-  background: var(--glass-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-edge);
-  box-shadow: var(--glass-shadow);
+.logs-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--white);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-html:root .modal-backdrop,
-html:root .cam-popup-backdrop,
-html:root .dash-popup-backdrop,
-html:root .resume-backdrop,
-html:root .builder-backdrop,
-html:root .detail-backdrop,
-html:root .assignment-backdrop {
-  background: var(--scrim);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+.logs-refresh:hover {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--slate-blue);
 }
 
-/* ---------- hero banners (were hard-coded navy gradients) ---------- */
-
-html:root .dash-hero,
-html:root .settings-hero,
-html:root .picker-hero {
-  background: linear-gradient(135deg, #8A9FB3 0%, #647A8E 38%, #52667A 70%, #333F48 100%);
-  border: 1px solid rgba(255, 255, 255, 0.30);
-  border-radius: var(--glass-radius);
-  box-shadow:
-    0 12px 34px rgba(51, 63, 72, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.40);
+.logs-refresh:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
-/* ---------- controls ---------- */
+.logs-users-table-wrap,
+.logs-table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.18);
+  overscroll-behavior-x: contain;
+}
 
-html:root button:focus-visible,
-html:root input:focus-visible,
-html:root select:focus-visible,
-html:root textarea:focus-visible {
-  outline: 2px solid var(--p-6);
+.logs-users-table,
+.logs-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.logs-users-table {
+  min-width: 680px;
+}
+
+.logs-table {
+  min-width: 760px;
+}
+
+.logs-users-table th,
+.logs-table th {
+  padding: 12px 14px;
+  background: rgba(161, 179, 195, 0.15);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.045em;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.logs-users-table td,
+.logs-table td {
+  padding: 12px 14px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--border);
+}
+
+.logs-users-table tbody tr:last-child td,
+.logs-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.logs-users-table tbody tr,
+.logs-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+
+.logs-users-table tbody tr:hover,
+.logs-table tbody tr:hover {
+  background: rgba(100, 122, 142, 0.07);
+}
+
+.logs-users-table th:first-child,
+.logs-users-table td:first-child {
+  width: 34px;
+  padding-right: 0;
+  text-align: center;
+}
+
+.logs-users-table td:nth-child(3),
+.logs-users-table td:nth-child(4),
+.logs-users-table td:nth-child(5),
+.logs-users-table td:nth-child(6) {
+  white-space: nowrap;
+}
+
+.logs-user-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 7px;
+  row-gap: 2px;
+  min-width: 0;
+}
+
+.logs-user-cell strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.logs-user-cell span,
+.logs-muted {
+  color: var(--text-muted);
+}
+
+.logs-user-cell span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.logs-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.logs-dot.online {
+  background: var(--status-green);
+  box-shadow: 0 0 0 3px rgba(60, 154, 118, 0.12);
+}
+
+.logs-dot.offline {
+  background: #9ca9b5;
+}
+
+.logs-role,
+.logs-status,
+.logs-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.logs-role-admin {
+  color: var(--navy);
+  background: rgba(100, 122, 142, 0.16);
+}
+
+.logs-role-operator {
+  color: var(--blue);
+  background: rgba(100, 151, 177, 0.16);
+}
+
+.logs-role-viewer {
+  color: var(--status-amber);
+  background: rgba(201, 154, 63, 0.15);
+}
+
+.logs-status.online {
+  color: var(--status-green);
+  background: rgba(60, 154, 118, 0.12);
+}
+
+.logs-status.offline {
+  color: var(--text-muted);
+  background: rgba(138, 159, 179, 0.16);
+}
+
+.logs-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.logs-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1 1 320px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--text-muted);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.logs-search:focus-within {
+  border-color: var(--slate-blue);
+  box-shadow: 0 0 0 3px rgba(138, 159, 179, 0.17);
+}
+
+.logs-search svg {
+  flex: 0 0 auto;
+}
+
+.logs-search input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.logs-search input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.logs-filters select {
+  flex: 0 0 190px;
+  width: 190px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.logs-filters select:focus-visible {
+  outline: 2px solid var(--slate-blue);
   outline-offset: 2px;
 }
 
-html:root input:focus,
-html:root select:focus,
-html:root textarea:focus {
-  border-color: var(--p-6);
-  box-shadow: 0 0 0 4px rgba(138, 159, 179, 0.25);
+.logs-action-ok {
+  color: var(--status-green);
+  background: rgba(60, 154, 118, 0.12);
 }
 
-/* text that sat on var(--white) now sits on a translucent surface */
-html:root .rs-generate-btn,
-html:root .rb-save {
-  color: #fff;
+.logs-action-warn {
+  color: var(--status-red);
+  background: rgba(196, 96, 95, 0.12);
 }
 
-html:root .detail-add-btn {
-  color: var(--on-text);
+.logs-action-neutral {
+  color: var(--text-muted);
+  background: rgba(138, 159, 179, 0.16);
 }
 
-html:root .toggle-knob {
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(51, 63, 72, 0.25);
+.logs-timestamp {
+  width: 160px;
+  min-width: 145px;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
-/* hard-coded dark-navy hover states */
-html:root .range-select:hover,
-html:root .twp-save:hover {
-  background: var(--p-9);
+.logs-details {
+  min-width: 280px;
+  overflow-wrap: anywhere;
 }
 
-html:root .assignment-site-icon {
-  color: var(--p-8);
+.logs-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 92px;
+  padding: 22px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
 }
 
-/* ---------- dark-mode text fixes ----------
-   The app uses --navy as a TEXT colour in a few places (headings, icons,
-   avatar). In dark mode --navy has to be a mid tone so buttons that use it
-   as a background still work, so those text uses are switched to light. */
-
-html:root[data-theme='dark'] .active-select-all,
-html:root[data-theme='dark'] .dash-value,
-html:root[data-theme='dark'] .logs-panel-head h3,
-html:root[data-theme='dark'] .module-icon,
-html:root[data-theme='dark'] .picker-field select,
-html:root[data-theme='dark'] .popup-cam-site span,
-html:root[data-theme='dark'] .rb-intro h3,
-html:root[data-theme='dark'] .report-route,
-html:root[data-theme='dark'] .reports-selection-actions button,
-html:root[data-theme='dark'] .reports-selection-bar,
-html:root[data-theme='dark'] .role-admin,
-html:root[data-theme='dark'] .sidebar-toggle,
-html:root[data-theme='dark'] .site-cam-badge,
-html:root[data-theme='dark'] .site-cam-icon,
-html:root[data-theme='dark'] .template-card-icon,
-html:root[data-theme='dark'] .template-row-icon,
-html:root[data-theme='dark'] .user-avatar,
-html:root[data-theme='dark'] .viewer-route {
-  color: var(--p-1);
+.logs-error {
+  margin: 0 0 14px;
+  padding: 11px 13px;
+  border: 1px solid rgba(196, 96, 95, 0.22);
+  border-radius: 9px;
+  background: rgba(196, 96, 95, 0.09);
+  color: var(--status-red);
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
-/* hero banners are always a dark gradient, in both themes */
-html:root .dash-hero p,
-html:root .picker-hero .picker-sub,
-html:root .settings-hero p {
-  color: var(--p-3);
+.logs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
-html:root .feed-placeholder {
-  color: var(--p-4);
+.logs-pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-html:root[data-theme='dark'] .history-empty-icon,
-html:root[data-theme='dark'] .reports-empty-icon {
-  color: var(--p-7);
+.logs-pagination-buttons button {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
 }
 
-/* ---------- login ---------- */
-
-html:root .login-wrap {
-  background: var(--page-bg);
+.logs-pagination-buttons button:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--slate-blue);
 }
 
-html:root .login-wrap::before {
-  border-color: rgba(255, 255, 255, 0.35);
+.logs-pagination-buttons button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-html:root .login-arcs .arc {
-  border-color: rgba(100, 122, 142, 0.20);
+@media (max-width: 760px) {
+  .logs-panel {
+    padding: 15px;
+  }
+
+  .logs-panel-head {
+    margin-bottom: 12px;
+  }
+
+  .logs-panel-head h3 {
+    font-size: 16px;
+  }
+
+  .logs-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .logs-search {
+    flex-basis: auto;
+  }
+
+  .logs-filters select {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+
+  .logs-users-table th,
+  .logs-table th,
+  .logs-users-table td,
+  .logs-table td {
+    padding: 10px 11px;
+  }
 }
 
-html:root .splash {
-  background: linear-gradient(160deg, #52667A 0%, #333F48 100%);
-}
+@media (max-width: 420px) {
+  .logs-panel {
+    padding: 12px;
+  }
 
-html:root .splash-sub {
-  color: var(--p-4);
-}
-
-html:root .splash-bar-fill {
-  background: var(--p-4);
-}
-
-html:root .login-card {
-  background: rgba(255, 255, 255, 0.60);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  border-radius: 28px;
-  box-shadow:
-    0 28px 80px rgba(51, 63, 72, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.90);
-}
-
-html:root .login-field {
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(100, 122, 142, 0.28);
-  border-radius: 14px;
-}
-
-html:root .login-field:focus-within {
-  border-color: var(--p-7);
-  box-shadow: 0 0 0 4px rgba(138, 159, 179, 0.28);
-}
-
-html:root .field-icon,
-html:root .field-toggle,
-html:root .login-hint,
-html:root .login-field input::placeholder {
-  color: var(--p-7);
-}
-
-html:root .login-card h1,
-html:root .login-field input {
-  color: var(--p-9);
-}
-
-html:root .login-button {
-  background: linear-gradient(180deg, #647A8E 0%, #52667A 100%);
-  border: 1px solid rgba(51, 63, 72, 0.35);
-  border-radius: 14px;
-  box-shadow:
-    0 8px 20px rgba(51, 63, 72, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-/* ---------- fallbacks ---------- */
-
-/* browsers without backdrop-filter: make glass more solid so text stays legible */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  html:root { --glass-alpha: 0.88; --glass-strong: rgba(247, 249, 251, 0.97); }
-  html:root[data-theme='dark'] { --white: rgba(60, 74, 85, 0.92); --glass-strong: rgba(51, 63, 72, 0.98); }
-  html:root .login-card { background: rgba(255, 255, 255, 0.92); }
-}
-
-/* OS-level "reduce transparency" */
-@media (prefers-reduced-transparency: reduce) {
-  html:root { --glass-alpha: 0.94; --glass-strong: rgba(247, 249, 251, 0.98); }
-  html:root[data-theme='dark'] { --white: rgba(60, 74, 85, 0.96); --glass-strong: rgba(51, 63, 72, 0.99); }
+  .logs-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
