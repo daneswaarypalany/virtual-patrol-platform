@@ -386,7 +386,11 @@ function CameraLiveView({
         const playUrl = mode === 'proxy' ? `${api.defaults.baseURL}${url}` : url
 
         if (Hls.isSupported()) {
-          hls = new Hls()
+          hls = new Hls({
+            xhrSetup: (xhr) => {
+              xhr.withCredentials = true;
+            },
+          });
           hls.loadSource(playUrl)
           hls.attachMedia(video)
           hls.on(Hls.Events.MANIFEST_PARSED, () => {

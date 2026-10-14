@@ -31,10 +31,7 @@ app.enableCors({
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
   // Live HLS playlists/segments generated on the fly from camera RTSP links
   // (see StreamsService). No-cache so players always see fresh segments.
-  app.useStaticAssets(join(process.cwd(), 'streams'), {
-    prefix: '/streams',
-    setHeaders: (res) => res.setHeader('Cache-Control', 'no-store'),
-  });
+
   app.use(cookieParser());
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
 
