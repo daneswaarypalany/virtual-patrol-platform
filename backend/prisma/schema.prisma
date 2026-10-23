@@ -340,6 +340,12 @@ model SiteCommunicationChannel {
   enabled     Boolean                 @default(false)
   destination String
   displayName String?
+  includeDate Boolean                 @default(true)
+  includeTime Boolean                 @default(true)
+  includeSite Boolean                 @default(true)
+  includePatrolRoute Boolean          @default(true)
+  includeComment Boolean              @default(true)
+  includeScreenshot Boolean           @default(true)
   createdAt   DateTime                @default(now())
   updatedAt   DateTime                @updatedAt
   site        Site                    @relation(fields: [siteId], references: [id], onDelete: Cascade)

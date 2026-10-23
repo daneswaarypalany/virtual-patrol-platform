@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { User, Lock, Eye, EyeOff } from 'lucide-react'
+import { User, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import './Login.css'
 
@@ -13,22 +13,11 @@ export default function Login() {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const [showSplash, setShowSplash] = useState(
-    () => !sessionStorage.getItem('vp_splash_seen'),
-  )
-
-  useEffect(() => {
-    if (!showSplash) return
-    const timer = setTimeout(() => {
-      sessionStorage.setItem('vp_splash_seen', '1')
-      setShowSplash(false)
-    }, 2600)
-    return () => clearTimeout(timer)
-  }, [showSplash])
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setError('')
     setSubmitting(true)
+
     try {
       await login(username, password)
       navigate('/')
@@ -40,80 +29,88 @@ export default function Login() {
   }
 
   return (
-    <div className="login-wrap">
-      {/* decorative arc lines */}
-      <div className="login-arcs" aria-hidden="true">
-        <span className="arc arc-1" />
-        <span className="arc arc-2" />
-        <span className="arc arc-3" />
-      </div>
+    <main className="login-wrap">
+      <section className="login-layout" aria-labelledby="login-title">
+        <div className="login-form-panel">
+          <div className="login-brand">
+            <img src="/logo.png" alt="A-Force Protection logo" className="login-brand-logo" />
+            <div className="login-brand-copy">
+              <strong>Virtual Patrol</strong>
+              <span>Security Management</span>
+            </div>
+          </div>
 
-      {showSplash && (
-        <div className="splash">
-          <img src="/logo.png" alt="A-Force Protection" className="splash-logo" />
-          <div className="splash-text">
-            <div className="splash-title">Virtual Patrol</div>
-            <div className="splash-sub">Security Management</div>
+          <div className="login-intro">
+            <p className="login-welcome-copy">WELCOME BACK</p>
+            <h1 id="login-title">Log In</h1>
+            <p className="login-description">Sign in to manage your patrol operations.</p>
           </div>
-          <div className="splash-bar">
-            <div className="splash-bar-fill" />
-          </div>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-field-group">
+              <label htmlFor="login-username">Username</label>
+              <div className="login-input-shell">
+                <User size={18} className="login-input-icon" aria-hidden="true" />
+                <input
+                  id="login-username"
+                  type="text"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="login-field-group">
+              <div className="login-field-heading">
+                <label htmlFor="login-password">Password</label>
+                <span className="login-recovery-note">Forgot password? Contact your administrator.</span>
+              </div>
+              <div className="login-input-shell">
+                <Lock size={18} className="login-input-icon" aria-hidden="true" />
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="login-password-toggle"
+                  onClick={() => setShowPassword((shown) => !shown)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {error && <div className="login-error-message" role="alert">{error}</div>}
+
+            <button className="login-submit" type="submit" disabled={submitting}>
+              <span>{submitting ? 'Signing in…' : 'LOGIN'}</span>
+              {!submitting && <ArrowRight size={18} aria-hidden="true" />}
+            </button>
+          </form>
+
+          <p className="login-access-note">Secure access for authorized A-Force personnel.</p>
         </div>
-      )}
 
-      <div className={`login-card ${showSplash ? 'hidden' : 'reveal'}`}>
-        <div className="login-badge">
+        <aside className="login-visual" aria-label="A-Force Protection security team">
+          <div className="login-visual-orb login-visual-orb-one" aria-hidden="true" />
+          <div className="login-visual-orb login-visual-orb-two" aria-hidden="true" />
           <img
-            src="/logo.png"
-            alt="A-Force Protection"
-            className="login-badge-logo"
+            src="/aforce-security-figures.png"
+            alt="Two A-Force Protection security officers in uniform"
+            className="login-figures"
           />
-        </div>
-
-        <h1>Sign in to Virtual Patrol</h1>
-
-        <div className="login-field">
-          <User size={17} className="field-icon" />
-          <input
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            autoFocus
-          />
-        </div>
-
-        <div className="login-field">
-          <Lock size={17} className="field-icon" />
-          <input
-            type={showPassword ? 'text' : 'password'}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-          />
-          <button
-            type="button"
-            className="field-toggle"
-            onClick={() => setShowPassword((s) => !s)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-          >
-            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-          </button>
-        </div>
-
-        <p className="login-hint">Forgot password? Contact your administrator.</p>
-
-        {error && <div className="login-error">{error}</div>}
-
-        <button
-          className="login-button"
-          onClick={handleSubmit}
-          disabled={submitting}
-        >
-          {submitting ? 'Signing in…' : 'Sign In'}
-        </button>
-      </div>
-    </div>
+        </aside>
+      </section>
+    </main>
   )
 }

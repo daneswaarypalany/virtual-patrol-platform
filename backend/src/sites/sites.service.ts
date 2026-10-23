@@ -177,6 +177,12 @@ export class SitesService {
         destination: dto.destination,
         displayName: dto.displayName,
         enabled: dto.enabled ?? false,
+        includeDate: dto.includeDate,
+        includeTime: dto.includeTime,
+        includeSite: dto.includeSite,
+        includePatrolRoute: dto.includePatrolRoute,
+        includeComment: dto.includeComment,
+        includeScreenshot: dto.includeScreenshot,
       },
     });
 

@@ -6,6 +6,8 @@ import { ThemeProvider } from './theme/ThemeContext'
 import './index.css'
 import App from './App.tsx'
 import './glass.css'
+import './theme/dark-polish.css'
+import './theme/CalendarTheme.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

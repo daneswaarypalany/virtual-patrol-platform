@@ -13,4 +13,28 @@ export class UpdateCommunicationChannelDto {
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+  @IsOptional()
+  @IsBoolean()
+  includeDate?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  includeTime?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  includeSite?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  includePatrolRoute?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  includeComment?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  includeScreenshot?: boolean;
+
 }

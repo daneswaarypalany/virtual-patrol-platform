@@ -103,9 +103,54 @@ export class DashboardService {
       },
     });
 
-    // Build a unified timeline
+    // If the rolling 24-hour window has no patrol or issue activity, load a
+    // bounded historical fallback so the dashboard doesn't look empty when
+    // older activity exists. Existing role/site scoping remains in jobWhere.
+    let timelineJobs = recentJobs;
+    let timelineIssues = recentIssues;
+
+    if (recentJobs.length === 0 && recentIssues.length === 0) {
+      const [pastJobs, pastIssues] = await Promise.all([
+        this.prisma.patrolJob.findMany({
+          where: {
+            ...jobWhere,
+            lastActivityAt: { lt: last24Hours },
+          },
+          orderBy: { lastActivityAt: "desc" },
+          take: 20,
+          include: {
+            route: { include: { site: { select: { name: true } } } },
+            operator: { select: { fullName: true } },
+            _count: { select: { results: true } },
+          },
+        }),
+        this.prisma.checkpointResult.findMany({
+          where: {
+            allClear: false,
+            completedAt: { lt: last24Hours },
+            job: jobWhere,
+          },
+          orderBy: { completedAt: "desc" },
+          take: 20,
+          include: {
+            checkpoint: { include: { camera: { select: { name: true } } } },
+            job: {
+              include: {
+                route: { include: { site: { select: { name: true } } } },
+                operator: { select: { fullName: true } },
+              },
+            },
+          },
+        }),
+      ]);
+
+      timelineJobs = pastJobs;
+      timelineIssues = pastIssues;
+    }
+
+    // Build a unified timeline from the recent events or historical fallback.
     const timeline = [
-      ...recentJobs.map((j) => ({
+      ...timelineJobs.map((j) => ({
         type: j.status === "COMPLETED" ? "completed" : "started",
         at: j.lastActivityAt,
         title:
@@ -116,7 +161,7 @@ export class DashboardService {
               : "Patrol in progress",
         detail: `${j.route.name} · ${j.route.site.name} · ${j.operator.fullName}`,
       })),
-      ...recentIssues.map((r) => ({
+      ...timelineIssues.map((r) => ({
         type: "issue",
         at: r.completedAt,
         title: "Issue flagged",

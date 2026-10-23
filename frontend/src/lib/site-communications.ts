@@ -9,6 +9,12 @@ export interface SiteCommunicationChannel {
   enabled: boolean
   destination: string
   displayName: string | null
+  includeDate: boolean
+  includeTime: boolean
+  includeSite: boolean
+  includePatrolRoute: boolean
+  includeComment: boolean
+  includeScreenshot: boolean
   createdAt: string
   updatedAt: string
 }
@@ -18,12 +24,24 @@ export interface CommunicationChannelInput {
   destination: string
   displayName?: string
   enabled?: boolean
+  includeDate?: boolean
+  includeTime?: boolean
+  includeSite?: boolean
+  includePatrolRoute?: boolean
+  includeComment?: boolean
+  includeScreenshot?: boolean
 }
 
 export interface CommunicationChannelUpdate {
   destination?: string
   displayName?: string
   enabled?: boolean
+  includeDate?: boolean
+  includeTime?: boolean
+  includeSite?: boolean
+  includePatrolRoute?: boolean
+  includeComment?: boolean
+  includeScreenshot?: boolean
 }
 
 export type TestStatus = 'SENT' | 'FAILED' | 'CONFIGURATION_REQUIRED'

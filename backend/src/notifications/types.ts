@@ -1,7 +1,6 @@
 import { CommunicationChannelType } from '@prisma/client';
 
 // Extensible list of events that can trigger a site notification.
-// Add new event types here as the platform grows real trigger points for them.
 export type NotificationEventType =
   | 'INCIDENT_CREATED'
   | 'CRITICAL_INCIDENT'
@@ -22,9 +21,15 @@ export interface NotificationEvent {
   metadata?: Record<string, unknown>;
 }
 
+/** An optional server-side file to attach to a provider notification. */
+export interface NotificationAttachment {
+  filePath: string;
+  fileName: string;
+  contentType: string;
+}
+
 // Status a single provider.send() call can return. Kept in sync with the
-// Prisma NotificationStatus enum (PENDING/SENT/FAILED/CONFIGURATION_REQUIRED)
-// since dispatchOne() writes this directly to NotificationLog.status.
+// Prisma NotificationStatus enum (PENDING/SENT/FAILED/CONFIGURATION_REQUIRED).
 export type ProviderSendStatus = 'SENT' | 'FAILED' | 'CONFIGURATION_REQUIRED';
 
 export interface ProviderSendResult {
@@ -35,16 +40,16 @@ export interface ProviderSendResult {
 
 export interface NotificationProvider {
   readonly channelType: CommunicationChannelType;
-  send(destination: string, message: string): Promise<ProviderSendResult>;
+  send(
+    destination: string,
+    message: string,
+    attachment?: NotificationAttachment,
+  ): Promise<ProviderSendResult>;
 }
 
-// A multi-recipient destination (e.g. several WhatsApp numbers standing in
-// for a "group") can end up with a mix of outcomes across recipients — this
-// is never written to NotificationLog.status directly, only used for the
-// per-channel summary returned to the caller of sendToSite().
+// A multi-recipient destination can produce mixed delivery outcomes.
 export type AggregateSendStatus = ProviderSendStatus | 'PARTIAL';
 
-// Per-channel outcome of a sendToSite() call, e.g. { WHATSAPP: 'SENT', EMAIL: 'FAILED' }
 export type DeliverySummary = Partial<
   Record<CommunicationChannelType, AggregateSendStatus>
 >;

@@ -21,6 +21,38 @@ import SearchableSelect from '../components/SearchableSelect'
 
 type Section = 'operators' | 'template' | 'cameras' | 'routes' | 'communications'
 
+type TelegramFieldKey =
+  | 'includeDate'
+  | 'includeTime'
+  | 'includeSite'
+  | 'includePatrolRoute'
+  | 'includeComment'
+  | 'includeScreenshot'
+
+type TelegramNotificationFields = Record<TelegramFieldKey, boolean>
+
+const DEFAULT_TELEGRAM_NOTIFICATION_FIELDS: TelegramNotificationFields = {
+  includeDate: true,
+  includeTime: true,
+  includeSite: true,
+  includePatrolRoute: true,
+  includeComment: true,
+  includeScreenshot: true,
+}
+
+const TELEGRAM_NOTIFICATION_FIELD_OPTIONS: {
+  key: TelegramFieldKey
+  label: string
+  description: string
+}[] = [
+  { key: 'includeDate', label: 'Date', description: 'When the checkpoint was submitted' },
+  { key: 'includeTime', label: 'Time', description: 'Local time for the site' },
+  { key: 'includeSite', label: 'Site', description: 'The site where the issue was reported' },
+  { key: 'includePatrolRoute', label: 'Patrol Route', description: 'The route being patrolled' },
+  { key: 'includeComment', label: 'Comment', description: "The operator's issue comment" },
+  { key: 'includeScreenshot', label: 'Screenshot', description: 'Attach the checkpoint screenshot when available' },
+]
+
 export default function SiteDetail({
   site,
   onClose,
@@ -358,11 +390,7 @@ export default function SiteDetail({
                       value={templateId ?? ''}
                       onChange={(v) => changeTemplate(v)}
                       placeholder="Default Template"
-                      searchable
-                      portal
-                      ariaLabel="Report template selector"
-                      searchPlaceholder="Search report templates…"
-                      emptyMessage="No report templates match your search."
+                      searchable={false}
                       options={templates.map((t) => ({
                         value: t.id,
                         label: t.isDefault ? `${t.name} (Default)` : t.name,
@@ -831,6 +859,15 @@ function CommunicationForm({
   const [destination, setDestination] = useState(existing?.destination ?? '')
   const [displayName, setDisplayName] = useState(existing?.displayName ?? '')
   const [enabled, setEnabled] = useState(existing?.enabled ?? true)
+  const [notificationFields, setNotificationFields] = useState<TelegramNotificationFields>(() => ({
+    ...DEFAULT_TELEGRAM_NOTIFICATION_FIELDS,
+    includeDate: existing?.includeDate ?? true,
+    includeTime: existing?.includeTime ?? true,
+    includeSite: existing?.includeSite ?? true,
+    includePatrolRoute: existing?.includePatrolRoute ?? true,
+    includeComment: existing?.includeComment ?? true,
+    includeScreenshot: existing?.includeScreenshot ?? true,
+  }))
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -838,12 +875,14 @@ function CommunicationForm({
     setError('')
     if (!destination.trim()) return setError(`${label} destination is required`)
     setSubmitting(true)
+    const telegramFields = channelType === 'TELEGRAM' ? notificationFields : {}
     try {
       if (existing) {
         await siteCommunicationsApi.update(siteId, existing.id, {
           destination,
           displayName: displayName || undefined,
           enabled,
+          ...telegramFields,
         })
       } else {
         await siteCommunicationsApi.create(siteId, {
@@ -851,6 +890,7 @@ function CommunicationForm({
           destination,
           displayName: displayName || undefined,
           enabled,
+          ...telegramFields,
         })
       }
       onSaved()
@@ -896,6 +936,38 @@ function CommunicationForm({
             <span className="toggle-knob" />
           </button>
         </div>
+
+        {channelType === 'TELEGRAM' && (
+          <section className="telegram-fields-section" aria-labelledby="telegram-fields-title">
+            <div className="telegram-fields-heading">
+              <h4 id="telegram-fields-title">Notification message fields</h4>
+              <p>Choose which details appear in Telegram patrol issue alerts.</p>
+            </div>
+            <div className="telegram-fields-grid">
+              {TELEGRAM_NOTIFICATION_FIELD_OPTIONS.map((option) => (
+                <label className="telegram-field-option" key={option.key}>
+                  <input
+                    type="checkbox"
+                    checked={notificationFields[option.key]}
+                    onChange={(e) =>
+                      setNotificationFields((current) => ({
+                        ...current,
+                        [option.key]: e.target.checked,
+                      }))
+                    }
+                  />
+                  <span className="telegram-field-copy">
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <p className="telegram-fields-note">
+              Screenshot is sent as a Telegram photo when enabled and the saved image is available.
+            </p>
+          </section>
+        )}
 
         {error && <div className="modal-error">{error}</div>}
 

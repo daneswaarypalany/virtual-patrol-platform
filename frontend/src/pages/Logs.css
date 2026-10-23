@@ -230,7 +230,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .logs-search {
@@ -294,6 +294,157 @@
 .logs-filters select:focus-visible {
   outline: 2px solid var(--slate-blue);
   outline-offset: 2px;
+}
+
+/* Activity log date presets. Buttons use the current theme tokens, so the
+   layout and the light theme remain unchanged while dark mode gets a muted accent. */
+.logs-date-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 16px;
+  min-width: 0;
+}
+
+.logs-date-count {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.logs-date-presets {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--white);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.logs-date-preset {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.logs-date-preset:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
+.logs-date-preset.active {
+  color: var(--blue);
+  background: rgba(0, 91, 150, 0.10);
+  border-color: rgba(0, 91, 150, 0.18);
+}
+
+.logs-date-preset:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.logs-custom-range {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  margin: -4px 0 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.logs-custom-range label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.logs-custom-range label span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.logs-custom-range .logs-date-picker {
+  display: block;
+  width: 190px;
+  max-width: 100%;
+}
+
+.logs-custom-range .logs-date-input {
+  min-height: 38px;
+  width: 100%;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--white);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.logs-custom-range .logs-date-input:focus-visible {
+  border-color: var(--blue);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(80, 105, 245, 0.18);
+}
+
+.logs-custom-range-separator {
+  padding-bottom: 10px;
+  color: var(--text-muted);
+}
+
+html:root[data-theme='dark'] .logs-date-presets {
+  background: rgba(11, 17, 23, 0.72);
+  border-color: rgba(185, 205, 220, 0.14);
+}
+
+html:root[data-theme='dark'] .logs-date-preset {
+  color: #b1c0cc;
+}
+
+html:root[data-theme='dark'] .logs-date-preset:hover {
+  color: #f1f7fa;
+  background: rgba(151, 184, 204, 0.10);
+}
+
+html:root[data-theme='dark'] .logs-date-preset.active {
+  color: #e4f7ff;
+  background: rgba(73, 158, 192, 0.22);
+  border-color: rgba(102, 190, 220, 0.30);
+}
+
+html:root[data-theme='dark'] .logs-custom-range {
+  background: rgba(12, 20, 27, 0.72);
+  border-color: rgba(185, 205, 220, 0.14);
+}
+
+html:root[data-theme='dark'] .logs-custom-range .logs-date-input {
+  background: #202b34;
+  color: #edf4f8;
+  border-color: rgba(185, 205, 220, 0.20);
 }
 
 .logs-action-ok {
@@ -384,6 +535,17 @@
   cursor: not-allowed;
 }
 
+@media (max-width: 980px) {
+  .logs-date-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .logs-date-presets {
+    width: 100%;
+  }
+}
+
 @media (max-width: 760px) {
   .logs-panel {
     padding: 15px;
@@ -416,6 +578,20 @@
   .logs-users-table td,
   .logs-table td {
     padding: 10px 11px;
+  }
+
+  .logs-custom-range {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .logs-custom-range .logs-date-picker,
+  .logs-custom-range .logs-date-input {
+    width: 100%;
+  }
+
+  .logs-custom-range-separator {
+    display: none;
   }
 }
 

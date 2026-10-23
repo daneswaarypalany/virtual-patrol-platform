@@ -2,39 +2,35 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
-import { join } from 'path';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-  // CORS must be registered BEFORE the static asset middleware below.
-  // Express runs middleware in registration order, and static file serving
-  // responds to matching requests immediately without CORS headers if it
-  // runs first -- <img> tags tolerate that, but hls.js's video fetches (used
-  // for the live camera feeds) are strict XHR/fetch requests and get
-  // silently blocked cross-origin without this being set up first.
-app.enableCors({
-  origin: [
-    'http://localhost:5173',
-    'https://virtual-patrol-platform-6bfc.vercel.app',
-  ],
-  credentials: true,
-});
+  // Configure CORS before requests reach the application's routes.
+  app.enableCors({
+    origin: [
+      'http://localhost:5173',
+      'https://virtual-patrol-platform-6bfc.vercel.app',
+    ],
+    credentials: true,
+  });
 
-  // Resolved relative to process.cwd() (the directory you run the backend
-  // from, e.g. "backend/") rather than __dirname -- this matches the same
-  // approach already used successfully in patrol.service.ts when embedding
-  // screenshots into generated PDF reports, and avoids depending on the
-  // compiled output folder depth (which shifts depending on what else gets
-  // picked up by the TypeScript build, e.g. prisma.config.ts living next to src/).
-  app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads' });
-  // Live HLS playlists/segments generated on the fly from camera RTSP links
-  // (see StreamsService). No-cache so players always see fresh segments.
-
+  // Parse HTTP-only authentication cookies before protected routes run.
   app.use(cookieParser());
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
+  // Apply validation to incoming DTOs.
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+    }),
+  );
+
+  // Do not publicly serve uploads or generated HLS streams as static files.
+  // Patrol screenshots are delivered through authenticated API routes.
+  // HLS streams are delivered through the protected stream controller.
 
   await app.listen(process.env.PORT ?? 3000);
 }
+
 bootstrap();
