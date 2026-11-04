@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Search, GripVertical } from 'lucide-react'
+import { Search, GripVertical, List, Grid2X2, ChevronDown, ChevronUp } from 'lucide-react'
 import type { ChecklistTemplate, ChecklistInput } from '../lib/checklists'
 import { checklistsApi } from '../lib/checklists'
 import './Checklists.css'
@@ -38,6 +38,8 @@ export default function Checklists() {
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [usage, setUsage] = useState<UsageFilter>('all')
   const [category, setCategory] = useState('all')
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [expandedGridCards, setExpandedGridCards] = useState<Set<string>>(new Set())
 
   const load = async () => {
     setLoading(true)
@@ -162,9 +164,33 @@ export default function Checklists() {
           )}
         </div>
 
-        <button className="btn-primary" onClick={openCreate}>
-          + New Template
-        </button>
+        <div className="checklists-toolbar-actions">
+          <div className="checklists-view-toggle" role="group" aria-label="Template view">
+            <button
+              type="button"
+              className={viewMode === 'list' ? 'active' : ''}
+              aria-label="List view"
+              aria-pressed={viewMode === 'list'}
+              onClick={() => setViewMode('list')}
+              title="List view"
+            >
+              <List size={17} />
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'grid' ? 'active' : ''}
+              aria-label="Grid view"
+              aria-pressed={viewMode === 'grid'}
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+            >
+              <Grid2X2 size={17} />
+            </button>
+          </div>
+          <button className="btn-primary" onClick={openCreate}>
+            + New Template
+          </button>
+        </div>
       </div>
 
       <p className="checklists-count">
@@ -184,40 +210,77 @@ export default function Checklists() {
           <p>No templates match your search or filters.</p>
         </div>
       ) : (
-        <div className="checklists-grid">
-          {visible.map((t) => (
-            <div key={t.id} className="checklist-card">
-              <div className="checklist-card-head">
-                <div>
-                  <h3>{t.name}</h3>
-                  {t.category && (
-                    <span className="category-tag">{t.category}</span>
-                  )}
-                </div>
-                <span className="usage-badge">
-                  {t._count?.checkpoints ?? 0} in use
-                </span>
-              </div>
-              {t.description && (
-                <p className="checklist-desc">{t.description}</p>
-              )}
-              <div className="checklist-items">
-                {t.items.map((item) => (
-                  <div key={item.id} className="checklist-item-row">
-                    <span className="item-circle" />
-                    <span className="item-label">{item.label}</span>
+        viewMode === 'grid' ? (
+          <div className="checklists-grid">
+            {visible.map((t) => {
+              const isExpanded = expandedGridCards.has(t.id)
+              const itemsToShow = isExpanded ? t.items : t.items.slice(0, 3)
+              const hasMoreItems = t.items.length > 3
+              return (
+                <div key={t.id} className="checklist-card">
+                  <div className="checklist-card-head">
+                    <div>
+                      <h3>{t.name}</h3>
+                      {t.category && (
+                        <span className="category-tag">{t.category}</span>
+                      )}
+                    </div>
+                    <span className="usage-badge">
+                      {t._count?.checkpoints ?? 0} in use
+                    </span>
                   </div>
-                ))}
-              </div>
-              <div className="checklist-card-actions">
-                <button onClick={() => openEdit(t)}>Edit</button>
-                <button className="danger" onClick={() => remove(t)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+                  {t.description && (
+                    <p className="checklist-desc">{t.description}</p>
+                  )}
+                  <div className="checklist-items">
+                    {itemsToShow.map((item) => (
+                      <div key={item.id} className="checklist-item-row">
+                        <span className="item-circle" />
+                        <span className="item-label">{item.label}</span>
+                      </div>
+                    ))}
+                    {hasMoreItems && (
+                      <button
+                        type="button"
+                        className="checklist-show-more"
+                        aria-expanded={isExpanded}
+                        onClick={() => setExpandedGridCards((previous) => {
+                          const next = new Set(previous)
+                          if (next.has(t.id)) next.delete(t.id)
+                          else next.add(t.id)
+                          return next
+                        })}
+                      >
+                        {isExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                        {isExpanded ? 'Show less' : `Show more (${t.items.length - 3})`}
+                      </button>
+                    )}
+                  </div>
+                  <div className="checklist-card-actions">
+                    <button onClick={() => openEdit(t)}>Edit</button>
+                    <button className="danger" onClick={() => remove(t)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="checklists-list" aria-label="Checklist templates">
+            {visible.map((t) => (
+              <article key={t.id} className="checklist-list-entry">
+                <div className="checklist-list-row">
+                  <span className="checklist-list-title" title={t.name}>{t.name}</span>
+                  <div className="checklist-card-actions">
+                    <button type="button" onClick={() => openEdit(t)}>Edit</button>
+                    <button type="button" className="danger" onClick={() => remove(t)}>Delete</button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )
       )}
 
       {showForm && (

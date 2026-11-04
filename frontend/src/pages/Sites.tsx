@@ -6,10 +6,12 @@ import SiteDetail from './SiteDetail'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Sites.css'
 import SearchableSelect from '../components/SearchableSelect'
+import { useAppDialog } from '../components/AppDialogProvider'
 
 type SortOption = 'custom' | 'alphabetical'
 
 export default function Sites() {
+  const { confirm, alert: showAlert } = useAppDialog()
   const [sites, setSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -74,14 +76,14 @@ export default function Sites() {
 
   const deleteSelected = async () => {
     if (selected.size === 0) return
-    if (
-      !window.confirm(
-        `Delete ${selected.size} site${
-          selected.size > 1 ? 's' : ''
-        }? This also removes their cameras and assignments.`,
-      )
-    )
-      return
+    const accepted = await confirm({
+      title: `Delete ${selected.size} site${selected.size > 1 ? 's' : ''}?`,
+      message: 'This permanently removes the selected sites and their related cameras, routes, assignments, patrol history, incidents and checkpoint evidence. This action cannot be undone.',
+      tone: 'danger',
+      confirmLabel: 'Delete permanently',
+      cancelLabel: 'Keep sites',
+    })
+    if (!accepted) return
 
     setDeleting(true)
     setError('')
@@ -91,7 +93,8 @@ export default function Sites() {
       setSelected(new Set())
       await load()
     } catch {
-      setError('Failed to delete one or more sites')
+      await showAlert({ title: 'Some sites could not be deleted', message: 'One or more sites could not be removed. Refresh the list and try again.', tone: 'danger' })
+      setError('')
     } finally {
       setDeleting(false)
     }

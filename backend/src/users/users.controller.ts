@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Delete,
   Body,
   Param,
   UseGuards,
@@ -63,4 +64,9 @@ export class UsersController {
     ) {
         return this.usersService.resetPassword(id, dto.newPassword);
     }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.usersService.remove(id)
+  }
 }

@@ -3,8 +3,10 @@ import { RefreshCw, Trash2, X } from 'lucide-react'
 import type { ActivePatrolItem } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import './ActivePatrols.css'
+import { useAppDialog } from '../components/AppDialogProvider'
 
 export default function ActivePatrols() {
+  const { confirm, alert: showAlert } = useAppDialog()
   const [items, setItems] = useState<ActivePatrolItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -54,16 +56,14 @@ export default function ActivePatrols() {
 
   const deleteSelected = async () => {
     if (selected.size === 0) return
-    if (
-      !window.confirm(
-        `Delete ${selected.size} patrol${
-          selected.size > 1 ? 's' : ''
-        } entirely? This removes the job${
-          selected.size > 1 ? 's' : ''
-        } and all checkpoint results permanently.`,
-      )
-    )
-      return
+    const accepted = await confirm({
+      title: `Permanently delete ${selected.size} patrol${selected.size > 1 ? 's' : ''}?`,
+      message: `This permanently removes the selected patrol job${selected.size > 1 ? 's' : ''}, checkpoint results and associated screenshots. This action cannot be undone.`,
+      tone: 'danger',
+      confirmLabel: 'Delete permanently',
+      cancelLabel: 'Keep patrols',
+    })
+    if (!accepted) return
     setDeleting(true)
     setError('')
     try {
@@ -74,7 +74,7 @@ export default function ActivePatrols() {
       setSelected(new Set())
       await load()
     } catch {
-      setError('Failed to delete one or more patrols')
+      await showAlert({ title: 'Patrol deletion failed', message: 'One or more patrol records could not be deleted. Refresh the list and try again.', tone: 'danger' })
     } finally {
       setDeleting(false)
     }

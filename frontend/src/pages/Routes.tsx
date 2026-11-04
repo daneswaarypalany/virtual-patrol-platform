@@ -28,6 +28,7 @@ import type { ChecklistTemplate } from '../lib/checklists'
 import { checklistsApi } from '../lib/checklists'
 import './Routes.css'
 import SearchableSelect from '../components/SearchableSelect'
+import { useAppDialog } from '../components/AppDialogProvider'
 
 interface DraftCheckpoint {
   key: string
@@ -36,6 +37,7 @@ interface DraftCheckpoint {
 }
 
 export default function Routes() {
+  const { confirm, alert: showAlert } = useAppDialog()
   const [routes, setRoutes] = useState<Route[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,12 +65,36 @@ export default function Routes() {
   }, [])
 
   const remove = async (route: Route) => {
-    if (!window.confirm(`Delete route "${route.name}"?`)) return
+    const patrolCount = route._count?.patrolJobs ?? 0
+    const hasHistory = patrolCount > 0
+    const accepted = await confirm({
+      title: hasHistory ? 'Archive route?' : 'Delete route?',
+      message: hasHistory
+        ? `“${route.name}” has ${patrolCount} patrol record${patrolCount === 1 ? '' : 's'}. It will be removed from Route Builder and cannot be used for new patrols. Existing patrol reports, checkpoint results and evidence will be preserved.`
+        : `Delete “${route.name}”? This route has no patrol history. Its checkpoints will also be removed. This action cannot be undone.`,
+      tone: 'danger',
+      confirmLabel: hasHistory ? 'Archive route' : 'Delete route',
+      cancelLabel: 'Keep route',
+    })
+    if (!accepted) return
+
     try {
       await routesApi.remove(route.id)
-      load()
+      await load()
+      await showAlert({
+        title: hasHistory ? 'Route archived' : 'Route deleted',
+        message: hasHistory
+          ? `“${route.name}” is no longer available for new patrols. Its ${patrolCount} historical patrol record${patrolCount === 1 ? '' : 's'} and associated evidence remain available in reports.`
+          : `“${route.name}” was deleted successfully.`,
+        tone: 'success',
+        confirmLabel: 'Done',
+      })
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to delete route')
+      await showAlert({
+        title: 'Unable to remove route',
+        message: err?.response?.data?.message || 'The route could not be deleted. Please try again.',
+        tone: 'danger',
+      })
     }
   }
 
@@ -379,23 +405,24 @@ function RouteBuilder({
 
             <div className="field">
               <label>Site</label>
-              <select
+              <SearchableSelect
+                className="route-form-site-select"
+                ariaLabel="Site"
                 value={siteId}
-                onChange={(e) => {
-                  setSiteId(e.target.value)
+                onChange={(value) => {
+                  setSiteId(value)
                   setCheckpoints((cps) =>
                     cps.map((c) => ({ ...c, cameraId: '' })),
                   )
                 }}
                 disabled={!!route}
-              >
-                <option value="">Select a site…</option>
-                {sites.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Select a site…"
+                portal
+                options={[
+                  { value: '', label: 'Select a site…' },
+                  ...sites.map((site) => ({ value: site.id, label: site.name })),
+                ]}
+              />
             </div>
 
             <div className="field">
@@ -530,29 +557,31 @@ function SortableCheckpoint({
       </button>
       <span className="checkpoint-num">{index + 1}</span>
 
-      <select
+      <SearchableSelect
+        className="checkpoint-select"
+        ariaLabel={`Camera for checkpoint ${index + 1}`}
         value={cp.cameraId}
-        onChange={(e) => onUpdate(cp.key, 'cameraId', e.target.value)}
-      >
-        <option value="">Camera…</option>
-        {cameras.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+        onChange={(value) => onUpdate(cp.key, 'cameraId', value)}
+        placeholder="Camera…"
+        portal
+        options={[
+          { value: '', label: 'Camera…' },
+          ...cameras.map((camera) => ({ value: camera.id, label: camera.name })),
+        ]}
+      />
 
-      <select
+      <SearchableSelect
+        className="checkpoint-select"
+        ariaLabel={`Checklist for checkpoint ${index + 1}`}
         value={cp.checklistTemplateId}
-        onChange={(e) => onUpdate(cp.key, 'checklistTemplateId', e.target.value)}
-      >
-        <option value="">Checklist…</option>
-        {templates.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
+        onChange={(value) => onUpdate(cp.key, 'checklistTemplateId', value)}
+        placeholder="Checklist…"
+        portal
+        options={[
+          { value: '', label: 'Checklist…' },
+          ...templates.map((template) => ({ value: template.id, label: template.name })),
+        ]}
+      />
 
       <button className="checkpoint-remove" onClick={() => onRemove(cp.key)} aria-label="Remove checkpoint">
         <X size={14} />

@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadGatewayException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
@@ -25,10 +26,35 @@ const IDLE_TIMEOUT_MS = 60_000;
 // produce the first HLS segment before giving up and reporting an error.
 const READY_TIMEOUT_MS = 20_000;
 
+interface ProxyAssetReference {
+  cameraId: string;
+  userId: string;
+  rootUrl: string;
+  url: string;
+  expiresAt: number;
+}
+
+export type DirectStreamProxyResult =
+  | { kind: 'playlist'; status: number; contentType: string; body: string }
+  | {
+      kind: 'stream';
+      status: number;
+      contentType: string;
+      contentLength: string | null;
+      contentRange: string | null;
+      acceptRanges: string | null;
+      body: ReadableStream<Uint8Array> | null;
+    };
+
+const PROXY_REFERENCE_TTL_MS = 10 * 60 * 1000;
+
 @Injectable()
 export class StreamsService {
   private readonly logger = new Logger(StreamsService.name);
   private running = new Map<string, RunningStream>();
+  // External HLS child URLs stay on the server; clients receive opaque refs.
+  // Every reference is bound to its user and is re-authorized on each request.
+  private proxyAssetRefs = new Map<string, ProxyAssetReference>();
 
   constructor(private prisma: PrismaService) {
     if (!existsSync(STREAMS_DIR)) mkdirSync(STREAMS_DIR, { recursive: true });
@@ -40,12 +66,33 @@ export class StreamsService {
    * something a <video> element (via hls.js) can actually play.
    *
    * - rtsp:// / rtsps:// links get transcoded on the fly to HLS via ffmpeg.
-   * - http(s):// links (already an .m3u8, mjpeg endpoint, etc.) pass through
-   *   untouched, so existing setups (e.g. MediaMTX) keep working.
+   * - http(s):// links are proxied through an authenticated endpoint so the
+   *   raw camera URL never reaches an operator/viewer browser. The proxy checks
+   *   the current site assignment on every request, including HLS segments.
    */
+  async assertCameraAccess(
+    cameraId: string,
+    user: { id: string; role: string },
+  ): Promise<void> {
+    const camera = await this.prisma.camera.findUnique({
+      where: { id: cameraId },
+      select: { id: true, siteId: true },
+    });
+    if (!camera) throw new NotFoundException('Camera not found');
+    if (user.role === 'ADMIN') return;
+
+    const assignment = await this.prisma.operatorSiteAssignment.findUnique({
+      where: { userId_siteId: { userId: user.id, siteId: camera.siteId } },
+      select: { id: true },
+    });
+    if (!assignment) throw new NotFoundException('Camera not found');
+  }
+
   async getPlaybackUrl(
     cameraId: string,
+    user: { id: string; role: string },
   ): Promise<{ url: string; mode: 'proxy' | 'direct' }> {
+    await this.assertCameraAccess(cameraId, user);
     const camera = await this.prisma.camera.findUnique({
       where: { id: cameraId },
     });
@@ -57,7 +104,7 @@ export class StreamsService {
     const src = camera.streamUrl.trim();
 
     if (/^https?:\/\//i.test(src)) {
-      return { url: src, mode: 'direct' };
+      return { url: `/cameras/${encodeURIComponent(cameraId)}/stream/proxy`, mode: 'proxy' };
     }
 
     if (!/^rtsps?:\/\//i.test(src)) {
@@ -68,6 +115,163 @@ export class StreamsService {
 
     await this.ensureRunning(cameraId, src);
     return { url: `/streams/${cameraId}/index.m3u8`, mode: 'proxy' };
+  }
+
+  /**
+   * Authenticated proxy for HTTP(S) camera sources. It deliberately does not
+   * return the configured URL to the browser. Live playlists are rewritten so
+   * each child playlist, key, and segment comes back through this same endpoint
+   * and must pass the current assignment check again.
+   */
+  async getDirectStreamAsset(
+    cameraId: string,
+    user: { id: string; role: string },
+    ref?: string,
+    range?: string,
+  ): Promise<DirectStreamProxyResult> {
+    await this.assertCameraAccess(cameraId, user);
+
+    const camera = await this.prisma.camera.findUnique({
+      where: { id: cameraId },
+      select: { streamUrl: true },
+    });
+    const configuredUrl = camera?.streamUrl?.trim();
+    if (!configuredUrl) throw new NotFoundException('Camera stream not found');
+
+    let root: URL;
+    try {
+      root = new URL(configuredUrl);
+    } catch {
+      throw new NotFoundException('Camera stream not found');
+    }
+    if (root.protocol !== 'http:' && root.protocol !== 'https:') {
+      throw new NotFoundException('HTTP camera stream not found');
+    }
+
+    let target = root;
+    if (ref) {
+      const reference = this.proxyAssetRefs.get(ref);
+      if (
+        !reference ||
+        reference.expiresAt < Date.now() ||
+        reference.cameraId !== cameraId ||
+        reference.userId !== user.id ||
+        reference.rootUrl !== configuredUrl
+      ) {
+        this.proxyAssetRefs.delete(ref);
+        throw new NotFoundException('Camera stream asset not found');
+      }
+      try {
+        target = new URL(reference.url);
+      } catch {
+        throw new NotFoundException('Camera stream asset not found');
+      }
+    }
+
+    // Never allow a manifest reference to turn this endpoint into a generic
+    // URL fetcher. Child assets must stay on the configured stream's origin.
+    if (
+      (target.protocol !== 'http:' && target.protocol !== 'https:') ||
+      target.origin !== root.origin
+    ) {
+      throw new NotFoundException('Camera stream asset not found');
+    }
+
+    const headers: Record<string, string> = {};
+    if (range && /^bytes=\d*-\d*(,\d*-\d*)*$/.test(range)) {
+      headers.Range = range;
+    }
+
+    // Keep credentials server-side and send Basic auth through a header; the
+    // Fetch API rejects URLs containing user:password, and those credentials
+    // must never be copied into the browser-visible proxy URL.
+    const requestTarget = new URL(target.toString());
+    if (requestTarget.username || requestTarget.password) {
+      const username = decodeURIComponent(requestTarget.username);
+      const password = decodeURIComponent(requestTarget.password);
+      headers.Authorization = `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;
+      requestTarget.username = '';
+      requestTarget.password = '';
+    }
+
+    let upstream: Response;
+    try {
+      upstream = await fetch(requestTarget, { headers, redirect: 'manual' });
+    } catch {
+      throw new BadGatewayException('Could not connect to the camera stream');
+    }
+    if (upstream.status >= 300 && upstream.status < 400) {
+      await upstream.body?.cancel().catch(() => undefined);
+      throw new BadGatewayException('Camera stream redirects are not supported');
+    }
+    if (!upstream.ok && upstream.status !== 206) {
+      await upstream.body?.cancel().catch(() => undefined);
+      throw new BadGatewayException(`Camera stream returned HTTP ${upstream.status}`);
+    }
+
+    const contentType = upstream.headers.get('content-type') || 'application/octet-stream';
+    const isPlaylist = /mpegurl|x-mpegurl/i.test(contentType) || /\.m3u8$/i.test(target.pathname);
+    if (isPlaylist) {
+      const text = await upstream.text();
+      const proxyAsset = (asset: string) => {
+        const value = asset.trim();
+        if (!value || value.startsWith('data:')) return value;
+        let resolved: URL;
+        try {
+          resolved = new URL(value, target);
+        } catch {
+          throw new NotFoundException('Invalid camera playlist asset');
+        }
+        if (resolved.origin !== root.origin || !['http:', 'https:'].includes(resolved.protocol)) {
+          throw new NotFoundException('Camera playlist references an external asset');
+        }
+        // Some camera playlists require a query token for relative assets.
+        if (!resolved.search && target.search) resolved.search = target.search;
+        const token = randomUUID();
+        this.proxyAssetRefs.set(token, {
+          cameraId,
+          userId: user.id,
+          rootUrl: configuredUrl,
+          url: resolved.toString(),
+          expiresAt: Date.now() + PROXY_REFERENCE_TTL_MS,
+        });
+        return `/cameras/${encodeURIComponent(cameraId)}/stream/proxy?ref=${encodeURIComponent(token)}`;
+      };
+
+      const rewritten = text
+        .split(/\r?\n/)
+        .map((line) => {
+          if (!line.trim()) return line;
+          if (line.trimStart().startsWith('#')) {
+            return line.replace(/URI="([^"]+)"/g, (_match, uri: string) => `URI="${proxyAsset(uri)}"`);
+          }
+          return proxyAsset(line);
+        })
+        .join('\n');
+
+      // Remove expired refs opportunistically to bound memory use.
+      const now = Date.now();
+      for (const [token, value] of this.proxyAssetRefs) {
+        if (value.expiresAt < now) this.proxyAssetRefs.delete(token);
+      }
+
+      return {
+        kind: 'playlist',
+        status: upstream.status === 206 ? 206 : 200,
+        contentType: 'application/vnd.apple.mpegurl; charset=utf-8',
+        body: rewritten,
+      };
+    }
+
+    return {
+      kind: 'stream',
+      status: upstream.status,
+      contentType,
+      contentLength: upstream.headers.get('content-length'),
+      contentRange: upstream.headers.get('content-range'),
+      acceptRanges: upstream.headers.get('accept-ranges'),
+      body: upstream.body,
+    };
   }
 
   /** Called on every poll so an idle-active stream isn't reaped mid-watch. */

@@ -22,7 +22,7 @@ export interface Route {
   siteId: string
   site: { id: string; name: string }
   checkpoints: RouteCheckpoint[]
-  _count: { checkpoints: number }
+  _count: { checkpoints: number; patrolJobs: number }
 }
 
 export interface RouteInput {

@@ -4,12 +4,14 @@ import type { SummaryReportTemplateSummary } from '../lib/summary-report-templat
 import { summaryReportTemplateApi } from '../lib/summary-report-template'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Templates.css'
+import { useAppDialog } from '../components/AppDialogProvider'
 
 export default function SummaryTemplates({
   onEdit,
 }: {
   onEdit?: (id: string) => void
 }) {
+  const { confirm, prompt, alert: showAlert } = useAppDialog()
   const [templates, setTemplates] = useState<SummaryReportTemplateSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -44,7 +46,7 @@ export default function SummaryTemplates({
   }
 
   const rename = async (t: SummaryReportTemplateSummary) => {
-    const name = window.prompt('Rename template', t.name)
+    const name = await prompt({ title: 'Rename summary template', message: 'Enter a new name for this summary report template.', inputLabel: 'Template name', defaultValue: t.name, placeholder: 'Template name', confirmLabel: 'Save changes' })
     if (!name || !name.trim() || name === t.name) return
     try {
       await summaryReportTemplateApi.rename(t.id, name.trim())
@@ -56,12 +58,13 @@ export default function SummaryTemplates({
 
   const remove = async (t: SummaryReportTemplateSummary) => {
     if (t.isDefault) return
-    if (!window.confirm(`Delete summary template "${t.name}"?`)) return
+    const accepted = await confirm({ title: 'Delete summary template?', message: `Delete “${t.name}”? This template will no longer be available for future summary reports.`, tone: 'danger', confirmLabel: 'Delete template' })
+    if (!accepted) return
     try {
       await summaryReportTemplateApi.remove(t.id)
       load()
     } catch {
-      setError('Failed to delete summary template')
+      await showAlert({ title: 'Delete failed', message: 'The summary template could not be deleted. Please try again.', tone: 'danger' })
     }
   }
 

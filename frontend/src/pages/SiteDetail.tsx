@@ -21,7 +21,7 @@ import SearchableSelect from '../components/SearchableSelect'
 
 type Section = 'operators' | 'template' | 'cameras' | 'routes' | 'communications'
 
-type TelegramFieldKey =
+type NotificationFieldKey =
   | 'includeDate'
   | 'includeTime'
   | 'includeSite'
@@ -29,9 +29,9 @@ type TelegramFieldKey =
   | 'includeComment'
   | 'includeScreenshot'
 
-type TelegramNotificationFields = Record<TelegramFieldKey, boolean>
+type NotificationFields = Record<NotificationFieldKey, boolean>
 
-const DEFAULT_TELEGRAM_NOTIFICATION_FIELDS: TelegramNotificationFields = {
+const DEFAULT_NOTIFICATION_FIELDS: NotificationFields = {
   includeDate: true,
   includeTime: true,
   includeSite: true,
@@ -40,8 +40,8 @@ const DEFAULT_TELEGRAM_NOTIFICATION_FIELDS: TelegramNotificationFields = {
   includeScreenshot: true,
 }
 
-const TELEGRAM_NOTIFICATION_FIELD_OPTIONS: {
-  key: TelegramFieldKey
+const NOTIFICATION_FIELD_OPTIONS: {
+  key: NotificationFieldKey
   label: string
   description: string
 }[] = [
@@ -50,7 +50,7 @@ const TELEGRAM_NOTIFICATION_FIELD_OPTIONS: {
   { key: 'includeSite', label: 'Site', description: 'The site where the issue was reported' },
   { key: 'includePatrolRoute', label: 'Patrol Route', description: 'The route being patrolled' },
   { key: 'includeComment', label: 'Comment', description: "The operator's issue comment" },
-  { key: 'includeScreenshot', label: 'Screenshot', description: 'Attach the checkpoint screenshot when available' },
+  { key: 'includeScreenshot', label: 'Screenshot', description: 'Include screenshot availability in the alert' },
 ]
 
 export default function SiteDetail({
@@ -213,7 +213,7 @@ export default function SiteDetail({
   const CHANNEL_HINTS: Record<ChannelType, string> = {
     WHATSAPP:
       'Phone number / approved recipient identifier, or a WhatsApp group invite link (chat.whatsapp.com/...)',
-    TELEGRAM: 'Chat ID or channel ID',
+    TELEGRAM: 'Enter a Telegram username; @ is added automatically. Numeric chat IDs are also supported.',
     EMAIL: 'Recipient email address (comma-separate for multiple)',
   }
 
@@ -311,6 +311,10 @@ export default function SiteDetail({
                       value=""
                       onChange={(v) => v && assign(v)}
                       placeholder="Select a user…"
+                      searchPlaceholder="Search by name, username or role…"
+                      ariaLabel="Assign a user to this site"
+                      portal
+                      className="site-user-assignment"
                       options={assignable.map((u) => ({
                         value: u.id,
                         label: u.fullName,
@@ -389,11 +393,15 @@ export default function SiteDetail({
                     <SearchableSelect
                       value={templateId ?? ''}
                       onChange={(v) => changeTemplate(v)}
-                      placeholder="Default Template"
-                      searchable={false}
+                      placeholder="Choose a report template…"
+                      searchPlaceholder="Search report templates…"
+                      ariaLabel="Report template for this site"
+                      portal
+                      className="site-report-template"
                       options={templates.map((t) => ({
                         value: t.id,
                         label: t.isDefault ? `${t.name} (Default)` : t.name,
+                        sub: t.isDefault ? 'Recommended default template' : 'Custom report template',
                       }))}
                     />
                     <p className="detail-muted">
@@ -839,6 +847,21 @@ function CameraForm({
   )
 }
 
+function normalizeTelegramDestination(value: string): string {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+
+  // Telegram accepts numeric chat IDs as-is. Public usernames need the @ prefix.
+  if (/^-?\d+$/.test(trimmed)) return trimmed
+
+  const username = trimmed.replace(/^@+/, '').trim()
+  return username ? `@${username}` : ''
+}
+
+function isNumericTelegramDestination(value: string): boolean {
+  return /^-?\d+$/.test(value.trim())
+}
+
 function CommunicationForm({
   siteId,
   channelType,
@@ -856,11 +879,17 @@ function CommunicationForm({
   onClose: () => void
   onSaved: () => void
 }) {
-  const [destination, setDestination] = useState(existing?.destination ?? '')
+  const [destination, setDestination] = useState(() =>
+    channelType === 'TELEGRAM'
+      ? existing?.destination
+        ? normalizeTelegramDestination(existing.destination)
+        : '@'
+      : existing?.destination ?? '',
+  )
   const [displayName, setDisplayName] = useState(existing?.displayName ?? '')
   const [enabled, setEnabled] = useState(existing?.enabled ?? true)
-  const [notificationFields, setNotificationFields] = useState<TelegramNotificationFields>(() => ({
-    ...DEFAULT_TELEGRAM_NOTIFICATION_FIELDS,
+  const [notificationFields, setNotificationFields] = useState<NotificationFields>(() => ({
+    ...DEFAULT_NOTIFICATION_FIELDS,
     includeDate: existing?.includeDate ?? true,
     includeTime: existing?.includeTime ?? true,
     includeSite: existing?.includeSite ?? true,
@@ -873,24 +902,31 @@ function CommunicationForm({
 
   const submit = async () => {
     setError('')
-    if (!destination.trim()) return setError(`${label} destination is required`)
+    const savedDestination =
+      channelType === 'TELEGRAM'
+        ? normalizeTelegramDestination(destination)
+        : destination.trim()
+    if (!savedDestination) return setError(`${label} destination is required`)
     setSubmitting(true)
-    const telegramFields = channelType === 'TELEGRAM' ? notificationFields : {}
+    const selectedNotificationFields =
+      channelType === 'TELEGRAM' || channelType === 'WHATSAPP'
+        ? notificationFields
+        : {}
     try {
       if (existing) {
         await siteCommunicationsApi.update(siteId, existing.id, {
-          destination,
+          destination: savedDestination,
           displayName: displayName || undefined,
           enabled,
-          ...telegramFields,
+          ...selectedNotificationFields,
         })
       } else {
         await siteCommunicationsApi.create(siteId, {
           channelType,
-          destination,
+          destination: savedDestination,
           displayName: displayName || undefined,
           enabled,
-          ...telegramFields,
+          ...selectedNotificationFields,
         })
       }
       onSaved()
@@ -907,12 +943,41 @@ function CommunicationForm({
         <h3>{existing ? `Edit ${label}` : `Configure ${label}`}</h3>
 
         <label>Destination</label>
-        <input
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-          placeholder={hint}
-          autoFocus
-        />
+        {channelType === 'TELEGRAM' ? (
+          <div
+            className={`telegram-destination-input${
+              isNumericTelegramDestination(destination) ? ' is-chat-id' : ''
+            }`}
+          >
+            {!isNumericTelegramDestination(destination) && (
+              <span className="telegram-destination-prefix" aria-hidden="true">
+                @
+              </span>
+            )}
+            <input
+              value={
+                isNumericTelegramDestination(destination)
+                  ? destination
+                  : destination.replace(/^@+/, '')
+              }
+              onChange={(e) => setDestination(normalizeTelegramDestination(e.target.value))}
+              placeholder={
+                isNumericTelegramDestination(destination)
+                  ? 'e.g. -100123456789'
+                  : 'channelname'
+              }
+              autoFocus
+              aria-label="Telegram destination"
+            />
+          </div>
+        ) : (
+          <input
+            value={destination}
+            onChange={(e) => setDestination(e.target.value)}
+            placeholder={hint}
+            autoFocus
+          />
+        )}
         <span className="field-hint">{hint}</span>
 
         <label>Display Label (optional)</label>
@@ -937,14 +1002,14 @@ function CommunicationForm({
           </button>
         </div>
 
-        {channelType === 'TELEGRAM' && (
-          <section className="telegram-fields-section" aria-labelledby="telegram-fields-title">
+        {(channelType === 'TELEGRAM' || channelType === 'WHATSAPP') && (
+          <section className="telegram-fields-section" aria-labelledby="notification-fields-title">
             <div className="telegram-fields-heading">
-              <h4 id="telegram-fields-title">Notification message fields</h4>
-              <p>Choose which details appear in Telegram patrol issue alerts.</p>
+              <h4 id="notification-fields-title">Notification message fields</h4>
+              <p>Choose which details appear in {channelType === 'WHATSAPP' ? 'WhatsApp' : 'Telegram'} patrol issue alerts.</p>
             </div>
             <div className="telegram-fields-grid">
-              {TELEGRAM_NOTIFICATION_FIELD_OPTIONS.map((option) => (
+              {NOTIFICATION_FIELD_OPTIONS.map((option) => (
                 <label className="telegram-field-option" key={option.key}>
                   <input
                     type="checkbox"
@@ -964,7 +1029,9 @@ function CommunicationForm({
               ))}
             </div>
             <p className="telegram-fields-note">
-              Screenshot is sent as a Telegram photo when enabled and the saved image is available.
+              {channelType === 'WHATSAPP'
+                ? 'WhatsApp sends the selected details through your approved message template. The screenshot itself is not attached by the current WhatsApp provider.'
+                : 'Screenshot is sent as a Telegram photo when enabled and the saved image is available.'}
             </p>
           </section>
         )}

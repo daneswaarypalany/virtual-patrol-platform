@@ -12,12 +12,14 @@ import {
   MapPin,
   MonitorDot,
   Route as RouteIcon,
+  Search,
   X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { DashboardData, TimelineItem, IssueItem } from '../lib/dashboard'
 import { dashboardApi } from '../lib/dashboard'
 import { API_BASE_URL } from '../lib/api'
+import SearchableSelect from '../components/SearchableSelect'
 import { patrolApi } from '../lib/patrol'
 import type { ActivePatrolItem, PatrolJobSummary } from '../lib/patrol'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Bar, BarChart } from 'recharts'
@@ -190,8 +192,12 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   const [issueRouteFilter, setIssueRouteFilter] = useState('all')
   const [issueFromDate, setIssueFromDate] = useState<Date | null>(null)
   const [issueToDate, setIssueToDate] = useState<Date | null>(null)
+  const [issueStartDateOpen, setIssueStartDateOpen] = useState(false)
+  const [issueEndDateOpen, setIssueEndDateOpen] = useState(false)
   const [cameraList, setCameraList] = useState<CameraType[]>([])
   const [cameraLoading, setCameraLoading] = useState(false)
+  const [cameraSiteFilter, setCameraSiteFilter] = useState('all')
+  const [cameraSearch, setCameraSearch] = useState('')
   const [tlFilter, setTlFilter] = useState<'all' | 'patrols' | 'issues'>('all')
   const [reducedMotion, setReducedMotion] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -317,6 +323,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     setIssueRouteFilter('all')
     setIssueFromDate(null)
     setIssueToDate(null)
+    setIssueStartDateOpen(false)
+    setIssueEndDateOpen(false)
     setIssueLoading(true)
     try {
       setIssueList(await dashboardApi.listIssues())
@@ -343,6 +351,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
 
   const openCameras = async () => {
     setPopup('cameras')
+    setCameraSiteFilter('all')
+    setCameraSearch('')
     setCameraLoading(true)
     try {
       setCameraList(await camerasApi.list())
@@ -498,10 +508,6 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   }, [patrolHistory, trendRange])
 
   const trendHasActivity = trendData.some((point) => point.started > 0 || point.completed > 0)
-  const clearCheckRate = s && s.totalChecks > 0
-    ? Math.round(Math.max(0, Math.min(100, ((s.totalChecks - s.issuesFlagged) / s.totalChecks) * 100)))
-    : null
-  const gaugeLength = Math.PI * 84
 
   const issueDateBounds = useMemo(() => {
     const now = new Date()
@@ -561,6 +567,28 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           ? 'Buckets sized to your selected range'
           : 'Historical trend using the available issue records'
 
+  const cameraSiteOptions = useMemo(() => {
+    const sites = Array.from(new Set(cameraList.map((camera) => camera.site?.name ?? 'Unassigned')))
+      .sort((a, b) => a.localeCompare(b))
+    return [
+      { value: 'all', label: 'All sites' },
+      ...sites.map((site) => ({ value: site, label: site })),
+    ]
+  }, [cameraList])
+
+  const filteredCameras = useMemo(() => {
+    const query = cameraSearch.trim().toLowerCase()
+    return cameraList.filter((camera) => {
+      const site = camera.site?.name ?? 'Unassigned'
+      if (cameraSiteFilter !== 'all' && site !== cameraSiteFilter) return false
+      if (!query) return true
+      const searchableText = [camera.name, camera.cameraCode, camera.location ?? '', site]
+        .join(' ')
+        .toLowerCase()
+      return searchableText.includes(query)
+    })
+  }, [cameraList, cameraSearch, cameraSiteFilter])
+
   const quickAccessItems: QuickAccessItem[] =
     user?.role === 'ADMIN'
       ? [
@@ -596,7 +624,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <div>
             <p className="dash-eyebrow">FIELD PERFORMANCE</p>
             <h3>Patrol operations overview</h3>
-            <p className="ops-overview-subtitle">Patrol activity, checkpoint outcomes and current coverage.</p>
+            <p className="ops-overview-subtitle">Patrol activity, live patrols and current coverage.</p>
           </div>
           <div className="ops-overview-tools">
             <span className="ops-sites-chip"><MapPin size={14} /> {loading ? '—' : s?.sites ?? 0} sites</span>
@@ -649,128 +677,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <span className="dash-sub">Patrols finished today</span>
         </div>
       </div>
-          <aside className="ops-gauge-card" aria-label="Clear checkpoint rate">
-            <div className="ops-gauge-title">Checkpoint health</div>
-            <div className="ops-gauge-visual">
-              <svg viewBox="0 0 200 116" role="img" aria-label={clearCheckRate === null ? 'No checkpoint data yet' : `Clear check rate ${clearCheckRate} percent`}>
-                <path className="ops-gauge-track" d="M 16 100 A 84 84 0 0 1 184 100" fill="none" strokeWidth="12" strokeLinecap="round" />
-                <path className="ops-gauge-progress" d="M 16 100 A 84 84 0 0 1 184 100" fill="none" strokeWidth="12" strokeLinecap="round" strokeDasharray={`${clearCheckRate === null ? 0 : (clearCheckRate / 100) * gaugeLength} ${gaugeLength}`} />
-              </svg>
-              <div className="ops-gauge-reading">
-                <strong>{clearCheckRate === null ? '—' : `${clearCheckRate}%`}</strong>
-                <span>clear check rate</span>
-              </div>
-            </div>
-            <p className="ops-gauge-caption">
-              {s && s.totalChecks > 0
-                ? `${Math.max(0, s.totalChecks - s.issuesFlagged).toLocaleString()} of ${s.totalChecks.toLocaleString()} checkpoint checks were marked clear.`
-                : 'Checkpoint health will appear after the first patrol checks are recorded.'}
-            </p>
-          </aside>
-        </div>
-
-        <div className="ops-chart-card">
-          <div className="ops-chart-head">
-            <div>
-              <h4>Patrol activity trend</h4>
-              <p>{trendRange === 'daily' ? 'Daily totals over the past 7 days' : trendRange === 'weekly' ? 'Weekly totals over the past 8 weeks' : 'Monthly totals over the past 6 months'}</p>
-            </div>
-            <div className="ops-chart-legend" aria-label="Chart legend">
-              <span><i className="ops-legend-started" /> Started</span>
-              <span><i className="ops-legend-completed" /> Completed</span>
-            </div>
-          </div>
-
-          {historyLoading ? (
-            <div className="ops-chart-empty">Loading patrol history…</div>
-          ) : patrolHistory.length === 0 ? (
-            <div className="ops-chart-empty">No patrol history is available for this account yet.</div>
-          ) : !trendHasActivity ? (
-            <div className="ops-chart-empty">No patrol activity in this range. Try another time range.</div>
-          ) : (
-            <div className="ops-chart-wrap">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={trendData} margin={{ top: 12, right: 14, bottom: 0, left: -16 }}>
-                  <CartesianGrid stroke="var(--ops-chart-grid)" strokeDasharray="3 5" vertical={false} />
-                  <XAxis dataKey="label" tick={{ fill: 'var(--ops-chart-axis)', fontSize: 10 }} axisLine={false} tickLine={false} dy={8} minTickGap={14} />
-                  <YAxis allowDecimals={false} width={34} tick={{ fill: 'var(--ops-chart-axis)', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ backgroundColor: 'var(--ops-tooltip-bg)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', boxShadow: '0 12px 28px rgba(0,0,0,0.12)' }} labelStyle={{ color: 'var(--text-muted)', fontWeight: 700 }} itemStyle={{ color: 'var(--text)' }} />
-                  <Line type="monotone" dataKey="started" name="Patrols started" stroke="#7895AC" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-                  <Line type="monotone" dataKey="completed" name="Patrols completed" stroke="#329578" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <div className="dash-main-grid">
-        <section className="dash-panel dash-activity-panel">
-          <div className="dash-panel-head">
-            <div className="dash-panel-title">
-              <h3><Activity size={16} /> Recent Activity</h3>
-              <span className="tl-window-label">
-                {showingHistoricalActivity ? 'Earlier activity' : 'Last 24 hours'}
-              </span>
-            </div>
-            <div className="tl-filter" role="group" aria-label="Filter recent activity">
-              <button type="button" className={tlFilter === 'all' ? 'active' : ''} onClick={() => setTlFilter('all')}>All</button>
-              <button type="button" className={tlFilter === 'patrols' ? 'active' : ''} onClick={() => setTlFilter('patrols')}>Patrols</button>
-              <button type="button" className={tlFilter === 'issues' ? 'active' : ''} onClick={() => setTlFilter('issues')}>Issues</button>
-            </div>
-          </div>
-
-          {loading ? (
-            <p className="tl-loading">Loading activity…</p>
-          ) : visibleActivity.length === 0 ? (
-            <p className="tl-empty">
-              {showingHistoricalActivity
-                ? 'No past activity is available for this filter.'
-                : 'No activity recorded in the last 24 hours for this filter.'}
-            </p>
-          ) : (
-            <div
-              className="timeline"
-              aria-label={
-                showingHistoricalActivity
-                  ? 'Earlier activity'
-                  : 'Activity from the last 24 hours'
-              }
-            >
-              {visibleActivity.map((item, i) => (
-                <div
-                  key={`${item.at}-${item.title}-${i}`}
-                  className="tl-item"
-                >
-                  <div className={`tl-dot ${dotClass(item.type)}`}>
-                    {timelineIcon(item.type)}
-                  </div>
-                  <div className="tl-body">
-                    <div className="tl-top">
-                      <strong>{item.title}</strong>
-                      <span className="tl-time">
-                        {formatActivityTime(item.at, showingHistoricalActivity)}
-                      </span>
-                    </div>
-                    <p>{item.detail}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="dash-panel-foot">
-            <span>
-              {showingHistoricalActivity
-                ? 'HISTORICAL ACTIVITY · DATE & TIME SHOWN'
-                : 'ROLLING 24-HOUR WINDOW · PATROL & ISSUE EVENTS'}
-            </span>
-            <button type="button" onClick={() => onNavigate(user?.role === 'ADMIN' ? 'logs' : 'reports')}>View all activity <ArrowUpRight size={14} /></button>
-          </div>
-        </section>
-
         <section
-          className="dash-active-panel"
+          className="dash-active-panel ops-active-panel"
           onMouseEnter={() => setActivePaused(true)}
           onMouseLeave={() => setActivePaused(false)}
           onFocusCapture={() => setActivePaused(true)}
@@ -889,6 +797,109 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
             </>
           )}
         </section>
+        </div>
+
+        <div className="ops-chart-card">
+          <div className="ops-chart-head">
+            <div>
+              <h4>Patrol activity trend</h4>
+              <p>{trendRange === 'daily' ? 'Daily totals over the past 7 days' : trendRange === 'weekly' ? 'Weekly totals over the past 8 weeks' : 'Monthly totals over the past 6 months'}</p>
+            </div>
+            <div className="ops-chart-legend" aria-label="Chart legend">
+              <span><i className="ops-legend-started" /> Started</span>
+              <span><i className="ops-legend-completed" /> Completed</span>
+            </div>
+          </div>
+
+          {historyLoading ? (
+            <div className="ops-chart-empty">Loading patrol history…</div>
+          ) : patrolHistory.length === 0 ? (
+            <div className="ops-chart-empty">No patrol history is available for this account yet.</div>
+          ) : !trendHasActivity ? (
+            <div className="ops-chart-empty">No patrol activity in this range. Try another time range.</div>
+          ) : (
+            <div className="ops-chart-wrap">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={trendData} margin={{ top: 12, right: 14, bottom: 0, left: -16 }}>
+                  <CartesianGrid stroke="var(--ops-chart-grid)" strokeDasharray="3 5" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fill: 'var(--ops-chart-axis)', fontSize: 10 }} axisLine={false} tickLine={false} dy={8} minTickGap={14} />
+                  <YAxis allowDecimals={false} width={34} tick={{ fill: 'var(--ops-chart-axis)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--ops-tooltip-bg)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)', boxShadow: '0 12px 28px rgba(0,0,0,0.12)' }} labelStyle={{ color: 'var(--text-muted)', fontWeight: 700 }} itemStyle={{ color: 'var(--text)' }} />
+                  <Line type="monotone" dataKey="started" name="Patrols started" stroke="#7895AC" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                  <Line type="monotone" dataKey="completed" name="Patrols completed" stroke="#329578" strokeWidth={2.5} dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="dash-main-grid dash-main-grid-single">
+        <section className="dash-panel dash-activity-panel">
+          <div className="dash-panel-head">
+            <div className="dash-panel-title">
+              <h3><Activity size={16} /> Recent Activity</h3>
+              <span className="tl-window-label">
+                {showingHistoricalActivity ? 'Earlier activity' : 'Last 24 hours'}
+              </span>
+            </div>
+            <div className="tl-filter" role="group" aria-label="Filter recent activity">
+              <button type="button" className={tlFilter === 'all' ? 'active' : ''} onClick={() => setTlFilter('all')}>All</button>
+              <button type="button" className={tlFilter === 'patrols' ? 'active' : ''} onClick={() => setTlFilter('patrols')}>Patrols</button>
+              <button type="button" className={tlFilter === 'issues' ? 'active' : ''} onClick={() => setTlFilter('issues')}>Issues</button>
+            </div>
+          </div>
+
+          {loading ? (
+            <p className="tl-loading">Loading activity…</p>
+          ) : visibleActivity.length === 0 ? (
+            <p className="tl-empty">
+              {showingHistoricalActivity
+                ? 'No past activity is available for this filter.'
+                : 'No activity recorded in the last 24 hours for this filter.'}
+            </p>
+          ) : (
+            <div
+              className="timeline"
+              aria-label={
+                showingHistoricalActivity
+                  ? 'Earlier activity'
+                  : 'Activity from the last 24 hours'
+              }
+            >
+              {visibleActivity.map((item, i) => (
+                <div
+                  key={`${item.at}-${item.title}-${i}`}
+                  className="tl-item"
+                >
+                  <div className={`tl-dot ${dotClass(item.type)}`}>
+                    {timelineIcon(item.type)}
+                  </div>
+                  <div className="tl-body">
+                    <div className="tl-top">
+                      <strong>{item.title}</strong>
+                      <span className="tl-time">
+                        {formatActivityTime(item.at, showingHistoricalActivity)}
+                      </span>
+                    </div>
+                    <p>{item.detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="dash-panel-foot">
+            <span>
+              {showingHistoricalActivity
+                ? 'HISTORICAL ACTIVITY · DATE & TIME SHOWN'
+                : 'ROLLING 24-HOUR WINDOW · PATROL & ISSUE EVENTS'}
+            </span>
+            <button type="button" onClick={() => onNavigate(user?.role === 'ADMIN' ? 'logs' : 'reports')}>View all activity <ArrowUpRight size={14} /></button>
+          </div>
+        </section>
+
+
       </div>
 
       <section className="dash-quick-section">
@@ -934,7 +945,11 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                             type="button"
                             className={issueDatePreset === preset.key ? 'active' : ''}
                             aria-pressed={issueDatePreset === preset.key}
-                            onClick={() => setIssueDatePreset(preset.key)}
+                            onClick={() => {
+                              setIssueDatePreset(preset.key)
+                              setIssueStartDateOpen(false)
+                              setIssueEndDateOpen(false)
+                            }}
                           >
                             {preset.label}
                           </button>
@@ -943,17 +958,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                       <div className="issue-select-filters">
                         <label>
                           <span>Site</span>
-                          <select aria-label="Filter flagged issues by site" value={issueSiteFilter} onChange={(event) => setIssueSiteFilter(event.target.value)}>
-                            <option value="all">All sites</option>
-                            {issueSiteOptions.map((site) => <option key={site} value={site}>{site}</option>)}
-                          </select>
+                          <SearchableSelect
+                            ariaLabel="Filter flagged issues by site"
+                            value={issueSiteFilter}
+                            onChange={setIssueSiteFilter}
+                            placeholder="All sites"
+                            searchPlaceholder="Search sites..."
+                            options={[
+                              { value: 'all', label: 'All sites' },
+                              ...issueSiteOptions.map((site) => ({ value: site, label: site })),
+                            ]}
+                            portal
+                          />
                         </label>
                         <label>
                           <span>Patrol route</span>
-                          <select aria-label="Filter flagged issues by patrol route" value={issueRouteFilter} onChange={(event) => setIssueRouteFilter(event.target.value)}>
-                            <option value="all">All routes</option>
-                            {issueRouteOptions.map((route) => <option key={route.key} value={route.key}>{route.label}</option>)}
-                          </select>
+                          <SearchableSelect
+                            ariaLabel="Filter flagged issues by patrol route"
+                            value={issueRouteFilter}
+                            onChange={setIssueRouteFilter}
+                            placeholder="All routes"
+                            searchPlaceholder="Search routes..."
+                            options={[
+                              { value: 'all', label: 'All routes' },
+                              ...issueRouteOptions.map((route) => ({ value: route.key, label: route.label })),
+                            ]}
+                            portal
+                          />
                         </label>
                       </div>
                     </div>
@@ -964,9 +995,21 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           <span>From</span>
                           <DatePicker
                             selected={issueFromDate}
+                            open={issueStartDateOpen}
+                            onInputClick={() => {
+                              setIssueEndDateOpen(false)
+                              setIssueStartDateOpen(true)
+                            }}
+                            onClickOutside={() => setIssueStartDateOpen(false)}
+                            onSelect={(_date, event) => {
+                              // Keep the calendar-day click from bubbling to the wrapping label/input.
+                              event?.stopPropagation()
+                            }}
                             onChange={(date: Date | null) => {
                               setIssueFromDate(date)
                               if (date && issueToDate && issueToDate < date) setIssueToDate(date)
+                              setIssueStartDateOpen(false)
+                              setIssueEndDateOpen(Boolean(date))
                             }}
                             selectsStart
                             startDate={issueFromDate}
@@ -985,7 +1028,33 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
                           <span>To</span>
                           <DatePicker
                             selected={issueToDate}
-                            onChange={(date: Date | null) => setIssueToDate(date)}
+                            open={issueEndDateOpen}
+                            preventOpenOnFocus
+                            shouldCloseOnSelect
+                            onInputClick={() => {
+                              setIssueStartDateOpen(false)
+                              setIssueEndDateOpen(true)
+                            }}
+                            onClickOutside={() => {
+                              setIssueStartDateOpen(false)
+                              setIssueEndDateOpen(false)
+                            }}
+                            onSelect={(_date, event) => {
+                              // Prevent the surrounding label from re-triggering the input click.
+                              event?.stopPropagation()
+                              setIssueStartDateOpen(false)
+                              setIssueEndDateOpen(false)
+                              // Ensure the end calendar stays closed after the click event completes.
+                              window.setTimeout(() => {
+                                setIssueStartDateOpen(false)
+                                setIssueEndDateOpen(false)
+                              }, 0)
+                            }}
+                            onChange={(date: Date | null) => {
+                              setIssueToDate(date)
+                              setIssueStartDateOpen(false)
+                              setIssueEndDateOpen(false)
+                            }}
                             selectsEnd
                             startDate={issueFromDate}
                             endDate={issueToDate}
@@ -1094,15 +1163,53 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           <section className="dash-popup" role="dialog" aria-modal="true" aria-labelledby="dash-cameras-title" onMouseDown={(e) => e.stopPropagation()}>
             <div className="dash-popup-head"><h3 id="dash-cameras-title"><Camera size={18} /> Cameras by Site</h3><button type="button" onClick={() => setPopup(null)} aria-label="Close camera directory"><X size={18} /></button></div>
             <div className="dash-popup-body">
-              {cameraLoading ? <p className="tl-empty">Loading…</p> : cameraList.length === 0 ? <p className="tl-empty">No cameras yet.</p> : (() => {
+              <div className="camera-popup-filters">
+                <div className="camera-popup-filter">
+                  <span className="camera-popup-filter-label">Site</span>
+                  <SearchableSelect
+                    className="camera-site-select"
+                    options={cameraSiteOptions}
+                    value={cameraSiteFilter}
+                    onChange={setCameraSiteFilter}
+                    placeholder="All sites"
+                    searchPlaceholder="Search sites…"
+                    ariaLabel="Filter cameras by site"
+                    portal
+                  />
+                </div>
+                <div className="camera-search-field">
+                  <Search size={15} aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={cameraSearch}
+                    onChange={(event) => setCameraSearch(event.target.value)}
+                    placeholder="Search cameras, code, or location…"
+                    aria-label="Search cameras, code, or location"
+                  />
+                  {cameraSearch && (
+                    <button type="button" onClick={() => setCameraSearch('')} aria-label="Clear camera search">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {cameraLoading ? <p className="tl-empty">Loading cameras…</p> : cameraList.length === 0 ? <p className="tl-empty">No cameras yet.</p> : filteredCameras.length === 0 ? <p className="tl-empty camera-filter-empty">No cameras match these filters. Try another site or search term.</p> : (() => {
                 const bySite = new Map<string, CameraType[]>()
-                for (const c of cameraList) {
-                  const site = c.site?.name ?? 'Unassigned'
+                for (const camera of filteredCameras) {
+                  const site = camera.site?.name ?? 'Unassigned'
                   if (!bySite.has(site)) bySite.set(site, [])
-                  bySite.get(site)!.push(c)
+                  bySite.get(site)!.push(camera)
                 }
-                return Array.from(bySite.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([site, cams]) => (
-                  <div key={site} className="popup-cam-group"><div className="popup-cam-site">{site}<span>{cams.length}</span></div>{cams.map((c) => <div key={c.id} className="popup-cam"><Camera size={14} /><div><strong>{c.name}</strong><span>{c.cameraCode} · {c.location || 'No location'}</span></div></div>)}</div>
+                return Array.from(bySite.entries()).sort((a, b) => a[0].localeCompare(b[0])).map(([site, cameras]) => (
+                  <div key={site} className="popup-cam-group">
+                    <div className="popup-cam-site">{site}<span>{cameras.length}</span></div>
+                    {cameras.map((camera) => (
+                      <div key={camera.id} className="popup-cam">
+                        <Camera size={14} />
+                        <div><strong>{camera.name}</strong><span>{camera.cameraCode} · {camera.location || 'No location'}</span></div>
+                      </div>
+                    ))}
+                  </div>
                 ))
               })()}
             </div>

@@ -4,12 +4,14 @@ import type { ReportTemplateSummary } from '../lib/report-template'
 import { reportTemplateApi } from '../lib/report-template'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Templates.css'
+import { useAppDialog } from '../components/AppDialogProvider'
 
 export default function Templates({
   onEdit,
 }: {
   onEdit?: (id: string) => void
 }) {
+  const { confirm, prompt, alert: showAlert } = useAppDialog()
   const [templates, setTemplates] = useState<ReportTemplateSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -44,7 +46,7 @@ export default function Templates({
   }
 
   const rename = async (t: ReportTemplateSummary) => {
-    const name = window.prompt('Rename template', t.name)
+    const name = await prompt({ title: 'Rename report template', message: 'Enter a new name for this report template.', inputLabel: 'Template name', defaultValue: t.name, placeholder: 'Template name', confirmLabel: 'Save changes' })
     if (!name || !name.trim() || name === t.name) return
     try {
       await reportTemplateApi.rename(t.id, name.trim())
@@ -56,12 +58,13 @@ export default function Templates({
 
   const remove = async (t: ReportTemplateSummary) => {
     if (t.isDefault) return
-    if (!window.confirm(`Delete template "${t.name}"? Sites using it will fall back to the default.`)) return
+    const accepted = await confirm({ title: 'Delete report template?', message: `Delete “${t.name}”? Sites using it will automatically fall back to the default template.`, tone: 'danger', confirmLabel: 'Delete template' })
+    if (!accepted) return
     try {
       await reportTemplateApi.remove(t.id)
       load()
     } catch {
-      setError('Failed to delete template')
+      await showAlert({ title: 'Delete failed', message: 'The report template could not be deleted. Please try again.', tone: 'danger' })
     }
   }
 

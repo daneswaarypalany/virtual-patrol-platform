@@ -150,6 +150,31 @@
   background: var(--bg);
 }
 
+.row-actions .delete-user-button {
+  color: var(--status-red, #c85d5d);
+  border-color: rgba(192, 92, 92, 0.28);
+  background: rgba(192, 92, 92, 0.055);
+  white-space: nowrap;
+}
+
+.row-actions .delete-user-button:hover {
+  color: #a93f42;
+  border-color: rgba(192, 92, 92, 0.48);
+  background: rgba(192, 92, 92, 0.12);
+}
+
+html:root[data-theme='dark'] .row-actions .delete-user-button {
+  color: #f09a98;
+  border-color: rgba(240, 154, 152, 0.28);
+  background: rgba(240, 154, 152, 0.08);
+}
+
+html:root[data-theme='dark'] .row-actions .delete-user-button:hover {
+  color: #ffc0be;
+  border-color: rgba(240, 154, 152, 0.46);
+  background: rgba(240, 154, 152, 0.15);
+}
+
 /* Modal */
 
 .modal-backdrop {
@@ -485,4 +510,199 @@
 
 .assignment-error {
   color: var(--status-red);
+}
+
+/* Keep the Users search, status, role and sort controls aligned in one row. */
+.users-page .users-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: nowrap;
+}
+
+.users-page .users-toolbar .toolbar-left {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.users-page .users-toolbar .search-box {
+  flex: 0 1 270px;
+  width: 270px;
+  min-width: 210px;
+}
+
+.users-page .users-toolbar .segmented {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.users-page .users-toolbar .user-filter-wrap {
+  flex: 0 1 215px;
+  width: 215px;
+  min-width: 170px;
+}
+
+.users-page .users-toolbar .btn-primary {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .users-page .users-toolbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .users-page .users-toolbar .toolbar-left {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .users-page .users-toolbar .search-box {
+    flex: 1 1 240px;
+  }
+
+  .users-page .users-toolbar .user-filter-wrap {
+    flex: 1 1 190px;
+    width: auto;
+  }
+
+  .users-page .users-toolbar > .btn-primary {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .users-page .users-toolbar .toolbar-left {
+    align-items: stretch;
+  }
+
+  .users-page .users-toolbar .search-box,
+  .users-page .users-toolbar .user-filter-wrap {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+}
+
+
+/* Bulk user deletion controls */
+.users-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 9px;
+}
+
+.users-selection-summary {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.btn-danger,
+.btn-danger-outline {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, opacity 0.16s ease;
+}
+
+.btn-danger {
+  color: #fff;
+  background: var(--status-red, #c85d5d);
+  border: 1px solid var(--status-red, #c85d5d);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #ad494b;
+  border-color: #ad494b;
+}
+
+.btn-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-danger-outline {
+  color: var(--status-red, #c85d5d);
+  background: var(--white);
+  border: 1px solid rgba(192, 92, 92, 0.34);
+}
+
+.btn-danger-outline:hover {
+  background: rgba(192, 92, 92, 0.09);
+  border-color: rgba(192, 92, 92, 0.56);
+}
+
+html:root[data-theme='dark'] .btn-danger-outline {
+  color: #f09a98;
+  background: rgba(240, 154, 152, 0.07);
+  border-color: rgba(240, 154, 152, 0.28);
+}
+
+html:root[data-theme='dark'] .btn-danger-outline:hover {
+  background: rgba(240, 154, 152, 0.14);
+  border-color: rgba(240, 154, 152, 0.48);
+}
+
+.users-table .user-select-cell {
+  width: 46px;
+  min-width: 46px;
+  padding-right: 8px;
+  padding-left: 16px;
+  text-align: center;
+}
+
+.user-select-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--navy);
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.user-select-checkbox:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.users-table tbody tr.is-selected-for-delete {
+  background: rgba(192, 92, 92, 0.075);
+}
+
+.users-table tbody tr.is-selected-for-delete:hover {
+  background: rgba(192, 92, 92, 0.11);
+}
+
+@media (max-width: 1180px) {
+  .users-page .users-toolbar-actions {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .users-page .users-toolbar-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .users-selection-summary {
+    margin-right: auto;
+  }
 }

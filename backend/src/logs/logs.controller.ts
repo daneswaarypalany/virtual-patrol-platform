@@ -16,6 +16,18 @@ export class LogsController {
     return this.logsService.activeUsers();
   }
 
+  // Daily distinct-user and activity totals for the Logs page trend chart.
+  @Get('user-trend')
+  userTrend(@Query('days') days?: string) {
+    return this.logsService.userTrend(days);
+  }
+
+  // Privacy-limited user detail for a single chart day, shown on point hover.
+  @Get('user-trend/users')
+  userTrendDayUsers(@Query('day') day?: string) {
+    return this.logsService.userTrendDayUsers(day);
+  }
+
   // Distinct action names, used to populate the filter dropdown.
   @Get('actions')
   actions() {

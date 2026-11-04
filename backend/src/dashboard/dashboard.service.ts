@@ -7,7 +7,6 @@ export class DashboardService {
 
   async getData(user: { id: string; role: string }) {
     const isAdmin = user.role === "ADMIN";
-    const isViewer = user.role === "VIEWER";
 
     // For operators, restrict to their assigned sites
     let siteIds: string[] | null = null;
@@ -19,14 +18,12 @@ export class DashboardService {
       siteIds = assignments.map((a) => a.siteId);
     }
 
-    // Scope helper for jobs: admins see everything, viewers see every job
-    // on their assigned sites (they don't run patrols themselves), and
-    // operators see only jobs they personally performed.
+    // All non-admin dashboards are scoped to the user's assigned sites.
+    // Operators may run patrols; viewers are read-only, but both should only
+    // see operational data belonging to sites explicitly assigned to them.
     const jobWhere = isAdmin
       ? {}
-      : isViewer
-        ? { route: { siteId: { in: siteIds ?? [] } } }
-        : { operatorId: user.id };
+      : { route: { siteId: { in: siteIds ?? [] } } };
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -186,10 +183,9 @@ export class DashboardService {
 
   async getIssues(user: { id: string; role: string }) {
     const isAdmin = user.role === "ADMIN";
-    const isViewer = user.role === "VIEWER";
 
     let siteIds: string[] | null = null;
-    if (isViewer) {
+    if (!isAdmin) {
       const assignments = await this.prisma.operatorSiteAssignment.findMany({
         where: { userId: user.id },
         select: { siteId: true },
@@ -199,9 +195,7 @@ export class DashboardService {
 
     const jobWhere = isAdmin
       ? {}
-      : isViewer
-        ? { route: { siteId: { in: siteIds ?? [] } } }
-        : { operatorId: user.id };
+      : { route: { siteId: { in: siteIds ?? [] } } };
 
     return this.prisma.checkpointResult.findMany({
       where: {

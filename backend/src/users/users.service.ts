@@ -103,6 +103,38 @@ export class UsersService {
     return { message: 'Password reset successfully' };
   }
 
+  async remove(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id },
+        select: safeUserSelect,
+      })
+
+      if (!user) throw new NotFoundException('User not found')
+
+      if (user.role === UserRole.ADMIN) {
+        throw new BadRequestException('Administrator accounts cannot be deleted.')
+      }
+
+      const [patrolCount, patrolJobCount] = await Promise.all([
+        tx.patrol.count({ where: { operatorId: id } }),
+        tx.patrolJob.count({ where: { operatorId: id } }),
+      ])
+
+      if (patrolCount > 0 || patrolJobCount > 0) {
+        const total = patrolCount + patrolJobCount
+        throw new ConflictException(
+          `Cannot permanently delete ${user.fullName} because this account is linked to ${total} patrol record${total === 1 ? '' : 's'}. Deactivate the account instead to preserve patrol history.`,
+        )
+      }
+
+      // User-to-site assignments cascade on deletion. Optional audit, alert,
+      // and incident user references are retained with their user link set null.
+      await tx.user.delete({ where: { id } })
+      return { message: 'User deleted successfully' }
+    })
+  }
+
   async getAssignedSites(userId: string) {
   await this.findOne(userId)
 

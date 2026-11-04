@@ -46,4 +46,7 @@ export const usersApi = {
 
   resetPassword: (id: string, newPassword: string) =>
     api.patch(`/users/${id}/reset-password`, { newPassword }).then((r) => r.data),
+
+  remove: (id: string) =>
+    api.delete<{ message: string }>(`/users/${id}`).then((r) => r.data),
 }

@@ -538,7 +538,11 @@ function PatrolViewer({
         const playUrl = mode === 'proxy' ? `${api.defaults.baseURL}${url}` : url
 
         if (Hls.isSupported()) {
-          hls = new Hls()
+          hls = new Hls({
+            xhrSetup: (xhr) => {
+              xhr.withCredentials = true
+            },
+          })
           hls.loadSource(playUrl)
           hls.attachMedia(video)
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -552,6 +556,7 @@ function PatrolViewer({
             }
           })
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.crossOrigin = 'use-credentials'
           video.src = playUrl
           video.play().catch(() => {})
           setConnecting(false)
@@ -737,6 +742,7 @@ function PatrolViewer({
                 <video
                   ref={videoRef}
                   className="feed-video"
+                  crossOrigin="use-credentials"
                   muted
                   playsInline
                   autoPlay

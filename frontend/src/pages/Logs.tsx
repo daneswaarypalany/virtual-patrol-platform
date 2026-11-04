@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback } from 'react'
-import { RefreshCw, Search } from 'lucide-react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { Activity, RefreshCw, Search, TrendingUp, Users } from 'lucide-react'
 import DatePicker from 'react-datepicker'
 import 'react-datepicker/dist/react-datepicker.css'
-import type { ActiveUser, ActivityLogEntry } from '../lib/logs'
+import type { ActiveUser, ActivityLogEntry, UserTrendDayUser, UserTrendPoint } from '../lib/logs'
 import { logsApi, formatAction, formatDetails } from '../lib/logs'
 import { getSocket } from '../lib/socket'
 import { API_BASE_URL } from '../lib/api'
+import SearchableSelect from '../components/SearchableSelect'
 import './Logs.css'
 
 const PAGE_SIZE = 25
@@ -19,6 +20,9 @@ const DATE_PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'month', label: 'This month' },
   { value: 'custom', label: 'Custom range' },
 ]
+
+type PositionedTrendPoint = UserTrendPoint & { x: number; y: number }
+type TrendDayDetails = { loading: boolean; users: UserTrendDayUser[]; error?: string }
 
 function startOfLocalDay(date: Date): Date {
   const result = new Date(date)
@@ -98,6 +102,27 @@ function describeError(err: unknown): string {
     .join(' - ')
 }
 
+function formatTrendDay(day: string): string {
+  // Using local noon avoids date shifting around midnight when rendering
+  // YYYY-MM-DD values returned by the reporting query.
+  const date = new Date(`${day}T12:00:00`);
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function formatTrendDayLong(day: string): string {
+  // Use local noon so a YYYY-MM-DD calendar label is not shifted by timezone.
+  return new Date(`${day}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function formatTrendClock(epochMs: number): string {
+  return new Date(epochMs).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
 function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     dateStyle: 'medium',
@@ -125,6 +150,14 @@ export default function Logs() {
   const [usersLoading, setUsersLoading] = useState(true)
   const [usersError, setUsersError] = useState('')
 
+  const [userTrend, setUserTrend] = useState<UserTrendPoint[]>([])
+  const [trendDays, setTrendDays] = useState<7 | 14 | 30>(14)
+  const [trendLoading, setTrendLoading] = useState(true)
+  const [trendError, setTrendError] = useState('')
+  const [hoveredTrendPoint, setHoveredTrendPoint] = useState<PositionedTrendPoint | null>(null)
+  const [trendDayDetails, setTrendDayDetails] = useState<Record<string, TrendDayDetails>>({})
+  const requestedTrendDays = useRef(new Set<string>())
+
   const [entries, setEntries] = useState<ActivityLogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -149,6 +182,50 @@ export default function Logs() {
       setUsersLoading(false)
     }
   }, [])
+
+  const showTrendPointDetails = useCallback((point: PositionedTrendPoint) => {
+    setHoveredTrendPoint(point)
+    if (requestedTrendDays.current.has(point.day)) return
+
+    requestedTrendDays.current.add(point.day)
+    setTrendDayDetails((previous) => ({
+      ...previous,
+      [point.day]: { loading: true, users: [] },
+    }))
+    logsApi.userTrendDayUsers(point.day)
+      .then((users) => {
+        setTrendDayDetails((previous) => ({
+          ...previous,
+          [point.day]: { loading: false, users },
+        }))
+      })
+      .catch((err: unknown) => {
+        requestedTrendDays.current.delete(point.day)
+        setTrendDayDetails((previous) => ({
+          ...previous,
+          [point.day]: { loading: false, users: [], error: describeError(err) },
+        }))
+      })
+  }, [])
+
+  const hideTrendPointDetails = useCallback((day: string) => {
+    setHoveredTrendPoint((current) => (current?.day === day ? null : current))
+  }, [])
+
+  const loadUserTrend = useCallback(async () => {
+    setTrendLoading(true)
+    setTrendError('')
+    setHoveredTrendPoint(null)
+    setTrendDayDetails({})
+    requestedTrendDays.current.clear()
+    try {
+      setUserTrend(await logsApi.userTrend(trendDays))
+    } catch (err) {
+      setTrendError(`Could not load user trends (${describeError(err)})`)
+    } finally {
+      setTrendLoading(false)
+    }
+  }, [trendDays])
 
   const loadLogs = useCallback(async () => {
     if (datePreset === 'custom') {
@@ -197,6 +274,10 @@ export default function Logs() {
     loadActiveUsers()
   }, [loadActiveUsers])
 
+  useEffect(() => {
+    loadUserTrend()
+  }, [loadUserTrend])
+
   // Live updates: the backend broadcasts the full list of currently-online
   // userIds over the socket (connected app-wide via AuthContext) whenever
   // anyone connects or disconnects. Merge that into the roster we already
@@ -221,6 +302,34 @@ export default function Logs() {
   }, [loadLogs])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  const trendPeakUsers = userTrend.reduce((peak, point) => Math.max(peak, point.activeUsers), 0)
+  const trendActivityTotal = userTrend.reduce((sum, point) => sum + point.activities, 0)
+  const onlineUserCount = activeUsers.filter((user) => user.online).length
+  const trendMaxUsers = Math.max(1, ...userTrend.map((point) => point.activeUsers))
+  const trendPlot: PositionedTrendPoint[] = userTrend.map((point, index) => {
+    const left = 42
+    const right = 872
+    const top = 24
+    const bottom = 172
+    const x = left + (userTrend.length <= 1 ? 0 : (index * (right - left)) / (userTrend.length - 1))
+    const y = bottom - (point.activeUsers / trendMaxUsers) * (bottom - top)
+    return { ...point, x, y }
+  })
+  const trendLinePath = trendPlot
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+    .join(' ')
+  const trendAreaPath = trendPlot.length
+    ? `${trendLinePath} L ${trendPlot[trendPlot.length - 1].x.toFixed(2)} 172 L ${trendPlot[0].x.toFixed(2)} 172 Z`
+    : ''
+  const trendLabelStep = Math.max(1, Math.ceil(trendPlot.length / 7))
+  const hoveredDetails = hoveredTrendPoint ? trendDayDetails[hoveredTrendPoint.day] : undefined
+  const tooltipPosition = hoveredTrendPoint
+    ? {
+        left: `${(hoveredTrendPoint.x / 900) * 100}%`,
+        top: `${(hoveredTrendPoint.y / 220) * 100}%`,
+      }
+    : undefined
 
   const submitSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -305,6 +414,162 @@ export default function Logs() {
         )}
       </section>
 
+      <section className="logs-panel logs-trend-panel">
+        <div className="logs-panel-head logs-trend-head">
+          <div className="logs-trend-title">
+            <span className="logs-trend-icon"><TrendingUp size={17} /></span>
+            <div>
+              <h3>User activity trend</h3>
+              <p>Distinct users with recorded activity each day</p>
+            </div>
+          </div>
+          <div className="logs-trend-range" role="group" aria-label="User trend period">
+            {[7, 14, 30].map((days) => (
+              <button
+                key={days}
+                type="button"
+                className={trendDays === days ? 'active' : ''}
+                aria-pressed={trendDays === days}
+                onClick={() => setTrendDays(days as 7 | 14 | 30)}
+              >
+                {days} days
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="logs-trend-metrics">
+          <div className="logs-trend-metric">
+            <span className="logs-trend-metric-icon"><Users size={15} /></span>
+            <div><span>Peak daily users</span><strong>{trendLoading ? '—' : trendPeakUsers}</strong></div>
+          </div>
+          <div className="logs-trend-metric">
+            <span className="logs-trend-metric-icon"><Activity size={15} /></span>
+            <div><span>Recorded actions</span><strong>{trendLoading ? '—' : trendActivityTotal.toLocaleString()}</strong></div>
+          </div>
+          <div className="logs-trend-metric">
+            <span className="logs-trend-metric-icon online"><span className="logs-dot online" /></span>
+            <div><span>Online now</span><strong>{usersLoading ? '—' : onlineUserCount}</strong></div>
+          </div>
+        </div>
+
+        {trendLoading ? (
+          <div className="logs-empty logs-trend-message">Loading user trend…</div>
+        ) : trendError ? (
+          <div className="logs-error logs-trend-message">{trendError}</div>
+        ) : userTrend.length === 0 ? (
+          <div className="logs-empty logs-trend-message">No user activity recorded for this period.</div>
+        ) : (
+          <div className="logs-trend-chart-wrap" onMouseLeave={() => setHoveredTrendPoint(null)}>
+            <svg className="logs-trend-chart" viewBox="0 0 900 220" role="group" aria-label={`Daily active users over the last ${trendDays} days`}>
+              <defs>
+                <linearGradient id="logsTrendArea" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" className="logs-trend-gradient-top" />
+                  <stop offset="100%" className="logs-trend-gradient-bottom" />
+                </linearGradient>
+              </defs>
+              {[0, 1, 2, 3].map((tick) => {
+                const value = Math.round((trendMaxUsers * (3 - tick)) / 3)
+                const y = 24 + (tick * (172 - 24)) / 3
+                return (
+                  <g key={`${tick}-${value}`}>
+                    <line x1="42" x2="872" y1={y} y2={y} className="logs-trend-gridline" />
+                    <text x="28" y={y + 4} textAnchor="end" className="logs-trend-axis-label">{value}</text>
+                  </g>
+                )
+              })}
+              {trendAreaPath && <path d={trendAreaPath} fill="url(#logsTrendArea)" className="logs-trend-area" />}
+              {trendLinePath && <path d={trendLinePath} className="logs-trend-line" />}
+              {trendPlot.map((point, index) => (
+                <g
+                  key={point.day}
+                  className="logs-trend-point-group"
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${formatTrendDayLong(point.day)}: ${point.activeUsers} active users and ${point.activities} recorded actions. Focus or hover to view user details.`}
+                  aria-describedby={hoveredTrendPoint?.day === point.day ? 'logs-user-trend-tooltip' : undefined}
+                  onMouseEnter={() => showTrendPointDetails(point)}
+                  onFocus={() => showTrendPointDetails(point)}
+                  onBlur={() => hideTrendPointDetails(point.day)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      showTrendPointDetails(point)
+                    } else if (event.key === 'Escape') {
+                      hideTrendPointDetails(point.day)
+                    }
+                  }}
+                >
+                  <circle cx={point.x} cy={point.y} r="11" className="logs-trend-hit-target" />
+                  <circle cx={point.x} cy={point.y} r="3.6" className="logs-trend-point">
+                    <title>{`${formatTrendDay(point.day)}: ${point.activeUsers} active users, ${point.activities} actions`}</title>
+                  </circle>
+                  {(index % trendLabelStep === 0 || index === trendPlot.length - 1) && (
+                    <text x={point.x} y="204" textAnchor="middle" className="logs-trend-axis-label">{formatTrendDay(point.day)}</text>
+                  )}
+                </g>
+              ))}
+            </svg>
+            {hoveredTrendPoint && (
+              <div
+                id="logs-user-trend-tooltip"
+                className={`logs-trend-tooltip ${hoveredTrendPoint.x > 610 ? 'is-left' : 'is-right'} ${hoveredTrendPoint.y > 112 ? 'is-above' : 'is-below'}`}
+                style={tooltipPosition}
+                role="tooltip"
+                aria-live="polite"
+              >
+                <div className="logs-trend-tooltip-head">
+                  <div>
+                    <strong>{formatTrendDayLong(hoveredTrendPoint.day)}</strong>
+                    <span>{hoveredTrendPoint.activities.toLocaleString()} recorded actions</span>
+                  </div>
+                  <b>{hoveredTrendPoint.activeUsers} {hoveredTrendPoint.activeUsers === 1 ? 'user' : 'users'}</b>
+                </div>
+                {hoveredDetails?.loading ? (
+                  <div className="logs-trend-tooltip-state">Loading user details…</div>
+                ) : hoveredDetails?.error ? (
+                  <div className="logs-trend-tooltip-state error">Could not load user details. Move away and hover again to retry.</div>
+                ) : !hoveredDetails ? (
+                  <div className="logs-trend-tooltip-state">Loading user details…</div>
+                ) : hoveredDetails.users.length === 0 ? (
+                  <div className="logs-trend-tooltip-state">No user-attributed activity was recorded on this day.</div>
+                ) : (
+                  <div className="logs-trend-tooltip-users">
+                    {hoveredDetails.users.map((user) => (
+                      <div className="logs-trend-tooltip-user" key={user.username}>
+                        <div className="logs-trend-tooltip-user-heading">
+                          <div className="logs-trend-tooltip-user-name">
+                            <strong>{user.fullName}</strong>
+                            <span>@{user.username} · {user.role}</span>
+                          </div>
+                          <span className="logs-trend-tooltip-actions">{user.actionCount} {user.actionCount === 1 ? 'action' : 'actions'}</span>
+                        </div>
+                        <div className="logs-trend-tooltip-login">
+                          {user.loginCount > 0 ? (
+                            <>
+                              <span className="logs-trend-login-badge">{user.loginCount} {user.loginCount === 1 ? 'login' : 'logins'}</span>
+                              <span>Signed in {user.loginCount === 1 ? 'at' : '(latest times)'}</span>
+                              {user.loginTimestamps.slice(-2).reverse().map((timestamp) => (
+                                <time key={timestamp} dateTime={new Date(timestamp).toISOString()}>{formatTrendClock(timestamp)}</time>
+                              ))}
+                              {user.loginCount > 2 && <small>+{user.loginCount - 2} earlier</small>}
+                            </>
+                          ) : (
+                            <span className="logs-trend-no-login">No login event recorded that day</span>
+                          )}
+                        </div>
+                        <div className="logs-trend-last-active">Last activity {formatTrendClock(user.lastActivityAt)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="logs-trend-legend"><span className="logs-trend-legend-mark" /> Daily active users</div>
+          </div>
+        )}
+      </section>
+
       <section className="logs-panel">
         <div className="logs-panel-head">
           <h3>Activity Log</h3>
@@ -321,20 +586,21 @@ export default function Logs() {
             />
           </form>
 
-          <select
+          <SearchableSelect
+            className="logs-action-filter"
+            ariaLabel="Filter activity by action"
+            portal
             value={actionFilter}
-            onChange={(e) => {
-              setActionFilter(e.target.value)
+            onChange={(value) => {
+              setActionFilter(value)
               setPage(1)
             }}
-          >
-            <option value="">All actions</option>
-            {actions.map((a) => (
-              <option key={a} value={a}>
-                {formatAction(a)}
-              </option>
-            ))}
-          </select>
+            placeholder="All actions"
+            options={[
+              { value: '', label: 'All actions' },
+              ...actions.map((action) => ({ value: action, label: formatAction(action) })),
+            ]}
+          />
         </div>
 
         <div className="logs-date-toolbar">

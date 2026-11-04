@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   GripVertical,
+  Eye,
   Save,
   RotateCcw,
   BarChart3,
@@ -11,6 +12,8 @@ import {
 import type { SummaryReportField } from '../lib/summary-report-template'
 import { summaryReportTemplateApi } from '../lib/summary-report-template'
 import BuilderResizeFrame from '../components/BuilderResizeFrame'
+import BuilderTemplatePreview from '../components/BuilderTemplatePreview'
+import SearchableSelect from '../components/SearchableSelect'
 import './ReportBuilder.css'
 
 type Drag =
@@ -72,6 +75,7 @@ export default function SummaryReportBuilder({
   })
   const [newName, setNewName] = useState('')
   const [showNameInput, setShowNameInput] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
   const [resizing, setResizing] = useState<{ row: number; col: number } | null>(
     null,
   )
@@ -393,6 +397,110 @@ export default function SummaryReportBuilder({
       window.addEventListener('mouseup', onUp)
     }
 
+
+  // Panel groups are nested in two levels: rows stack vertically, while the
+  // fields inside each row form a horizontal resizable group. The percentages
+  // are normalised so the editor, preview and generated PDF share one layout.
+  const getRowWidthShares = (row: { width?: number }[]) => {
+    if (!row.length) return [] as number[]
+    const used = row.reduce((sum, field) => sum + (field.width ?? 0), 0)
+    const missing = row.filter((field) => field.width == null).length
+    const fallback = missing ? Math.max(10, (100 - used) / missing) : 0
+    const raw = row.map((field) => field.width ?? fallback)
+    const total = raw.reduce((sum, value) => sum + value, 0) || 100
+    return raw.map((value) => (value / total) * 100)
+  }
+
+  const getRowGridTemplate = (row: { width?: number }[]) =>
+    getRowWidthShares(row)
+      .map((share, index) => `minmax(0, ${share}fr)${index < row.length - 1 ? ' 14px' : ''}`)
+      .join(' ')
+
+  const startColumnDividerResize =
+    (rowIndex: number, dividerIndex: number) => (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const row = rows[rowIndex]
+      const rowElement = event.currentTarget.closest('.rb-row-wrap') as HTMLElement | null
+      if (!row || !rowElement || !row[dividerIndex + 1]) return
+
+      const initialShares = getRowWidthShares(row)
+      const pairTotal = initialShares[dividerIndex] + initialShares[dividerIndex + 1]
+      const availableWidth = Math.max(1, rowElement.getBoundingClientRect().width - (row.length - 1) * 14)
+      const startX = event.clientX
+      const initialCursor = document.body.style.cursor
+      const initialSelection = document.body.style.userSelect
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+
+      const onMove = (moveEvent: MouseEvent) => {
+        const delta = ((moveEvent.clientX - startX) / availableWidth) * 100
+        const minShare = Math.min(10, pairTotal / 2)
+        const leftShare = Math.min(pairTotal - minShare, Math.max(minShare, initialShares[dividerIndex] + delta))
+        const nextShares = [...initialShares]
+        nextShares[dividerIndex] = leftShare
+        nextShares[dividerIndex + 1] = pairTotal - leftShare
+        const rounded = nextShares.map((value) => Math.round(value))
+        rounded[rounded.length - 1] += 100 - rounded.reduce((sum, value) => sum + value, 0)
+
+        setRows((current) => current.map((currentRow, index) =>
+          index === rowIndex
+            ? currentRow.map((field, colIndex) => ({ ...field, width: rounded[colIndex] }))
+            : currentRow,
+        ))
+      }
+      const onUp = () => {
+        document.body.style.cursor = initialCursor
+        document.body.style.userSelect = initialSelection
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    }
+
+  const startRowDividerResize =
+    (rowIndex: number) => (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault()
+      event.stopPropagation()
+      const canvas = event.currentTarget.closest('.rb-canvas-filled') as HTMLElement | null
+      const rowElements = canvas ? Array.from(canvas.querySelectorAll<HTMLElement>('.rb-row-wrap')) : []
+      const topElement = rowElements[rowIndex]
+      const bottomElement = rowElements[rowIndex + 1]
+      const topRow = rows[rowIndex]
+      const bottomRow = rows[rowIndex + 1]
+      if (!topElement || !bottomElement || !topRow || !bottomRow) return
+
+      const measuredTop = Math.round(topElement.getBoundingClientRect().height)
+      const measuredBottom = Math.round(bottomElement.getBoundingClientRect().height)
+      const topHeight = Math.max(80, ...topRow.map((field) => field.height ?? measuredTop))
+      const bottomHeight = Math.max(80, ...bottomRow.map((field) => field.height ?? measuredBottom))
+      const combinedHeight = topHeight + bottomHeight
+      const startY = event.clientY
+      const initialCursor = document.body.style.cursor
+      const initialSelection = document.body.style.userSelect
+      document.body.style.cursor = 'row-resize'
+      document.body.style.userSelect = 'none'
+
+      const onMove = (moveEvent: MouseEvent) => {
+        const nextTop = Math.min(combinedHeight - 80, Math.max(80, topHeight + moveEvent.clientY - startY))
+        const nextBottom = combinedHeight - nextTop
+        setRows((current) => current.map((currentRow, index) => {
+          if (index === rowIndex) return currentRow.map((field) => ({ ...field, height: Math.round(nextTop) }))
+          if (index === rowIndex + 1) return currentRow.map((field) => ({ ...field, height: Math.round(nextBottom) }))
+          return currentRow
+        }))
+      }
+      const onUp = () => {
+        document.body.style.cursor = initialCursor
+        document.body.style.userSelect = initialSelection
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+      }
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    }
+
   const revert = () => {
     setRows(groupIntoRows(savedSnapshot.filter((f) => f.enabled)))
     setPalette(savedSnapshot.filter((f) => !f.enabled))
@@ -467,6 +575,7 @@ export default function SummaryReportBuilder({
   if (loading) return <p className="rb-loading">Loading…</p>
 
   return (
+    <>
     <BuilderResizeFrame>
       <div className="rb-intro">
         <BarChart3 size={18} />
@@ -540,7 +649,7 @@ export default function SummaryReportBuilder({
         </div>
 
         <div className="rb-canvas-wrap">
-          <div className="rb-pane-head">Summary Page</div>
+          <div className="rb-pane-head rb-pane-head-with-hint">Summary Page <span>Arrange sections in rows · Drag divider handles to resize</span></div>
 
           {rows.length === 0 ? (
             <div
@@ -568,9 +677,10 @@ export default function SummaryReportBuilder({
                 onDragLeave={() => setHover(null)}
               />
               {rows.map((row, rowIndex) => (
-                <div key={rowIndex}>
-                  <div className="rb-row-wrap">
-                    {row.map((f, colIndex) => (
+                <div key={rowIndex} className="rb-row-item">
+                  <div className="rb-row-wrap" style={{ gridTemplateColumns: getRowGridTemplate(row) }}>
+                    {row.flatMap((f, colIndex) => {
+                      const block = (
                       <div
                         key={f.key}
                         className={`rb-block${
@@ -591,8 +701,9 @@ export default function SummaryReportBuilder({
                             : ''
                         }`}
                         style={{
-                          flex: f.width ? `0 0 ${f.width}%` : undefined,
-                          height: f.height ? `${f.height}px` : undefined,
+                          gridColumn: `${colIndex * 2 + 1}`,
+                          gridRow: 1,
+                          minHeight: f.height ? `${f.height}px` : undefined,
                         }}
                         draggable={editingBlock !== f.key}
                         onDragStart={handleComponentDragStart({
@@ -615,11 +726,12 @@ export default function SummaryReportBuilder({
                             onMouseDown={() => setEditingBlock(f.key)}
                             onBlur={() => setEditingBlock(null)}
                           >
-                            <select
+                            <SearchableSelect
+                              className="rb-variant-select"
+                              ariaLabel="Text block style"
                               value={f.variant ?? 'text'}
-                              onChange={(e) => {
-                                const variant = e.target
-                                  .value as keyof typeof VARIANT_LABEL
+                              onChange={(value) => {
+                                const variant = value as keyof typeof VARIANT_LABEL
                                 updateBlock(rowIndex, colIndex, {
                                   variant,
                                   height:
@@ -628,17 +740,12 @@ export default function SummaryReportBuilder({
                                       : f.height,
                                 })
                               }}
-                            >
-                              {(
-                                Object.keys(VARIANT_LABEL) as Array<
-                                  keyof typeof VARIANT_LABEL
-                                >
-                              ).map((v) => (
-                                <option key={v} value={v}>
-                                  {VARIANT_LABEL[v]}
-                                </option>
-                              ))}
-                            </select>
+                              searchable={false}
+                              options={(Object.keys(VARIANT_LABEL) as Array<keyof typeof VARIANT_LABEL>).map((variant) => ({
+                                value: variant,
+                                label: VARIANT_LABEL[variant],
+                              }))}
+                            />
                             {(f.variant ?? 'text') === 'text' && (
                               <textarea
                                 value={f.text ?? ''}
@@ -671,6 +778,9 @@ export default function SummaryReportBuilder({
                         <span className={`rb-group rb-group-${f.group}`}>
                           {isBlock(f) ? 'Layout' : GROUP_LABEL[f.group]}
                         </span>
+                        <span className="rb-block-dimensions" title="Approximate template panel dimensions">
+                          W {Math.round(getRowWidthShares(row)[colIndex])}% · H {f.height ? `${f.height}px` : 'Auto'}
+                        </span>
                         <button
                           className="rb-block-remove"
                           onClick={() => removeFromCanvas(rowIndex, colIndex)}
@@ -679,26 +789,40 @@ export default function SummaryReportBuilder({
                           <X size={14} />
                         </button>
                         <div
-                          className="rb-resize-e"
-                          draggable={false}
-                          onMouseDown={startResize(rowIndex, colIndex, 'e')}
-                          title="Drag to resize width"
-                        />
-                        <div
                           className="rb-resize-s"
                           draggable={false}
                           onMouseDown={startResize(rowIndex, colIndex, 's')}
-                          title="Drag to resize height"
-                        />
-                        <div
-                          className="rb-resize-corner"
-                          draggable={false}
-                          onMouseDown={startResize(rowIndex, colIndex, 'se')}
-                          title="Drag to resize"
+                          title="Drag to set minimum panel height"
                         />
                       </div>
-                    ))}
+                      )
+                      return colIndex < row.length - 1
+                      ? [
+                          block,
+                          <div
+                            key={`split-${f.key}`}
+                            className="rb-panel-divider rb-panel-divider-vertical"
+                            style={{ gridColumn: `${colIndex * 2 + 2}`, gridRow: 1 }}
+                            role="separator"
+                            aria-orientation="vertical"
+                            aria-label={`Resize between ${f.label} and ${row[colIndex + 1]?.label ?? 'next panel'}`}
+                            title="Drag to resize adjacent panels"
+                            onMouseDown={startColumnDividerResize(rowIndex, colIndex)}
+                          ><span /></div>,
+                        ]
+                      : [block]
+                    })}
                   </div>
+                  {rowIndex < rows.length - 1 && (
+                    <div
+                      className="rb-panel-divider rb-panel-divider-horizontal"
+                      role="separator"
+                      aria-orientation="horizontal"
+                      aria-label={`Resize rows ${rowIndex + 1} and ${rowIndex + 2}`}
+                      title="Drag to resize the height of adjacent rows"
+                      onMouseDown={startRowDividerResize(rowIndex)}
+                    ><span /></div>
+                  )}
                   <div
                     className={`rb-gap${
                       hover?.kind === 'gap' && hover.row === rowIndex + 1 ? ' active' : ''
@@ -715,6 +839,9 @@ export default function SummaryReportBuilder({
       </div>
 
       <div className="rb-actions">
+        <button type="button" className="rb-preview-button" onClick={() => setShowPreview(true)}>
+          <Eye size={14} /> Preview
+        </button>
         {isEdit ? (
           <>
             {dirty && (
@@ -770,5 +897,14 @@ export default function SummaryReportBuilder({
         )}
       </div>
     </BuilderResizeFrame>
+    {showPreview && (
+      <BuilderTemplatePreview
+        kind="summary"
+        templateName={templateName || newName || 'Summary Report Template'}
+        rows={rows}
+        onClose={() => setShowPreview(false)}
+      />
+    )}
+    </>
   )
 }

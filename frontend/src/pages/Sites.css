@@ -569,3 +569,623 @@
   accent-color: var(--navy);
   flex-shrink: 0;
 }
+/* =====================================================================
+   Site Management — dual-tone blue-grey glassmorphism
+   Scoped to this page so the rest of Virtual Patrol remains unchanged.
+   ===================================================================== */
+
+html:root .sites-page {
+  position: relative;
+  isolation: isolate;
+  max-width: 100%;
+  padding: clamp(2px, 0.35vw, 6px);
+  color: var(--text);
+}
+
+html:root .sites-page::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  inset: -24px -24px -48px;
+  border-radius: 32px;
+  background:
+    radial-gradient(680px 480px at 4% 0%, rgba(161, 179, 195, 0.42), transparent 66%),
+    radial-gradient(740px 560px at 100% 12%, rgba(207, 217, 226, 0.72), transparent 64%),
+    radial-gradient(700px 520px at 68% 100%, rgba(138, 159, 179, 0.28), transparent 68%),
+    linear-gradient(145deg, rgba(237, 237, 238, 0.18), rgba(191, 202, 217, 0.22));
+}
+
+/* Floating controls: luminous, translucent surfaces with a cool slate edge. */
+html:root .sites-page .search-box,
+html:root .sites-page .segmented,
+html:root .sites-page .view-toggle,
+html:root .sites-page .site-sort-w .ss-trigger {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(230, 236, 242, 0.54));
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  box-shadow:
+    0 8px 22px rgba(51, 63, 72, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    inset 0 -1px 0 rgba(100, 122, 142, 0.06);
+}
+
+html:root .sites-page .search-box {
+  border-radius: 14px;
+  min-height: 46px;
+}
+
+html:root .sites-page .search-box:focus-within {
+  border-color: rgba(82, 102, 122, 0.48);
+  box-shadow:
+    0 0 0 3px rgba(100, 122, 142, 0.14),
+    0 8px 22px rgba(51, 63, 72, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+html:root .sites-page .segmented {
+  padding: 4px;
+  border-radius: 15px;
+  gap: 3px;
+}
+
+html:root .sites-page .segmented button {
+  min-height: 36px;
+  border-radius: 10px;
+  padding-inline: 17px;
+}
+
+html:root .sites-page .segmented button.active {
+  background: linear-gradient(145deg, #526a7d, #354653);
+  color: #fff;
+  box-shadow:
+    0 4px 10px rgba(51, 63, 72, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+html:root .sites-page .site-sort-w .ss-trigger {
+  min-height: 46px;
+  border-radius: 14px;
+}
+
+html:root .sites-page .view-toggle {
+  padding: 3px;
+  gap: 3px;
+  border-radius: 13px;
+}
+
+html:root .sites-page .view-toggle button {
+  border-radius: 10px;
+  color: var(--text-muted);
+}
+
+html:root .sites-page .view-toggle button.active {
+  color: #fff;
+  background: linear-gradient(145deg, #526a7d, #354653);
+  box-shadow: 0 3px 9px rgba(51, 63, 72, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+html:root .sites-page .btn-primary {
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  border-radius: 13px;
+  background: linear-gradient(145deg, #526a7d, #354653);
+  box-shadow: 0 8px 18px rgba(51, 63, 72, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+html:root .sites-page .btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 11px 24px rgba(51, 63, 72, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+html:root .sites-page .active-delete-toggle,
+html:root .sites-page .active-select-actions button,
+html:root .sites-page .row-actions button,
+html:root .sites-page .site-card-actions button {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.48);
+  border-color: rgba(255, 255, 255, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  transition: background 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+html:root .sites-page .row-actions button:hover,
+html:root .sites-page .site-card-actions button:hover,
+html:root .sites-page .active-delete-toggle:hover {
+  background: rgba(255, 255, 255, 0.78);
+  transform: translateY(-1px);
+}
+
+/* Table wrapper is the main glass plane in list mode. */
+html:root .sites-page .sites-table-wrap {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.63), rgba(225, 233, 240, 0.42));
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+  backdrop-filter: blur(24px) saturate(155%);
+  box-shadow:
+    0 18px 42px rgba(51, 63, 72, 0.10),
+    0 2px 7px rgba(51, 63, 72, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.25);
+}
+
+html:root .sites-page .sites-table {
+  background: transparent;
+}
+
+html:root .sites-page .sites-table th {
+  background: linear-gradient(110deg, rgba(211, 222, 232, 0.68), rgba(235, 240, 245, 0.50));
+  border-bottom-color: rgba(82, 102, 122, 0.17);
+  color: #52697d;
+  letter-spacing: 0.015em;
+}
+
+html:root .sites-page .sites-table td {
+  background: transparent;
+  border-bottom-color: rgba(82, 102, 122, 0.14);
+  color: var(--text);
+  transition: background 0.14s ease;
+}
+
+html:root .sites-page .sites-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.34);
+}
+
+html:root .sites-page .sites-table tbody tr.row-selected td {
+  background: rgba(138, 159, 179, 0.20);
+}
+
+/* Site cards float separately over the dual-tone page backdrop. */
+html:root .sites-page .sites-grid {
+  gap: 18px;
+}
+
+html:root .sites-page .site-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  border-radius: 22px;
+  padding: 20px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.70), rgba(229, 236, 243, 0.46));
+  -webkit-backdrop-filter: blur(22px) saturate(155%);
+  backdrop-filter: blur(22px) saturate(155%);
+  box-shadow:
+    0 12px 30px rgba(51, 63, 72, 0.09),
+    0 2px 5px rgba(51, 63, 72, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.30);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+html:root .sites-page .site-card::before {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.96), rgba(161, 179, 195, 0.58), rgba(255, 255, 255, 0.18));
+}
+
+html:root .sites-page .site-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.98);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.80), rgba(225, 234, 242, 0.56));
+  box-shadow:
+    0 18px 38px rgba(51, 63, 72, 0.13),
+    0 4px 8px rgba(51, 63, 72, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+html:root .sites-page .site-card.card-selected {
+  border-color: rgba(82, 102, 122, 0.64);
+  box-shadow: 0 0 0 3px rgba(100, 122, 142, 0.14), 0 12px 30px rgba(51, 63, 72, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
+html:root .sites-page .site-link {
+  color: #526a7f;
+}
+
+html:root .sites-page .site-link:hover {
+  color: #334957;
+}
+
+html:root .sites-page .sites-empty {
+  border: 1px solid rgba(255, 255, 255, 0.84);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.68), rgba(225, 233, 240, 0.46));
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: 0 12px 32px rgba(51, 63, 72, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+html:root .sites-page .sites-count {
+  color: rgba(67, 88, 106, 0.88);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Add/Edit Site modal: readable, raised glass rather than an opaque white box. */
+html:root .sites-page .modal-backdrop {
+  background: rgba(43, 56, 68, 0.34);
+  -webkit-backdrop-filter: blur(9px) saturate(120%);
+  backdrop-filter: blur(9px) saturate(120%);
+}
+
+html:root .sites-page .modal {
+  background: linear-gradient(145deg, rgba(250, 252, 254, 0.92), rgba(226, 234, 241, 0.88));
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  box-shadow: 0 26px 70px rgba(42, 56, 68, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.94);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  backdrop-filter: blur(28px) saturate(160%);
+}
+
+html:root .sites-page .modal input,
+html:root .sites-page .modal select {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(82, 102, 122, 0.20);
+  border-radius: 11px;
+}
+
+html:root .sites-page .site-status-option {
+  background: rgba(255, 255, 255, 0.50);
+  border-color: rgba(255, 255, 255, 0.84);
+  border-radius: 14px;
+}
+
+html:root .sites-page .site-status-option.selected {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84), 0 5px 14px rgba(51, 63, 72, 0.06);
+}
+
+/* Keep the same design language when dark theme is enabled. */
+html:root[data-theme='dark'] .sites-page::before {
+  background:
+    radial-gradient(680px 480px at 4% 0%, rgba(100, 122, 142, 0.30), transparent 66%),
+    radial-gradient(740px 560px at 100% 12%, rgba(82, 102, 122, 0.36), transparent 64%),
+    radial-gradient(700px 520px at 68% 100%, rgba(100, 122, 142, 0.22), transparent 68%),
+    linear-gradient(145deg, rgba(34, 43, 50, 0.16), rgba(41, 52, 60, 0.26));
+}
+
+html:root[data-theme='dark'] .sites-page .search-box,
+html:root[data-theme='dark'] .sites-page .segmented,
+html:root[data-theme='dark'] .sites-page .view-toggle,
+html:root[data-theme='dark'] .sites-page .site-sort-w .ss-trigger,
+html:root[data-theme='dark'] .sites-page .active-delete-toggle,
+html:root[data-theme='dark'] .sites-page .active-select-actions button,
+html:root[data-theme='dark'] .sites-page .row-actions button,
+html:root[data-theme='dark'] .sites-page .site-card-actions button {
+  background: linear-gradient(145deg, rgba(62, 77, 89, 0.76), rgba(43, 55, 64, 0.70));
+  border-color: rgba(207, 217, 226, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table-wrap,
+html:root[data-theme='dark'] .sites-page .site-card,
+html:root[data-theme='dark'] .sites-page .sites-empty {
+  background: linear-gradient(145deg, rgba(62, 77, 89, 0.70), rgba(43, 55, 64, 0.64));
+  border-color: rgba(207, 217, 226, 0.20);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table th {
+  color: var(--p-2);
+  background: linear-gradient(110deg, rgba(34, 43, 50, 0.60), rgba(62, 77, 89, 0.42));
+  border-bottom-color: rgba(207, 217, 226, 0.14);
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table td {
+  border-bottom-color: rgba(207, 217, 226, 0.12);
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table tbody tr:hover td {
+  background: rgba(207, 217, 226, 0.06);
+}
+
+html:root[data-theme='dark'] .sites-page .site-link,
+html:root[data-theme='dark'] .sites-page .sites-count {
+  color: var(--p-2);
+}
+
+html:root[data-theme='dark'] .sites-page .modal {
+  background: linear-gradient(145deg, rgba(51, 63, 72, 0.96), rgba(35, 45, 53, 0.94));
+  border-color: rgba(207, 217, 226, 0.20);
+}
+
+html:root[data-theme='dark'] .sites-page .modal input,
+html:root[data-theme='dark'] .sites-page .modal select,
+html:root[data-theme='dark'] .sites-page .site-status-option {
+  background: rgba(28, 36, 42, 0.60);
+  border-color: rgba(207, 217, 226, 0.18);
+  color: var(--text);
+}
+
+@media (max-width: 820px) {
+  html:root .sites-page {
+    padding: 0;
+  }
+
+  html:root .sites-page::before {
+    inset: -12px -10px -28px;
+    border-radius: 24px;
+  }
+
+  html:root .sites-page .search-box {
+    min-width: min(240px, 100%);
+    flex: 1 1 220px;
+  }
+
+  html:root .sites-page .toolbar-left,
+  html:root .sites-page .toolbar-right {
+    width: 100%;
+  }
+
+  html:root .sites-page .toolbar-right {
+    flex-wrap: wrap;
+  }
+
+  html:root .sites-page .sites-table-wrap {
+    overflow-x: auto;
+  }
+
+  html:root .sites-page .sites-table {
+    min-width: 760px;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  html:root .sites-page .sites-table-wrap,
+  html:root .sites-page .site-card,
+  html:root .sites-page .sites-empty,
+  html:root .sites-page .modal {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: rgba(240, 244, 247, 0.96);
+  }
+}
+
+/* Keep the original continuous table-header row while applying glassmorphism
+   to the table as a whole. The gradient belongs to the thead, not each th. */
+html:root .sites-page .sites-table thead {
+  background: linear-gradient(110deg, rgba(211, 222, 232, 0.58), rgba(235, 240, 245, 0.42));
+}
+
+html:root .sites-page .sites-table th {
+  background: transparent;
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table thead {
+  background: linear-gradient(110deg, rgba(34, 43, 50, 0.56), rgba(62, 77, 89, 0.38));
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table th {
+  background: transparent;
+}
+
+
+
+/* Seamless full-row glass highlight. Apply the surface to the TR itself and keep
+   every cell transparent so the highlight does not break at column boundaries. */
+html:root .sites-page .sites-table tbody tr {
+  transition: background-color 160ms ease, background-image 160ms ease;
+}
+
+html:root .sites-page .sites-table tbody tr:hover,
+html:root .sites-page .sites-table tbody tr:focus-within {
+  background: linear-gradient(90deg, rgba(174, 197, 216, 0.34), rgba(210, 224, 236, 0.30));
+}
+
+html:root .sites-page .sites-table tbody tr:hover > td,
+html:root .sites-page .sites-table tbody tr:focus-within > td {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html:root .sites-page .sites-table tbody tr.row-selected {
+  background: rgba(138, 159, 179, 0.20);
+}
+
+html:root .sites-page .sites-table tbody tr.row-selected > td {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table tbody tr:hover,
+html:root[data-theme='dark'] .sites-page .sites-table tbody tr:focus-within {
+  background: linear-gradient(90deg, rgba(133, 163, 187, 0.22), rgba(105, 132, 153, 0.18));
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table tbody tr:hover > td,
+html:root[data-theme='dark'] .sites-page .sites-table tbody tr:focus-within > td {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table tbody tr.row-selected {
+  background: rgba(105, 132, 153, 0.22);
+}
+
+html:root[data-theme='dark'] .sites-page .sites-table tbody tr.row-selected > td {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Compact, accessible Active / Inactive switch for the Add/Edit Site modal. */
+html:root .sites-page .site-status-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.82);
+  border-radius: 17px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(222, 232, 240, 0.44));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.74), 0 7px 18px rgba(48, 63, 75, 0.045);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+html:root .sites-page .site-status-switch-row.is-active {
+  border-color: rgba(45, 153, 119, 0.30);
+  background: linear-gradient(135deg, rgba(231, 247, 241, 0.75), rgba(220, 239, 234, 0.55));
+}
+
+html:root .sites-page .site-status-current {
+  display: grid;
+  grid-template-columns: 9px auto;
+  align-items: center;
+  column-gap: 9px;
+  color: #354654;
+  font-weight: 750;
+}
+
+html:root .sites-page .site-status-current small {
+  grid-column: 2;
+  margin-top: 3px;
+  color: #60778b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+html:root .sites-page .site-status-dot {
+  width: 8px;
+  height: 8px;
+  grid-row: 1;
+  border-radius: 50%;
+  background: #8a9aa8;
+  box-shadow: 0 0 0 3px rgba(138, 154, 168, 0.14);
+}
+
+html:root .sites-page .site-status-dot.is-active {
+  background: #299b76;
+  box-shadow: 0 0 0 3px rgba(41, 155, 118, 0.14);
+}
+
+html:root .sites-page .site-status-switch {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 999px;
+  line-height: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html:root .sites-page .site-status-switch-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 54px;
+  height: 31px;
+  padding: 4px;
+  box-sizing: border-box;
+  border: 1px solid rgba(84, 104, 123, 0.20);
+  border-radius: 999px;
+  background: linear-gradient(145deg, #d4dde5, #bfcbd5);
+  box-shadow: inset 0 2px 4px rgba(45, 60, 72, 0.13), 0 2px 4px rgba(45, 60, 72, 0.06);
+  transition: background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+html:root .sites-page .site-status-switch.is-active .site-status-switch-track {
+  border-color: rgba(35, 145, 109, 0.55);
+  background: linear-gradient(135deg, #42b18c, #238d6c);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.24), 0 3px 9px rgba(35, 145, 109, 0.20);
+}
+
+html:root .sites-page .site-status-switch-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  color: #526779;
+  background: linear-gradient(145deg, #ffffff, #eaf0f4);
+  box-shadow: 0 2px 5px rgba(38, 52, 64, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  transform: translateX(0);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), color 180ms ease;
+}
+
+html:root .sites-page .site-status-switch.is-active .site-status-switch-thumb {
+  color: #218565;
+  transform: translateX(23px);
+}
+
+html:root .sites-page .site-status-switch:focus-visible {
+  outline: 3px solid rgba(69, 122, 157, 0.50);
+  outline-offset: 4px;
+}
+
+html:root[data-theme='dark'] .sites-page .site-status-switch-row {
+  border-color: rgba(207, 217, 226, 0.18);
+  background: linear-gradient(135deg, rgba(62, 77, 89, 0.64), rgba(43, 55, 64, 0.60));
+}
+
+html:root[data-theme='dark'] .sites-page .site-status-switch-row.is-active {
+  border-color: rgba(62, 177, 138, 0.36);
+  background: linear-gradient(135deg, rgba(37, 102, 82, 0.35), rgba(43, 68, 64, 0.38));
+}
+
+html:root[data-theme='dark'] .sites-page .site-status-current {
+  color: var(--text);
+}
+
+html:root[data-theme='dark'] .sites-page .site-status-current small {
+  color: var(--p-2);
+}
+
+html:root[data-theme='dark'] .sites-page .site-status-switch-track {
+  border-color: rgba(207, 217, 226, 0.18);
+  background: linear-gradient(145deg, #34434e, #26343e);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:root .sites-page .sites-table tbody tr > td,
+  html:root .sites-page .site-status-switch-track,
+  html:root .sites-page .site-status-switch-thumb,
+  html:root .sites-page .site-status-switch-row {
+    transition: none;
+  }
+}
+
+
+/* Bulk delete follows the Site Management blue-grey theme, with a restrained danger accent. */
+html:root .sites-page .active-select-actions .active-delete-confirm {
+  color: #fff;
+  background: linear-gradient(145deg, #c96b66, #ae4e4b);
+  border: 1px solid rgba(157, 65, 62, 0.42);
+  box-shadow: 0 6px 15px rgba(157, 65, 62, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+html:root .sites-page .active-select-actions .active-delete-confirm:hover:not(:disabled) {
+  background: linear-gradient(145deg, #d47770, #b94f4c);
+  transform: translateY(-1px);
+  box-shadow: 0 9px 19px rgba(157, 65, 62, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+html:root .sites-page .active-select-actions .active-delete-confirm:disabled {
+  color: rgba(140, 66, 63, 0.74);
+  background: linear-gradient(145deg, rgba(216, 145, 139, 0.24), rgba(196, 111, 106, 0.17));
+  border-color: rgba(183, 95, 90, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+html:root[data-theme='dark'] .sites-page .active-select-actions .active-delete-confirm {
+  color: #fff1f0;
+  background: linear-gradient(145deg, rgba(154, 77, 74, 0.92), rgba(116, 57, 57, 0.94));
+  border-color: rgba(226, 143, 137, 0.30);
+}
+
+html:root[data-theme='dark'] .sites-page .active-select-actions .active-delete-confirm:disabled {
+  color: rgba(238, 184, 180, 0.62);
+  background: linear-gradient(145deg, rgba(112, 65, 64, 0.48), rgba(79, 51, 52, 0.46));
+  border-color: rgba(226, 143, 137, 0.16);
+  box-shadow: none;
+}

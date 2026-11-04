@@ -11,7 +11,7 @@ const routeInclude = {
       checklistTemplate: { select: { id: true, name: true } },
     },
   },
-  _count: { select: { checkpoints: true } },
+  _count: { select: { checkpoints: true, patrolJobs: true } },
 };
 
 @Injectable()
@@ -20,15 +20,15 @@ export class RoutesService {
 
   findAll(siteId?: string) {
     return this.prisma.route.findMany({
-      where: siteId ? { siteId } : undefined,
+      where: { archivedAt: null, ...(siteId ? { siteId } : {}) },
       orderBy: { createdAt: 'desc' },
       include: routeInclude,
     });
   }
 
   async findOne(id: string) {
-    const route = await this.prisma.route.findUnique({
-      where: { id },
+    const route = await this.prisma.route.findFirst({
+      where: { id, archivedAt: null },
       include: routeInclude,
     });
     if (!route) throw new NotFoundException('Route not found');
@@ -125,18 +125,35 @@ export class RoutesService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    const route = await this.prisma.route.findUnique({
+      where: { id },
+      select: { id: true, archivedAt: true },
+    });
+    if (!route) throw new NotFoundException('Route not found');
+    if (route.archivedAt) {
+      return { message: 'Route is already archived', archived: true };
+    }
 
     const jobCount = await this.prisma.patrolJob.count({
       where: { routeId: id },
     });
+
+    // Routes without patrol jobs can be removed normally. Once a route has
+    // history, archive it instead: existing reports, checkpoint results and
+    // screenshots remain linked to the original route for audit purposes.
     if (jobCount > 0) {
-      throw new BadRequestException(
-        `This route has ${jobCount} patrol record(s) and cannot be deleted. Routes with patrol history are kept for audit purposes.`,
-      );
+      await this.prisma.route.update({
+        where: { id },
+        data: { archivedAt: new Date() },
+      });
+      return {
+        message: 'Route archived. Existing patrol history and reports were preserved.',
+        archived: true,
+        preservedPatrolRecords: jobCount,
+      };
     }
 
     await this.prisma.route.delete({ where: { id } });
-    return { message: 'Route deleted' };
+    return { message: 'Route deleted', archived: false };
   }
 }

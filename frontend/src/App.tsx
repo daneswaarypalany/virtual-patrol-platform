@@ -33,6 +33,7 @@ import Dashboard from './pages/Dashboard'
 import History from './pages/History'
 import Settings from './pages/Settings'
 import Logs from './pages/Logs'
+import { AppDialogProvider } from './components/AppDialogProvider'
 import './App.css'
 
 type Page =
@@ -268,16 +269,18 @@ function Shell() {
 function App() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Shell />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <AppDialogProvider>
+                <Shell />
+              </AppDialogProvider>
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

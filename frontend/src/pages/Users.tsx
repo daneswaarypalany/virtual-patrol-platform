@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Search, X } from 'lucide-react'
+import { Search, X, Trash2 } from 'lucide-react'
 import type { AppUser, AssignedSite, CreateUserInput } from '../lib/users'
 import { usersApi } from '../lib/users'
 import './Users.css'
+import SearchableSelect from '../components/SearchableSelect'
+import { useAppDialog } from '../components/AppDialogProvider'
 
 type StatusFilter = 'all' | 'active' | 'inactive'
 type SortOption = 'custom' | 'alphabetical'
 type RoleFilter = 'all' | 'admin' | 'operator' | 'viewer'
 
 export default function Users() {
+  const { confirm, prompt, alert: showAlert } = useAppDialog()
   const [users, setUsers] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -19,6 +22,8 @@ export default function Users() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
   const [sortBy, setSortBy] = useState<SortOption>('custom')
+  const [isDeleteMode, setIsDeleteMode] = useState(false)
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([])
 
   const load = async () => {
     setLoading(true)
@@ -51,21 +56,29 @@ export default function Users() {
     }
   }
 
+
   const resetPassword = async (user: AppUser) => {
-    const newPassword = window.prompt(`New password for ${user.username}:`)
+    const newPassword = await prompt({
+      title: 'Reset user password',
+      message: `Set a new password for ${user.username}. The password must contain at least 6 characters.`,
+      inputLabel: 'New password',
+      inputType: 'password',
+      placeholder: 'Enter new password',
+      confirmLabel: 'Reset password',
+    })
 
     if (!newPassword) return
 
     if (newPassword.length < 6) {
-      alert('Password must be at least 6 characters')
+      await showAlert({ title: 'Password too short', message: 'Password must be at least 6 characters.', tone: 'warning' })
       return
     }
 
     try {
       await usersApi.resetPassword(user.id, newPassword)
-      alert('Password reset successfully')
+      await showAlert({ title: 'Password reset', message: `The password for ${user.username} was reset successfully.`, tone: 'success' })
     } catch {
-      alert('Failed to reset password')
+      await showAlert({ title: 'Password reset failed', message: 'The password could not be reset. Please try again.', tone: 'danger' })
     }
   }
 
@@ -96,6 +109,102 @@ export default function Users() {
 
     return 0
   })
+
+  const selectableVisibleUsers = sortedUsers.filter((user) => user.role !== 'ADMIN')
+  const selectedDeletableUsers = users.filter(
+    (user) => selectedUserIds.includes(user.id) && user.role !== 'ADMIN',
+  )
+  const allVisibleUsersSelected =
+    selectableVisibleUsers.length > 0 &&
+    selectableVisibleUsers.every((user) => selectedUserIds.includes(user.id))
+
+  const toggleDeleteMode = () => {
+    setIsDeleteMode((current) => !current)
+    setSelectedUserIds([])
+  }
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds((current) =>
+      current.includes(userId)
+        ? current.filter((id) => id !== userId)
+        : [...current, userId],
+    )
+  }
+
+  const toggleVisibleUserSelection = () => {
+    const visibleIds = selectableVisibleUsers.map((user) => user.id)
+    setSelectedUserIds((current) => {
+      if (visibleIds.length > 0 && visibleIds.every((id) => current.includes(id))) {
+        return current.filter((id) => !visibleIds.includes(id))
+      }
+
+      return Array.from(new Set([...current, ...visibleIds]))
+    })
+  }
+
+  const deleteSelectedUsers = async () => {
+    const targets = selectedDeletableUsers
+    if (targets.length === 0) return
+
+    const accepted = await confirm({
+      title: `Delete ${targets.length} selected user${targets.length === 1 ? '' : 's'}?`,
+      message: `You are about to permanently delete ${targets.length} user account${targets.length === 1 ? '' : 's'}. Their site assignments will be removed. Accounts linked to patrol history cannot be permanently deleted; those accounts will remain and should be deactivated instead. This action cannot be undone for accounts that are deleted.`,
+      tone: 'danger',
+      confirmLabel: `Delete ${targets.length} user${targets.length === 1 ? '' : 's'}`,
+      cancelLabel: 'Cancel',
+    })
+
+    if (!accepted) return
+
+    const results = await Promise.all(
+      targets.map(async (user) => {
+        try {
+          await usersApi.remove(user.id)
+          return { user, success: true as const, message: '' }
+        } catch (err: any) {
+          const responseMessage = err?.response?.data?.message
+          const message = Array.isArray(responseMessage)
+            ? responseMessage.join(' ')
+            : responseMessage || 'Deletion failed.'
+          return { user, success: false as const, message }
+        }
+      }),
+    )
+
+    const successfulIds = results.filter((result) => result.success).map((result) => result.user.id)
+    const failures = results.filter((result) => !result.success)
+
+    if (successfulIds.length > 0) {
+      setUsers((current) => current.filter((user) => !successfulIds.includes(user.id)))
+    }
+
+    setSelectedUserIds([])
+    setIsDeleteMode(false)
+
+    if (failures.length === 0) {
+      await showAlert({
+        title: 'Users deleted',
+        message: `${successfulIds.length} user${successfulIds.length === 1 ? '' : 's'} deleted successfully.`,
+        tone: 'success',
+        confirmLabel: 'Done',
+      })
+      return
+    }
+
+    const failureSummary = failures
+      .map((result) => `${result.user.fullName}: ${result.message}`)
+      .join('\n')
+    const successSummary = successfulIds.length
+      ? `${successfulIds.length} user${successfulIds.length === 1 ? '' : 's'} deleted successfully. `
+      : ''
+
+    await showAlert({
+      title: successfulIds.length ? 'Some users could not be deleted' : 'Unable to delete selected users',
+      message: `${successSummary}${failures.length} account${failures.length === 1 ? '' : 's'} could not be deleted:\n${failureSummary}`,
+      tone: 'warning',
+      confirmLabel: 'Understood',
+    })
+  }
 
   return (
     <div className="users-page">
@@ -133,36 +242,66 @@ export default function Users() {
             </button>
           </div>
 
-          <select
-            className="user-filter"
+          <div className="user-filter-wrap">
+            <SearchableSelect
             value={roleFilter}
-            onChange={(event) =>
-              setRoleFilter(event.target.value as RoleFilter)
-            }
-            aria-label="Filter users by role"
-          >
-            <option value="all">All roles</option>
-            <option value="admin">Administrators</option>
-            <option value="operator">Operators</option>
-            <option value="viewer">Viewers</option>
-          </select>
+            onChange={(value) => setRoleFilter(value as RoleFilter)}
+            ariaLabel="Filter users by role"
+            searchable={false}
+            options={[
+              { value: 'all', label: 'All roles' },
+              { value: 'admin', label: 'Administrators' },
+              { value: 'operator', label: 'Operators' },
+              { value: 'viewer', label: 'Viewers' },
+            ]}
+            />
+          </div>
 
-          <select
-            className="user-filter"
+          <div className="user-filter-wrap">
+            <SearchableSelect
             value={sortBy}
-            onChange={(event) =>
-              setSortBy(event.target.value as SortOption)
-            }
-            aria-label="Sort users"
-          >
-            <option value="custom">Custom order</option>
-            <option value="alphabetical">Alphabetical (A–Z)</option>
-          </select>
+            onChange={(value) => setSortBy(value as SortOption)}
+            ariaLabel="Sort users"
+            searchable={false}
+            options={[
+              { value: 'custom', label: 'Custom order' },
+              { value: 'alphabetical', label: 'Alphabetical (A–Z)' },
+            ]}
+            />
+          </div>
         </div>
 
-        <button className="btn-primary" onClick={() => setShowForm(true)}>
-          + Create User
-        </button>
+        <div className="users-toolbar-actions">
+          {isDeleteMode ? (
+            <>
+              <span className="users-selection-summary">
+                {selectedDeletableUsers.length} selected
+              </span>
+              <button type="button" className="btn-secondary" onClick={toggleDeleteMode}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={deleteSelectedUsers}
+                disabled={selectedDeletableUsers.length === 0}
+              >
+                <Trash2 size={15} />
+                Delete selected
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="btn-danger-outline" onClick={toggleDeleteMode}>
+                <Trash2 size={15} />
+                Delete
+              </button>
+              <button className="btn-primary" onClick={() => setShowForm(true)}>
+                + Create User
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <p className="users-count">
@@ -186,6 +325,18 @@ export default function Users() {
           <table className="users-table">
             <thead>
               <tr>
+                {isDeleteMode && (
+                  <th className="user-select-cell">
+                    <input
+                      type="checkbox"
+                      className="user-select-checkbox"
+                      checked={allVisibleUsersSelected}
+                      onChange={toggleVisibleUserSelection}
+                      disabled={selectableVisibleUsers.length === 0}
+                      aria-label="Select all visible non-admin users"
+                    />
+                  </th>
+                )}
                 <th>Name</th>
                 <th>Username</th>
                 <th>Email</th>
@@ -197,7 +348,23 @@ export default function Users() {
 
             <tbody>
               {sortedUsers.map((user) => (
-                <tr key={user.id}>
+                <tr
+                  key={user.id}
+                  className={isDeleteMode && selectedUserIds.includes(user.id) ? 'is-selected-for-delete' : ''}
+                >
+                  {isDeleteMode && (
+                    <td className="user-select-cell">
+                      <input
+                        type="checkbox"
+                        className="user-select-checkbox"
+                        checked={user.role !== 'ADMIN' && selectedUserIds.includes(user.id)}
+                        disabled={user.role === 'ADMIN'}
+                        onChange={() => toggleUserSelection(user.id)}
+                        aria-label={user.role === 'ADMIN' ? 'Administrator accounts cannot be deleted' : `Select ${user.fullName}`}
+                        title={user.role === 'ADMIN' ? 'Administrator accounts cannot be deleted' : `Select ${user.fullName}`}
+                      />
+                    </td>
+                  )}
                   <td>{user.fullName}</td>
                   <td>{user.username}</td>
                   <td>{user.email}</td>
@@ -231,11 +398,13 @@ export default function Users() {
                     </button>
 
                     {user.role !== 'ADMIN' && (
-                      <button onClick={() => toggleStatus(user)}>
-                        {user.status === 'ACTIVE'
-                          ? 'Deactivate'
-                          : 'Reactivate'}
-                      </button>
+                      <>
+                        <button onClick={() => toggleStatus(user)}>
+                          {user.status === 'ACTIVE'
+                            ? 'Deactivate'
+                            : 'Reactivate'}
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -342,13 +511,18 @@ function CreateUserModal({
         />
 
         <label>Role</label>
-        <select
+        <SearchableSelect
+          className="user-form-role-select"
+          ariaLabel="Role"
           value={form.role}
-          onChange={(event) => update('role', event.target.value)}
-        >
-          <option value="OPERATOR">Operator</option>
-          <option value="VIEWER">Viewer</option>
-        </select>
+          onChange={(value) => update('role', value)}
+          searchable={false}
+          portal
+          options={[
+            { value: 'OPERATOR', label: 'Operator' },
+            { value: 'VIEWER', label: 'Viewer' },
+          ]}
+        />
 
         {error && <div className="modal-error">{error}</div>}
 

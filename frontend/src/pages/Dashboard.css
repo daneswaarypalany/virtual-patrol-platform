@@ -981,9 +981,12 @@ html:root[data-theme='dark'] .dash .dash-quick-card:focus-visible {
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 22px;
+  /* Keep the operations overview in the same cool blue-grey glass palette as
+     Recent Activity, Active Patrols, and Quick Access. Green remains reserved
+     for positive/status accents rather than tinting the whole panel. */
   background:
-    radial-gradient(ellipse at 100% 0%, rgba(203, 242, 191, 0.18), transparent 42%),
-    linear-gradient(125deg, rgba(245, 226, 241, 0.78), rgba(238, 243, 236, 0.78) 52%, rgba(226, 247, 216, 0.75));
+    radial-gradient(ellipse at 100% 0%, rgba(161, 179, 195, 0.24), transparent 44%),
+    linear-gradient(125deg, rgba(237, 237, 238, 0.90), rgba(223, 227, 232, 0.86) 52%, rgba(207, 217, 226, 0.82));
   box-shadow: 0 12px 34px rgba(48, 63, 76, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
@@ -1057,7 +1060,7 @@ html:root[data-theme='dark'] .dash .dash-quick-card:focus-visible {
 .ops-range-control button:hover { color: var(--text); }
 .ops-range-control button.active {
   color: #fff;
-  background: #2f8d76;
+  background: var(--status-green, #3c9a76);
   box-shadow: 0 2px 7px rgba(38, 117, 96, 0.18);
 }
 .ops-range-control button:focus-visible {
@@ -1076,6 +1079,26 @@ html:root[data-theme='dark'] .dash .dash-quick-card:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-content: stretch;
+}
+
+/* The detailed Active Patrols carousel replaces Checkpoint Health in the
+   overview row. Keep its former panel height and let the KPI cards stretch
+   beside it for a balanced, aligned top section. */
+.ops-active-panel {
+  min-height: 326px;
+  align-self: stretch;
+}
+.ops-active-panel .active-carousel-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Recent Activity is now the sole panel in the lower dashboard row. */
+.dash-main-grid-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.dash-main-grid-single .dash-activity-panel {
+  min-height: 290px;
 }
 
 .ops-overview-panel .dash-card {
@@ -1179,13 +1202,13 @@ html:root[data-theme='dark'] .dash .dash-quick-card:focus-visible {
   --ops-chart-axis: #667d90;
   --ops-tooltip-bg: rgba(250, 252, 253, 0.98);
   --ops-gauge-track: rgba(100, 122, 142, 0.16);
-  --ops-gauge-value: #168664;
+  --ops-gauge-value: var(--status-green, #3c9a76);
 }
 
 html:root[data-theme='dark'] .ops-overview-panel {
   border-color: rgba(192, 207, 220, 0.16);
   background:
-    radial-gradient(ellipse at 100% 0%, rgba(91, 137, 123, 0.11), transparent 42%),
+    radial-gradient(ellipse at 100% 0%, rgba(138, 159, 179, 0.12), transparent 44%),
     linear-gradient(125deg, rgba(31, 42, 52, 0.98), rgba(39, 51, 61, 0.98) 55%, rgba(32, 48, 55, 0.98));
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
@@ -1200,7 +1223,7 @@ html:root[data-theme='dark'] .ops-chart-card {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
-html:root[data-theme='dark'] .ops-range-control button.active { background: #267e69; color: #f2fffb; }
+html:root[data-theme='dark'] .ops-range-control button.active { background: var(--status-green, #49b99a); color: #f2fffb; }
 html:root[data-theme='dark'] .ops-range-control button:hover:not(.active) { color: #eef4f7; }
 html:root[data-theme='dark'] {
   --ops-chart-grid: rgba(160, 179, 194, 0.14);
@@ -1242,6 +1265,8 @@ html:root[data-theme='dark'] .ops-overview-panel .dash-card:not(.dash-card-activ
   .ops-range-control { width: 100%; }
   .ops-range-control button { flex: 1; padding: 8px 5px; }
   .ops-overview-panel .ops-kpi-grid { gap: 8px; }
+  .ops-active-panel { min-height: 315px; }
+  .dash-main-grid-single .dash-activity-panel { min-height: 0; }
   .ops-overview-panel .dash-card { min-height: 95px; padding: 11px; }
   .ops-overview-panel .dash-value { font-size: 25px; }
   .ops-gauge-card { grid-template-columns: minmax(100px, 0.8fr) minmax(0, 1fr); padding: 11px; }
@@ -1337,7 +1362,7 @@ html:root[data-theme='dark'] .ops-overview-panel .dash-card:not(.dash-card-activ
   box-shadow: 0 1px 3px rgba(20, 34, 45, .08);
 }
 .issue-date-presets button:focus-visible,
-.issue-select-filters select:focus-visible,
+.issue-select-filters .issue-select-control .ss-trigger:focus-visible,
 .issue-date-input:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
@@ -1357,7 +1382,7 @@ html:root[data-theme='dark'] .ops-overview-panel .dash-card:not(.dash-card-activ
   font-size: 10px;
   font-weight: 700;
 }
-.issue-select-filters select,
+.issue-select-filters .issue-select-control .ss-trigger,
 .issue-date-input {
   width: 100%;
   min-width: 0;
@@ -1370,8 +1395,20 @@ html:root[data-theme='dark'] .ops-overview-panel .dash-card:not(.dash-card-activ
   font: inherit;
   font-size: 11px;
 }
-.issue-select-filters select { cursor: pointer; }
-.issue-select-filters option { background: var(--issue-chart-option); color: var(--text); }
+.issue-select-filters .issue-select-control .ss-trigger {
+  min-height: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border-color: var(--issue-chart-border);
+  border-radius: 9px;
+  background: var(--issue-chart-input);
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+.issue-select-filters .issue-select-control .ss-value { color: var(--text); }
+.issue-select-filters .issue-select-control .ss-chevron { color: var(--text-muted); }
+.issue-select-filters .issue-select-control .ss-trigger:hover { background: var(--issue-chart-input); }
 .issue-custom-dates {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(150px, 1.3fr);
@@ -1506,4 +1543,164 @@ html:root[data-theme='dark'] .issue-calendar .react-datepicker__day--in-range { 
 }
 @media (prefers-reduced-motion: reduce) {
   .issue-date-presets button { transition: none !important; }
+}
+
+/* Dashboard visual consistency pass: let the welcome copy sit directly on the
+   page, and bring the supporting dashboard panels into the same blue-grey glass
+   palette as Patrol Operations Overview. */
+html:root .dash .dash-hero {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dash .dash-panel,
+.dash .dash-active-panel {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(161, 179, 195, 0.20), transparent 44%),
+    linear-gradient(125deg, rgba(237, 237, 238, 0.90), rgba(223, 227, 232, 0.86) 52%, rgba(207, 217, 226, 0.82));
+  box-shadow: 0 12px 34px rgba(48, 63, 76, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+}
+
+.dash .dash-quick-card {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 13px;
+  background: rgba(249, 251, 253, 0.56);
+  box-shadow: 0 4px 12px rgba(60, 74, 85, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.dash .dash-quick-card:hover,
+.dash .dash-quick-card:focus-visible {
+  background: rgba(249, 251, 253, 0.76);
+  border-color: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 9px 22px rgba(48, 63, 76, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.78);
+}
+
+/* Camera directory filtering controls use the same soft glass surfaces as the
+   dashboard filters, with site selection powered by the shared select. */
+.camera-popup-filters {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.78fr) minmax(220px, 1.22fr);
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 14px;
+  background: rgba(223, 227, 232, 0.45);
+}
+
+.camera-popup-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.camera-popup-filter-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.camera-site-select { width: 100%; }
+.camera-site-select .ss-trigger {
+  min-height: 44px;
+  border-color: rgba(112, 137, 155, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.camera-search-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 11px;
+  border: 1px solid rgba(112, 137, 155, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-muted);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.camera-search-field:focus-within {
+  border-color: var(--slate-blue, #7895ac);
+  box-shadow: 0 0 0 3px rgba(82, 102, 122, 0.12);
+}
+
+.camera-search-field input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.camera-search-field input::placeholder { color: var(--text-muted); opacity: 0.9; }
+.camera-search-field input::-webkit-search-cancel-button { display: none; }
+.camera-search-field button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: rgba(112, 137, 155, 0.12);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.camera-search-field button:hover { background: rgba(112, 137, 155, 0.22); color: var(--text); }
+.camera-filter-empty { padding: 26px 14px; border: 1px dashed rgba(112, 137, 155, 0.24); border-radius: 12px; text-align: center; }
+
+html:root[data-theme='dark'] .dash .dash-panel,
+html:root[data-theme='dark'] .dash .dash-active-panel {
+  border-color: rgba(192, 207, 220, 0.16);
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(138, 159, 179, 0.12), transparent 44%),
+    linear-gradient(125deg, rgba(31, 42, 52, 0.98), rgba(39, 51, 61, 0.98) 55%, rgba(32, 48, 55, 0.98));
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html:root[data-theme='dark'] .dash .dash-quick-card,
+html:root[data-theme='dark'] .dash .dash-quick-card:hover,
+html:root[data-theme='dark'] .dash .dash-quick-card:focus-visible {
+  border-color: rgba(192, 207, 220, 0.13);
+  background: rgba(12, 21, 29, 0.36);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+html:root[data-theme='dark'] .camera-popup-filters {
+  border-color: rgba(192, 207, 220, 0.13);
+  background: rgba(12, 21, 29, 0.28);
+}
+html:root[data-theme='dark'] .camera-search-field,
+html:root[data-theme='dark'] .camera-site-select .ss-trigger {
+  border-color: rgba(192, 207, 220, 0.18);
+  background: rgba(24, 34, 43, 0.78);
+  color: var(--text);
+}
+html:root[data-theme='dark'] .camera-search-field input::placeholder { color: var(--text-muted); }
+
+@media (max-width: 640px) {
+  .camera-popup-filters { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 10px; }
 }

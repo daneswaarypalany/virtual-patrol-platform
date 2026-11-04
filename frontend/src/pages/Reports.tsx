@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
-import { FileText, Download, X, FileArchive, FileStack, FileCog, BarChart3, LayoutTemplate } from 'lucide-react'
+import { FileText, Download, X, FileArchive, FileStack, FileCog, BarChart3, LayoutTemplate, CheckSquare } from 'lucide-react'
 import type { PatrolJobSummary } from '../lib/patrol'
 import { patrolApi } from '../lib/patrol'
 import ReportsFilterBar from '../components/ReportsFilterBar'
@@ -41,6 +41,7 @@ export default function Reports() {
   const [downloading, setDownloading] = useState<'pdf' | 'zip' | null>(null)
   const [downloadError, setDownloadError] = useState('')
   const [view, setView] = useState<ViewMode>('list')
+  const [selectionMode, setSelectionMode] = useState(false)
 
 
   useEffect(() => {
@@ -86,6 +87,11 @@ export default function Reports() {
   }
 
   const clearSelection = () => setSelected(new Set())
+
+  const toggleSelectionMode = () => {
+    setSelectionMode((current) => !current)
+    setSelected(new Set())
+  }
 
   const downloadSelected = async (format: 'pdf' | 'zip') => {
     if (selected.size === 0) return
@@ -183,7 +189,20 @@ export default function Reports() {
         <>
           <div className="reports-toolbar-row">
             <ReportsFilterBar f={f} countLabel={`${filtered.length} reports`} />
-            <ViewToggle mode={view} onChange={setView} />
+            <div className="reports-view-controls">
+              <ViewToggle mode={view} onChange={setView} />
+              <button
+                type="button"
+                className={`reports-select-toggle ${selectionMode ? 'active' : ''}`}
+                onClick={toggleSelectionMode}
+                aria-pressed={selectionMode}
+                disabled={!selectionMode && (loading || filtered.length === 0)}
+                title={selectionMode ? 'Exit selection mode' : 'Select reports'}
+              >
+                {selectionMode ? <X size={16} /> : <CheckSquare size={16} />}
+                {selectionMode ? 'Cancel selection' : 'Select'}
+              </button>
+            </div>
           </div>
 
           {error && <div className="reports-error">{error}</div>}
@@ -232,10 +251,42 @@ export default function Reports() {
               <p>No reports match your filters.</p>
             </div>
           ) : view === 'grid' ? (
-            <div className="reports-grid">
-              {filtered.map((j) => (
-                <div key={j.id} className="report-card" onClick={() => openReport(j.id)}>
+            <>
+              {selectionMode && (
+                <div className="reports-grid-selection-head">
+                  <label className="reports-checkbox-label">
+                    <input
+                      type="checkbox"
+                      className="report-select-checkbox"
+                      checked={allFilteredSelected}
+                      ref={(element) => {
+                        if (element) {
+                          element.indeterminate = filtered.some((job) => selected.has(job.id)) && !allFilteredSelected
+                        }
+                      }}
+                      onChange={toggleSelectAll}
+                      aria-label="Select all reports"
+                    />
+                    <span>Select all filtered reports</span>
+                  </label>
+                  <span className="reports-grid-selection-count">{selected.size} selected</span>
+                </div>
+              )}
+              <div className="reports-grid">
+                {filtered.map((j) => (
+                <div key={j.id} className={`report-card ${selected.has(j.id) ? 'card-selected' : ''}`} onClick={() => openReport(j.id)}>
                   <div className="report-card-head">
+                    {selectionMode && (
+                      <label className="reports-card-checkbox-label" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="report-select-checkbox"
+                          checked={selected.has(j.id)}
+                          onChange={() => toggleSelected(j.id)}
+                          aria-label={`Select report for ${j.route.name}`}
+                        />
+                      </label>
+                    )}
                     <FileText size={18} className="report-card-icon" />
                     <strong>{j.route.name}</strong>
                   </div>
@@ -251,21 +302,30 @@ export default function Reports() {
                     </a>
                   </div>
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </>
           ) : (
             <div className="reports-table-wrap">
               <table className="reports-table">
                 <thead>
                   <tr>
-                    <th className="report-select-col">
-                      <input
-                        type="checkbox"
-                        checked={allFilteredSelected}
-                        onChange={toggleSelectAll}
-                        aria-label="Select all reports"
-                      />
-                    </th>
+                    {selectionMode && (
+                      <th className="report-select-col">
+                        <input
+                          type="checkbox"
+                          className="report-select-checkbox"
+                          checked={allFilteredSelected}
+                          ref={(element) => {
+                            if (element) {
+                              element.indeterminate = filtered.some((job) => selected.has(job.id)) && !allFilteredSelected
+                            }
+                          }}
+                          onChange={toggleSelectAll}
+                          aria-label="Select all reports"
+                        />
+                      </th>
+                    )}
                     <th>Route</th>
                     <th>Site</th>
                     <th>Operator</th>
@@ -281,17 +341,20 @@ export default function Reports() {
                       className={selected.has(j.id) ? 'row-selected' : ''}
                       onClick={() => openReport(j.id)}
                     >
-                      <td
-                        className="report-select-col"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selected.has(j.id)}
-                          onChange={() => toggleSelected(j.id)}
-                          aria-label={`Select report for ${j.route.name}`}
-                        />
-                      </td>
+                      {selectionMode && (
+                        <td
+                          className="report-select-col"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            className="report-select-checkbox"
+                            checked={selected.has(j.id)}
+                            onChange={() => toggleSelected(j.id)}
+                            aria-label={`Select report for ${j.route.name}`}
+                          />
+                        </td>
+                      )}
                       <td className="report-route">{j.route.name}</td>
                       <td>{j.route.site.name}</td>
                       <td>{j.operator.fullName}</td>

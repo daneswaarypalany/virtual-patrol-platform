@@ -28,6 +28,7 @@ export default function SearchableSelect({
   emptyMessage = 'No matches found.',
   portal = false,
   ariaLabel,
+  className = '',
 }: {
   options: SelectOption[]
   value: string
@@ -40,6 +41,8 @@ export default function SearchableSelect({
   /** Render the popup in document.body to avoid clipping in scroll/accordion containers. */
   portal?: boolean
   ariaLabel?: string
+  /** Optional page-level class for sizing and theme-specific styling. */
+  className?: string
 }) {
   const optionsId = useId()
   const [open, setOpen] = useState(false)
@@ -182,7 +185,7 @@ export default function SearchableSelect({
     <div
       ref={panelRef}
       id={optionsId}
-      className={`ss-panel${portal ? ' ss-panel-portal' : ''}`}
+      className={`ss-panel${portal ? ' ss-panel-portal' : ''}${className ? ` ss-panel-${className.replace(/[^a-zA-Z0-9_-]/g, '')}` : ''}`}
       role="listbox"
       aria-label={ariaLabel ?? placeholder}
       onKeyDown={handlePanelKeyDown}
@@ -240,7 +243,7 @@ export default function SearchableSelect({
   ) : null
 
   return (
-    <div className={`ss ${disabled ? 'ss-disabled' : ''}`} ref={ref}>
+    <div className={`ss${className ? ` ${className}` : ''}${disabled ? ' ss-disabled' : ''}`} ref={ref}>
       <button
         ref={triggerRef}
         type="button"

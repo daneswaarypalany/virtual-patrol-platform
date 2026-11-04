@@ -26,6 +26,27 @@ export interface ActivityLogEntry {
   } | null
 }
 
+export interface UserTrendPoint {
+  /** Calendar day as YYYY-MM-DD in the database reporting timezone. */
+  day: string
+  /** Number of distinct users with recorded audit activity for this day. */
+  activeUsers: number
+  /** Total number of audit events recorded for this day. */
+  activities: number
+}
+
+export interface UserTrendDayUser {
+  username: string
+  fullName: string
+  role: string
+  actionCount: number
+  loginCount: number
+  /** Epoch milliseconds; formatted in the viewer's local timezone. */
+  lastActivityAt: number
+  /** Login event timestamps (epoch milliseconds), oldest first. */
+  loginTimestamps: number[]
+}
+
 export interface ActivityLogPage {
   items: ActivityLogEntry[]
   total: number
@@ -45,6 +66,14 @@ export interface ActivityFilters {
 
 export const logsApi = {
   activeUsers: () => api.get<ActiveUser[]>('/logs/active-users').then((r) => r.data),
+
+  userTrend: (days = 14) =>
+    api.get<UserTrendPoint[]>('/logs/user-trend', { params: { days } }).then((r) => r.data),
+
+  userTrendDayUsers: (day: string) =>
+    api
+      .get<UserTrendDayUser[]>('/logs/user-trend/users', { params: { day } })
+      .then((r) => r.data),
 
   actions: () => api.get<string[]>('/logs/actions').then((r) => r.data),
 

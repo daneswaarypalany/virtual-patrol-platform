@@ -48,7 +48,7 @@ export class PatrolService {
     await this.assertAssigned(operatorId, siteId)
 
     return this.prisma.route.findMany({
-      where: { siteId },
+      where: { siteId, archivedAt: null },
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
@@ -79,7 +79,7 @@ export class PatrolService {
       },
     })
 
-    if (!route) {
+    if (!route || route.archivedAt) {
       throw new NotFoundException('Route not found')
     }
 

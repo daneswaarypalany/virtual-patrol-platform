@@ -30,7 +30,7 @@ export class CamerasService {
       where = { siteId: { in: allowedSiteIds } };
     }
 
-    return this.prisma.camera.findMany({
+    const cameras = await this.prisma.camera.findMany({
       where,
       orderBy: { createdAt: "desc" },
       include: {
@@ -38,6 +38,11 @@ export class CamerasService {
         _count: { select: { checkpoints: true } },
       },
     });
+
+    // RTSP credentials/URLs are configuration secrets. Non-admin users can
+    // see camera identity and health for assigned sites, but not raw URLs.
+    if (user.role === "ADMIN") return cameras;
+    return cameras.map(({ streamUrl: _streamUrl, ...camera }) => camera);
   }
 
   async findOne(id: string) {

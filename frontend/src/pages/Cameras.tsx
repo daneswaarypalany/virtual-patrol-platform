@@ -8,6 +8,7 @@ import type { Site } from '../lib/sites'
 import { sitesApi } from '../lib/sites'
 import ViewToggle, { type ViewMode } from '../components/ViewToggle'
 import './Cameras.css'
+import { useAppDialog } from '../components/AppDialogProvider'
 
 export default function Cameras() {
   const [sites, setSites] = useState<Site[]>([])
@@ -129,6 +130,7 @@ function SiteCamerasPopup({
   site: Site
   onClose: () => void
 }) {
+  const { confirm, alert: showAlert } = useAppDialog()
   const [cameras, setCameras] = useState<Camera[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -152,12 +154,13 @@ function SiteCamerasPopup({
   }, [site.id])
 
   const remove = async (cam: Camera) => {
-    if (!window.confirm(`Delete camera "${cam.name}"?`)) return
+    const accepted = await confirm({ title: 'Delete camera?', message: `Delete camera “${cam.name}”? This removes it from its site and it can no longer be used by new route checkpoints.`, tone: 'danger', confirmLabel: 'Delete camera' })
+    if (!accepted) return
     try {
       await camerasApi.remove(cam.id)
       load()
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to delete camera')
+      await showAlert({ title: 'Camera could not be deleted', message: err?.response?.data?.message || 'The camera could not be deleted. It may still be used by a route.', tone: 'danger' })
     }
   }
 

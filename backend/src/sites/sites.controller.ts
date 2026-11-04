@@ -26,13 +26,15 @@ export class SitesController {
   constructor(private sitesService: SitesService) {}
 
   @Get()
-  findAll() {
-    return this.sitesService.findAll();
+  @Roles('ADMIN', 'OPERATOR', 'VIEWER')
+  findAll(@Req() req: Request) {
+    return this.sitesService.findAllVisibleToUser(req.user as any);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.sitesService.findOne(id);
+  @Roles('ADMIN', 'OPERATOR', 'VIEWER')
+  findOne(@Param('id') id: string, @Req() req: Request) {
+    return this.sitesService.findOneVisibleToUser(id, req.user as any);
   }
 
   @Post()

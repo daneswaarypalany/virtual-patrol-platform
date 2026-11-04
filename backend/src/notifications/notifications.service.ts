@@ -50,15 +50,21 @@ export class NotificationsService {
         let message = defaultMessage;
         let attachment: NotificationAttachment | undefined;
 
-        // Format issue alerts for Telegram with the requested fields and attach
-        // the screenshot saved by the patrol checkpoint upload.
+        // Format patrol issue alerts using each channel's saved field selections.
+        // Telegram can attach the screenshot; the current WhatsApp template provider
+        // sends the selected details as text and does not attach image media.
         if (
-          channel.channelType === CommunicationChannelType.TELEGRAM &&
+          (channel.channelType === CommunicationChannelType.TELEGRAM ||
+            channel.channelType === CommunicationChannelType.WHATSAPP) &&
           event.eventType === 'PATROL_ISSUES_FLAGGED'
         ) {
-          const telegramPayload = await this.buildTelegramIssuePayload(event, channel);
-          message = telegramPayload.message;
-          attachment = telegramPayload.attachment;
+          const patrolPayload = await this.buildPatrolIssuePayload(
+            event,
+            channel,
+            channel.channelType,
+          );
+          message = patrolPayload.message;
+          attachment = patrolPayload.attachment;
         }
 
         const result = await this.dispatch(
@@ -103,7 +109,7 @@ export class NotificationsService {
     );
   }
 
-  private async buildTelegramIssuePayload(
+  private async buildPatrolIssuePayload(
     event: NotificationEvent,
     fields: {
       includeDate: boolean;
@@ -113,6 +119,7 @@ export class NotificationsService {
       includeComment: boolean;
       includeScreenshot: boolean;
     },
+    channelType: CommunicationChannelType,
   ): Promise<{ message: string; attachment?: NotificationAttachment }> {
     const heading = '🚨 PATROL ISSUE FLAGGED';
     const jobId = typeof event.metadata?.jobId === 'string'
@@ -202,7 +209,11 @@ export class NotificationsService {
       relativeScreenshot,
     );
 
-    if (fields.includeScreenshot && screenshotMatch) {
+    if (
+      fields.includeScreenshot &&
+      channelType === CommunicationChannelType.TELEGRAM &&
+      screenshotMatch
+    ) {
       const uploadsRoot = process.env.VERCEL
         ? join('/tmp', 'uploads')
         : join(process.cwd(), 'uploads');
@@ -239,11 +250,18 @@ export class NotificationsService {
       lines.push(`Comment: ${result.comment?.trim() || 'Not provided'}`);
     }
     if (fields.includeScreenshot) {
-      const screenshotLine = attachment
-        ? 'Attached below'
-        : result.screenshotPath
-          ? 'Not attached (saved screenshot file is unavailable)'
+      let screenshotLine: string;
+      if (channelType === CommunicationChannelType.WHATSAPP) {
+        screenshotLine = result.screenshotPath
+          ? 'Saved in Virtual Patrol (not attached to this WhatsApp message)'
           : 'Not available';
+      } else {
+        screenshotLine = attachment
+          ? 'Attached below'
+          : result.screenshotPath
+            ? 'Not attached (saved screenshot file is unavailable)'
+            : 'Not available';
+      }
       lines.push(`Screenshot: ${screenshotLine}`);
     }
 

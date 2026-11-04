@@ -17,16 +17,49 @@ export class SitesService {
     return this.prisma.site.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        _count: { select: { cameras: true, assignments: true } },
+        _count: { select: { cameras: true, assignments: true, routes: true } },
       },
     });
+  }
+
+  /**
+   * Read-only site listing for the signed-in user. Admins can see all sites;
+   * operators and viewers only receive sites linked through their assignment.
+   */
+  findAllVisibleToUser(user: { id: string; role: string }) {
+    return this.prisma.site.findMany({
+      where:
+        user.role === 'ADMIN'
+          ? undefined
+          : { assignments: { some: { userId: user.id } } },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        _count: { select: { cameras: true, assignments: true, routes: true } },
+      },
+    });
+  }
+
+  async findOneVisibleToUser(id: string, user: { id: string; role: string }) {
+    const site = await this.prisma.site.findFirst({
+      where:
+        user.role === 'ADMIN'
+          ? { id }
+          : { id, assignments: { some: { userId: user.id } } },
+      include: {
+        _count: { select: { cameras: true, assignments: true, routes: true } },
+      },
+    });
+    // Use the same response for missing and unassigned sites so callers cannot
+    // probe whether another site's identifier exists.
+    if (!site) throw new NotFoundException('Site not found');
+    return site;
   }
 
   async findOne(id: string) {
     const site = await this.prisma.site.findUnique({
       where: { id },
       include: {
-        _count: { select: { cameras: true, assignments: true } },
+        _count: { select: { cameras: true, assignments: true, routes: true } },
       },
     });
     if (!site) throw new NotFoundException('Site not found');
