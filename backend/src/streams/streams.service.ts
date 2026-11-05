@@ -4,6 +4,7 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../prisma/prisma.service';
+const ffmpegStaticPath = require('ffmpeg-static') as string | null;
 
 interface RunningStream {
   process: ChildProcess;
@@ -334,7 +335,20 @@ export class StreamsService {
     ];
 
     this.logger.log(`Starting ffmpeg for camera ${cameraId}`);
-    const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    const ffmpegExecutable =
+  process.env.FFMPEG_PATH?.trim() || ffmpegStaticPath;
+
+if (!ffmpegExecutable) {
+  throw new Error(
+    'FFmpeg executable not found. Check the ffmpeg-static installation.',
+  );
+}
+
+this.logger.log(`Using FFmpeg executable: ${ffmpegExecutable}`);
+
+const proc = spawn(ffmpegExecutable, args, {
+  stdio: ['ignore', 'ignore', 'pipe'],
+});
 
     const entry: RunningStream = {
       process: proc,
