@@ -33,3 +33,5 @@ uploads/
 
 # Prisma
 prisma/*.db
+.vercel
+.env*
