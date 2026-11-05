@@ -34,6 +34,7 @@ import History from './pages/History'
 import Settings from './pages/Settings'
 import Logs from './pages/Logs'
 import { AppDialogProvider } from './components/AppDialogProvider'
+import Breadcrumb from './components/Breadcrumb'
 import './App.css'
 
 type Page =
@@ -214,13 +215,10 @@ function Shell() {
       <main className="main-content">
         <header className="topbar">
           <div className="topbar-heading">
-            <nav className="breadcrumb" aria-label="Breadcrumb">
-              <span className="breadcrumb-parent">Virtual Patrol</span>
-              <span className="breadcrumb-separator" aria-hidden="true">/</span>
-              <span className="breadcrumb-current" aria-current="page">
-                {pageTitles[activePage]}
-              </span>
-            </nav>
+            <Breadcrumb
+              currentLabel={pageTitles[activePage]}
+              onRootClick={() => setActivePage('dashboard')}
+            />
           </div>
 
           <div className="user-section">
