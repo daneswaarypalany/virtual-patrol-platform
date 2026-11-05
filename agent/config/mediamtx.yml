@@ -1,0 +1,15 @@
+# Virtual Patrol MediaMTX site configuration.
+# Keep the management API bound to loopback. Never port-forward port 9997.
+api: yes
+apiAddress: 127.0.0.1:9997
+
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigins:
+  - https://virtual-patrol-platform-8ib6.vercel.app
+  - https://virtual-patrol-platform-6bfc.vercel.app
+  - http://localhost:5173
+
+# The site firewall should restrict TCP/8888 to the local office subnet and
+# any explicitly approved VPN subnet. Do not expose it to the public internet.
+paths: {}

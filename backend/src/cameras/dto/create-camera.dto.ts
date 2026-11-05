@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional } from "class-validator";
+import { IsString, IsNotEmpty, IsOptional, MaxLength } from "class-validator";
 
 export class CreateCameraDto {
   @IsString()
@@ -19,5 +19,6 @@ export class CreateCameraDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   streamUrl?: string;
 }

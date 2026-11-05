@@ -583,13 +583,13 @@ function PatrolViewer({
     redrawAnnotations()
   }
 
-  // Load the camera's stream, if it has one. The admin just enters the
-  // camera's rtsp:// link (or an existing http(s) HLS url) -- the backend
-  // resolves that into a playable HLS url, transcoding rtsp on the fly.
+  // Load the camera's stream, if it has one. RTSP sources are provisioned
+  // by the site's local MediaMTX agent; existing HTTP(S) streams keep the
+  // authenticated Vercel proxy path.
   useEffect(() => {
     const video = videoRef.current
-    const streamUrl = current.camera.streamUrl
-    if (!video || !streamUrl) return
+    const hasConfiguredStream = current.camera.hasStream ?? !!current.camera.streamUrl
+    if (!video || !hasConfiguredStream) return
 
     let hls: Hls | null = null
     let cancelled = false
@@ -600,12 +600,16 @@ function PatrolViewer({
       .getStreamUrl(current.camera.id)
       .then(({ url, mode }) => {
         if (cancelled || !videoRef.current) return
-        // Relative "/streams/..." urls come from our own backend; direct
-        // http(s) urls (already HLS/MJPEG) are used as-is.
+        // Proxy URLs stay on the authenticated API; MediaMTX HLS URLs are
+        // delivered directly from the site's LAN/VPN-reachable gateway.
         const playUrl = mode === 'proxy' ? `${api.defaults.baseURL}${url}` : url
 
         if (Hls.isSupported()) {
-          hls = new Hls()
+          hls = new Hls({
+            xhrSetup: (xhr) => {
+              xhr.withCredentials = mode === 'proxy'
+            },
+          })
           hls.loadSource(playUrl)
           hls.attachMedia(video)
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -650,7 +654,7 @@ function PatrolViewer({
       if (!ctx) return resolve(null)
 
       const hasStream =
-        !!current.camera.streamUrl && video && video.videoWidth > 0
+        (current.camera.hasStream ?? !!current.camera.streamUrl) && video && video.videoWidth > 0
 
       if (hasStream) {
         canvas.width = video!.videoWidth
@@ -799,7 +803,7 @@ function PatrolViewer({
             <span>{current.camera.location || 'No location'}</span>
           </div>
           <div className="feed-frame" ref={feedFrameRef}>
-            {current.camera.streamUrl ? (
+            {(current.camera.hasStream ?? !!current.camera.streamUrl) ? (
               <>
                 <video
                   ref={videoRef}

@@ -258,7 +258,7 @@ function CameraForm({
     cameraCode: camera?.cameraCode ?? '',
     siteId,
     location: camera?.location ?? '',
-    streamUrl: camera?.streamUrl ?? '',
+    streamUrl: '',
   })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -329,7 +329,7 @@ function CameraForm({
           to set up your own streaming server first.
         </span>
         
-        {camera && (form.streamUrl ?? '').trim() ? (
+        {camera && (camera.hasStream || (form.streamUrl ?? '').trim()) ? (
           <button
             type="button"
             className="btn-secondary cam-view-live-btn"
@@ -391,7 +391,9 @@ function CameraLiveView({
         if (Hls.isSupported()) {
           hls = new Hls({
             xhrSetup: (xhr) => {
-              xhr.withCredentials = true;
+              // The Vercel proxy uses the app's HTTP-only session cookie;
+              // local MediaMTX HLS playback intentionally uses no credentials.
+              xhr.withCredentials = mode === 'proxy';
             },
           });
           hls.loadSource(playUrl)

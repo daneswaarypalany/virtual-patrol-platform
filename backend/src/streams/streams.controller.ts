@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Header,
   Param,
   Query,
   Req,
@@ -27,6 +28,7 @@ export class StreamsController {
   ) {}
 
   @Get()
+  @Header('Cache-Control', 'no-store, private')
   async getStream(@Req() req: Request, @Param('id') id: string) {
     try {
       const result = await this.streamsService.getPlaybackUrl(id, req.user as any);

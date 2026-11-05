@@ -38,6 +38,8 @@ model Site {
   reportTemplate   ReportTemplate? @relation(fields: [reportTemplateId], references: [id], onDelete: SetNull)
   alerts      Alert[]
   cameras     Camera[]
+  cameraAgent CameraAgent?
+  cameraProvisioningJobs CameraProvisioningJob[]
   incidents   Incident[]
   assignments OperatorSiteAssignment[]
   patrols     Patrol[]
@@ -120,7 +122,9 @@ model Camera {
   id          String            @id @default(uuid())
   name        String
   cameraCode  String            @unique
-  streamUrl   String?
+  streamUrl   String? // Legacy plaintext field; new writes use streamUrlEncrypted.
+  streamUrlEncrypted String?
+  streamVersion Int @default(1)
   location    String?
   status      CameraStatus      @default(OFFLINE)
   siteId      String
@@ -132,6 +136,42 @@ model Camera {
   checkpoints RouteCheckpoint[]
 
   @@index([siteId])
+}
+
+model CameraAgent {
+  id               String   @id @default(uuid())
+  siteId           String   @unique
+  name             String
+  tokenHash        String   @unique
+  playbackBaseUrl  String?
+  lastHeartbeatAt  DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  jobs             CameraProvisioningJob[]
+
+  @@index([lastHeartbeatAt])
+}
+
+model CameraProvisioningJob {
+  id               String   @id @default(uuid())
+  cameraId         String
+  siteId           String
+  agentId          String?
+  action           String   // UPSERT or REMOVE
+  streamPath       String
+  version          Int      @default(1)
+  status           String   @default("PENDING") // PENDING, PROCESSING, APPLIED, FAILED, CANCELLED
+  errorMessage     String?
+  claimedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  site             Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  agent            CameraAgent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([siteId, status, createdAt])
+  @@index([cameraId, version])
 }
 
 model Patrol {

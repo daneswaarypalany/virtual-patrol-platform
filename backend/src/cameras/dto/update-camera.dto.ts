@@ -1,4 +1,4 @@
-import { IsString, IsOptional } from "class-validator";
+import { IsString, IsOptional, MaxLength } from "class-validator";
 
 export class UpdateCameraDto {
   @IsOptional()
@@ -15,6 +15,7 @@ export class UpdateCameraDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(2048)
   streamUrl?: string;
 
   @IsOptional()

@@ -5,6 +5,7 @@ export interface PatrolCamera {
   name: string
   location: string | null
   streamUrl: string | null
+  hasStream?: boolean
 }
 export interface PatrolChecklistItem {
   id: string

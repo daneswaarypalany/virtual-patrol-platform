@@ -24,6 +24,27 @@ import {
 } from '../report-template/layout-rows'
 import { NotificationsService } from '../notifications/notifications.service'
 
+
+function sanitizeCameraForClient<T extends { streamUrl?: string | null; streamUrlEncrypted?: string | null }>(camera: T) {
+  const { streamUrl: _legacy, streamUrlEncrypted: _encrypted, ...safe } = camera;
+  return { ...safe, streamUrl: null, hasStream: Boolean(_legacy || _encrypted) };
+}
+
+function sanitizeRouteCameraSources<T extends { checkpoints?: Array<any> }>(route: T): T {
+  if (!Array.isArray(route.checkpoints)) return route;
+  return {
+    ...route,
+    checkpoints: route.checkpoints.map((checkpoint) => ({
+      ...checkpoint,
+      camera: checkpoint.camera ? sanitizeCameraForClient(checkpoint.camera) : checkpoint.camera,
+    })),
+  } as T;
+}
+
+function sanitizePatrolCameraSources<T extends { route?: any }>(job: T): T {
+  return job.route ? { ...job, route: sanitizeRouteCameraSources(job.route) } : job;
+}
+
 @Injectable()
 export class PatrolService {
   constructor(
@@ -120,7 +141,7 @@ export class PatrolService {
         metadata: { jobId: job.id },
       })
 
-      return { job, route }
+      return { job, route: sanitizeRouteCameraSources(route) }
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -190,7 +211,7 @@ export class PatrolService {
       }
     }
 
-    return job
+    return sanitizePatrolCameraSources(job)
   }
 
   async saveCheckpoint(

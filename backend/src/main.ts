@@ -11,6 +11,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'http://localhost:5173',
+      'https://virtual-patrol-platform-8ib6.vercel.app',
       'https://virtual-patrol-platform-6bfc.vercel.app',
     ],
     credentials: true,

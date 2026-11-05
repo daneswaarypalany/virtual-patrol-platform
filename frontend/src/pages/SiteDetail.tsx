@@ -762,7 +762,7 @@ function CameraForm({
     cameraCode: camera?.cameraCode ?? '',
     siteId,
     location: camera?.location ?? '',
-    streamUrl: camera?.streamUrl ?? '',
+    streamUrl: '',
   })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)

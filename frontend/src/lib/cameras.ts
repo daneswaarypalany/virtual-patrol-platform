@@ -6,6 +6,7 @@ export interface Camera {
   cameraCode: string
   location: string | null
   streamUrl: string | null
+  hasStream?: boolean
   status: string
   siteId: string
   site?: { id: string; name: string }
@@ -30,9 +31,8 @@ export const camerasApi = {
   update: (id: string, input: Partial<CameraInput>) =>
     api.patch<Camera>(`/cameras/${id}`, input).then((r) => r.data),
   remove: (id: string) => api.delete(`/cameras/${id}`).then((r) => r.data),
-  // Resolves whatever the camera's streamUrl is (an rtsp:// link, or an
-  // existing http(s) HLS url) into a URL a <video>/hls.js can actually play.
-  // rtsp:// links get transcoded to HLS on the backend on demand.
+  // Resolves the configured camera source to a browser-playable HLS URL.
+  // RTSP cameras are provisioned by the site's local MediaMTX agent.
   getStreamUrl: (id: string) =>
     api
       .get<{ url: string; mode: 'proxy' | 'direct' }>(`/cameras/${id}/stream`)
