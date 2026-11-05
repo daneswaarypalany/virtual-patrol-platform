@@ -7,10 +7,15 @@ import {
 } from 'react'
 import Hls from 'hls.js'
 import {
+  ArrowRight,
   ArrowUpRight,
   Circle as CircleIcon,
+  Clock3,
+  MapPin,
   MousePointer2,
   Pencil,
+  Route as RouteIcon,
+  ShieldCheck,
   Trash2,
   Undo2,
 } from 'lucide-react'
@@ -189,6 +194,9 @@ function PatrolPicker({
       .catch(() => setRoutes([]))
   }, [siteId])
 
+  const selectedSite = sites.find((site) => site.id === siteId)
+  const selectedRoute = routes.find((route) => route.id === routeId)
+
   const start = async () => {
     if (!routeId) return
     setStarting(true)
@@ -243,41 +251,65 @@ function PatrolPicker({
 
   return (
     <div className="patrol-picker">
-      <div className="picker-hero">
-        <div className="picker-hero-icon">🛡️</div>
-        <div>
-          <h2>Start a Patrol</h2>
-          <p className="picker-sub">
-            Select one of your assigned sites and a route to begin your security
-            patrol.
-          </p>
+      <section className="picker-panel" aria-labelledby="picker-title">
+        <div className="picker-panel-head">
+          <div className="picker-panel-emblem" aria-hidden="true">
+            <ShieldCheck size={23} strokeWidth={1.8} />
+          </div>
+          <div className="picker-panel-heading">
+            <span className="picker-eyebrow">PATROL SETUP</span>
+            <h2 id="picker-title">Configure your patrol</h2>
+            <p className="picker-panel-sub">
+              Choose an assigned site and route, then begin your checkpoint checks.
+            </p>
+          </div>
+          <span className="picker-assigned-badge">
+            <ShieldCheck size={14} aria-hidden="true" />
+            Assigned sites only
+          </span>
         </div>
-      </div>
 
-      <div className="picker-panel">
-        {error && <div className="patrol-error">{error}</div>}
+        {error && <div className="patrol-error" role="alert">{error}</div>}
 
         <div className="picker-fields">
           <div className="picker-field">
-            <label>Site</label>
+            <div className="picker-field-top">
+              <span className="picker-step" aria-hidden="true">01</span>
+              <label>Site</label>
+              <span className="picker-required">Required</span>
+            </div>
             <SearchableSelect
               value={siteId}
               onChange={(v) => setSiteId(v)}
-              placeholder="Select a site…"
+              placeholder="Choose a site…"
+              searchPlaceholder="Search assigned sites…"
+              ariaLabel="Choose a patrol site"
+              portal
               options={sites.map((s) => ({
                 value: s.id,
                 label: s.name,
                 sub: s.address ?? undefined,
               }))}
             />
+            <p className="picker-field-note">
+              <MapPin size={14} aria-hidden="true" />
+              {selectedSite?.address || 'Select one of your assigned sites.'}
+            </p>
           </div>
 
           <div className="picker-field">
-            <label>Route</label>
+            <div className="picker-field-top">
+              <span className="picker-step" aria-hidden="true">02</span>
+              <label>Patrol route</label>
+              <span className="picker-required">Required</span>
+            </div>
             <SearchableSelect
               value={routeId}
               onChange={(v) => setRouteId(v)}
-              placeholder="Select a route…"
+              placeholder={siteId ? 'Choose a route…' : 'Select a site first'}
+              searchPlaceholder="Search routes…"
+              ariaLabel="Choose a patrol route"
+              portal
               disabled={!siteId}
               options={routes.map((r) => ({
                 value: r.id,
@@ -287,21 +319,56 @@ function PatrolPicker({
                 }`,
               }))}
             />
+            <p className="picker-field-note">
+              <RouteIcon size={14} aria-hidden="true" />
+              {siteId
+                ? routes.length > 0
+                  ? 'Choose the route you will follow.'
+                  : 'No routes are configured for this site yet.'
+                : 'Available routes appear after you choose a site.'}
+            </p>
           </div>
         </div>
 
-        {siteId && routes.length === 0 && (
-          <p className="picker-hint">This site has no routes yet.</p>
+        {selectedRoute && (
+          <div className="picker-route-summary" aria-live="polite">
+            <div className="picker-route-summary-icon" aria-hidden="true">
+              <RouteIcon size={18} />
+            </div>
+            <div className="picker-route-summary-copy">
+              <span>Selected route</span>
+              <strong>{selectedRoute.name}</strong>
+              <small>{selectedSite?.name ?? 'Selected site'}</small>
+            </div>
+            <div className="picker-route-facts">
+              <span>{selectedRoute._count.checkpoints} checkpoints</span>
+              {selectedRoute.estimatedMinutes ? (
+                <span><Clock3 size={13} aria-hidden="true" /> ~{selectedRoute.estimatedMinutes} min</span>
+              ) : null}
+            </div>
+          </div>
         )}
 
-        <button
-          className="btn-primary picker-start"
-          onClick={start}
-          disabled={!routeId || starting}
-        >
-          {starting ? 'Starting…' : 'Start Patrol →'}
-        </button>
-      </div>
+        {siteId && routes.length === 0 && (
+          <p className="picker-hint">This site has no routes yet. Please choose another assigned site or contact your administrator.</p>
+        )}
+
+        <div className="picker-submit-row">
+          <button
+            className="btn-primary picker-start"
+            onClick={start}
+            disabled={!routeId || starting}
+          >
+            <span>{starting ? 'Starting patrol…' : 'Start patrol'}</span>
+            {!starting && <ArrowRight size={19} strokeWidth={2.2} aria-hidden="true" />}
+          </button>
+          <p className={`picker-submit-note${routeId ? ' is-ready' : ''}`}>
+            {routeId
+              ? 'Your site and route are ready. Start when you are in position.'
+              : 'Choose a site and route to enable patrol start.'}
+          </p>
+        </div>
+      </section>
 
       {resumePrompt && (
         <div className="resume-backdrop" onClick={() => setResumePrompt(null)}>
@@ -538,11 +605,7 @@ function PatrolViewer({
         const playUrl = mode === 'proxy' ? `${api.defaults.baseURL}${url}` : url
 
         if (Hls.isSupported()) {
-          hls = new Hls({
-            xhrSetup: (xhr) => {
-              xhr.withCredentials = true
-            },
-          })
+          hls = new Hls()
           hls.loadSource(playUrl)
           hls.attachMedia(video)
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -556,7 +619,6 @@ function PatrolViewer({
             }
           })
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.crossOrigin = 'use-credentials'
           video.src = playUrl
           video.play().catch(() => {})
           setConnecting(false)
@@ -742,7 +804,6 @@ function PatrolViewer({
                 <video
                   ref={videoRef}
                   className="feed-video"
-                  crossOrigin="use-credentials"
                   muted
                   playsInline
                   autoPlay

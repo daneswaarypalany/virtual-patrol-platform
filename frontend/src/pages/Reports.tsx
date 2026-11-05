@@ -115,55 +115,53 @@ export default function Reports() {
   }
 
   return (
-    <div className="reports-page">
-      <div className="reports-tabs">
-        <button
-          className={visibleTab === 'list' ? 'active' : ''}
-          onClick={() => setTab('list')}
-        >
-          <FileText size={15} /> Generated Reports
-        </button>
-        {isAdmin && (
-          <>
-            <button
-              className={tab === 'builder' ? 'active' : ''}
-              onClick={() => {
-                setBuilderTemplateId(undefined)
-                setTab('builder')
-              }}
-            >
-              <FileCog size={15} /> Report Builder
-            </button>
-            <button
-              className={tab === 'templates' ? 'active' : ''}
-              onClick={() => setTab('templates')}
-            >
-              <FileStack size={15} /> Templates
-            </button>
-            <button
-              className={tab === 'summary' ? 'active' : ''}
-              onClick={() => setTab('summary')}
-            >
-              <BarChart3 size={15} /> Report Summary
-            </button>
-            <button
-              className={tab === 'summary-builder' ? 'active' : ''}
-              onClick={() => {
-                setSummaryBuilderTemplateId(undefined)
-                setTab('summary-builder')
-              }}
-            >
-              <LayoutTemplate size={15} /> Summary Report Builder
-            </button>
-            <button
-              className={tab === 'summary-templates' ? 'active' : ''}
-              onClick={() => setTab('summary-templates')}
-            >
-              <FileStack size={15} /> Summary Templates
-            </button>
-          </>
-        )}
-      </div>
+    <div className={`reports-page${isAdmin ? '' : ' reports-page-operator'}`}>
+      {isAdmin && (
+        <div className="reports-tabs">
+          <button
+            className={visibleTab === 'list' ? 'active' : ''}
+            onClick={() => setTab('list')}
+          >
+            <FileText size={15} /> Generated Reports
+          </button>
+          <button
+            className={tab === 'builder' ? 'active' : ''}
+            onClick={() => {
+              setBuilderTemplateId(undefined)
+              setTab('builder')
+            }}
+          >
+            <FileCog size={15} /> Report Builder
+          </button>
+          <button
+            className={tab === 'templates' ? 'active' : ''}
+            onClick={() => setTab('templates')}
+          >
+            <FileStack size={15} /> Templates
+          </button>
+          <button
+            className={tab === 'summary' ? 'active' : ''}
+            onClick={() => setTab('summary')}
+          >
+            <BarChart3 size={15} /> Report Summary
+          </button>
+          <button
+            className={tab === 'summary-builder' ? 'active' : ''}
+            onClick={() => {
+              setSummaryBuilderTemplateId(undefined)
+              setTab('summary-builder')
+            }}
+          >
+            <LayoutTemplate size={15} /> Summary Report Builder
+          </button>
+          <button
+            className={tab === 'summary-templates' ? 'active' : ''}
+            onClick={() => setTab('summary-templates')}
+          >
+            <FileStack size={15} /> Summary Templates
+          </button>
+        </div>
+      )}
 
       {visibleTab === 'builder' ? (
         <ReportBuilder editTemplateId={builderTemplateId} />
