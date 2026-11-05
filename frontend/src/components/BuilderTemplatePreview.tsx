@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
-import { Camera, CheckCircle2, Clock3, FileText, MapPin, ShieldAlert, X } from 'lucide-react'
+import { Camera, CheckCircle2, FileText, ShieldAlert, X } from 'lucide-react'
 
 export type TemplatePreviewField = {
   key: string

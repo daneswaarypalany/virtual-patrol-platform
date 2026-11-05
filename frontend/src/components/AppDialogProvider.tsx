@@ -20,7 +20,6 @@ import {
 import './AppDialogProvider.css'
 
 type DialogTone = 'danger' | 'warning' | 'success' | 'info'
-type DialogKind = 'confirm' | 'alert' | 'prompt'
 
 interface BaseDialogOptions {
   title: string
